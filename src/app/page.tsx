@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import {
   Bell,
-  Briefcase,
   Cake,
   CalendarDays,
   Camera,
@@ -61,19 +60,19 @@ export default function HomePage() {
   return (
     <main className="min-h-screen bg-black text-[#151515]">
       <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] shadow-2xl">
-        <section className="relative h-[455px] overflow-hidden rounded-b-[34px] bg-black text-white">
-          <div
-            className="absolute inset-0 bg-cover bg-center"
-            style={{
-              backgroundImage:
-                "url('https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=1200&auto=format&fit=crop')",
-            }}
+        {/* TOPO COM IMAGEM OFICIAL LAYOUT 01 */}
+        <section className="relative h-[560px] overflow-hidden rounded-b-[34px] bg-black text-white">
+          <img
+            src="/layout01-fundo.png"
+            alt="REIM Eventos"
+            className="absolute inset-0 h-full w-full object-cover object-top"
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/25 to-black/75" />
-          <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-[#fbf7f1] via-[#fbf7f1]/70 to-transparent" />
+
+          <div className="absolute inset-0 bg-gradient-to-b from-black/5 via-black/0 to-black/20" />
+          <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#fbf7f1] via-[#fbf7f1]/80 to-transparent" />
 
           <div className="relative z-10 flex items-center justify-between px-7 pt-7">
-            <button className="flex h-[58px] w-[58px] items-center justify-center rounded-full bg-black/75 shadow-xl">
+            <button className="flex h-[58px] w-[58px] items-center justify-center rounded-full bg-black/75 text-white shadow-xl">
               <Menu size={32} strokeWidth={3} />
             </button>
 
@@ -87,29 +86,10 @@ export default function HomePage() {
               </span>
             </Link>
           </div>
-
-          <div className="relative z-10 mt-8 text-center">
-            <div className="text-[74px] leading-none text-[#e3a925] drop-shadow-[0_0_14px_rgba(227,169,37,.55)]">
-              ♛
-            </div>
-
-            <h1 className="mt-1 font-serif text-[64px] leading-none tracking-[0.14em] text-white drop-shadow-lg">
-              REIM
-            </h1>
-
-            <div className="mt-2 text-[24px] font-semibold tracking-[0.42em] text-[#e3a925]">
-              EVENTOS
-            </div>
-
-            <p className="mx-auto mt-5 max-w-[320px] font-serif text-[22px] italic leading-8 text-white drop-shadow">
-              Todos os fornecedores do seu evento em um só lugar
-            </p>
-
-            <div className="mx-auto mt-5 h-[3px] w-28 rounded-full bg-[#e3a925]" />
-          </div>
         </section>
 
-        <section className="relative z-20 -mt-16 px-7">
+        {/* BUSCA */}
+        <section className="relative z-20 -mt-20 px-7">
           <div className="rounded-[30px] bg-white/95 p-4 shadow-[0_20px_45px_rgba(0,0,0,.18)] backdrop-blur">
             <div className="mb-4 flex items-center justify-between rounded-[24px] bg-white px-5 py-4 text-[18px] font-extrabold shadow-sm">
               <span className="flex items-center gap-3">
@@ -132,6 +112,7 @@ export default function HomePage() {
           </div>
         </section>
 
+        {/* CATEGORIAS */}
         <section className="px-7 pt-8">
           <div className="grid grid-cols-4 gap-x-5 gap-y-7">
             {categories.map((cat) => {
@@ -158,6 +139,7 @@ export default function HomePage() {
           </div>
         </section>
 
+        {/* PLANEJE SEU EVENTO */}
         <section className="px-7 pt-8">
           <div className="overflow-hidden rounded-[26px] bg-black text-white shadow-xl">
             <div className="relative min-h-[132px] p-5">
@@ -197,6 +179,7 @@ export default function HomePage() {
           </div>
         </section>
 
+        {/* FORNECEDORES */}
         <section className="px-7 pb-32 pt-8">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-[19px] font-extrabold">
@@ -250,6 +233,7 @@ export default function HomePage() {
           </div>
         </section>
 
+        {/* MENU INFERIOR */}
         <nav className="fixed bottom-0 left-1/2 z-50 w-full max-w-[430px] -translate-x-1/2 rounded-t-[34px] bg-white/95 px-6 pb-4 pt-3 shadow-[0_-10px_30px_rgba(0,0,0,.16)] backdrop-blur">
           <div className="grid grid-cols-5 items-end text-center">
             <Link href="/" className="text-[#e3a925]">
