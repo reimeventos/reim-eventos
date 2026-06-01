@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import {
   ArrowLeft,
+  Building2,
   CalendarDays,
   Camera,
   MapPin,
@@ -99,6 +100,17 @@ export default function SolicitarOrcamentoPage() {
               <input
                 className="w-full rounded-[22px] bg-white px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400"
                 defaultValue="Eunápolis"
+              />
+            </label>
+
+            <label className="block">
+              <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
+                <Building2 size={17} className="text-[#d99200]" />
+                Espaço do evento
+              </span>
+              <input
+                className="w-full rounded-[22px] bg-white px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400"
+                placeholder="Ex: Espaço Villa Real, clube, fazenda..."
               />
             </label>
 
