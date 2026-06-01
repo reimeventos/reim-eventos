@@ -1,0 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* { box-sizing: border-box; }
+body { margin: 0; background: #0B0B0F; color: #17120E; }
+.reim-shell { max-width: 430px; min-height: 100vh; margin: 0 auto; background: #F7F2EA; position: relative; }
+.reim-hero {
+  background:
+    linear-gradient(180deg, rgba(0,0,0,.20), rgba(0,0,0,.88)),
+    url('https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=1200&auto=format&fit=crop');
+  background-size: cover;
+  background-position: center;
+}
