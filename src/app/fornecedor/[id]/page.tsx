@@ -27,6 +27,12 @@ const services = [
   'Álbum digital',
 ];
 
+// Aqui o fornecedor poderá escolher futuramente no painel.
+// false = não mostra preço público
+// true = mostra preço público
+const mostrarPreco = false;
+const precoInicial = 'R$ 1.200';
+
 export default function FornecedorPage() {
   return (
     <main className="min-h-screen bg-black text-[#151515]">
@@ -80,7 +86,7 @@ export default function FornecedorPage() {
         <section className="-mt-6 rounded-t-[34px] bg-[#fbf7f1] px-6 pt-7 relative z-20">
           {/* INFO */}
           <div className="rounded-[26px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)]">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="flex items-center gap-2 text-sm font-bold text-gray-700">
                   <MapPin size={17} className="text-[#d99200]" />
@@ -94,9 +100,12 @@ export default function FornecedorPage() {
               </div>
 
               <div className="rounded-2xl bg-[#fff7e8] px-4 py-3 text-center">
-                <p className="text-xs font-bold text-gray-500">A partir de</p>
+                <p className="text-xs font-bold text-gray-500">
+                  {mostrarPreco ? 'A partir de' : 'Valor'}
+                </p>
+
                 <p className="text-sm font-extrabold text-[#d99200]">
-                  R$ 1.200
+                  {mostrarPreco ? precoInicial : 'Sob consulta'}
                 </p>
               </div>
             </div>
