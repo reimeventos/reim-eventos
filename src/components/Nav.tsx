@@ -1,13 +1,47 @@
 import Link from 'next/link';
+import {
+  Briefcase,
+  Heart,
+  Home,
+  MessageSquare,
+  Search,
+  User,
+} from 'lucide-react';
 
 export function Nav() {
   return (
-    <nav className="fixed bottom-0 left-1/2 z-50 grid w-full max-w-[430px] -translate-x-1/2 grid-cols-5 border-t border-reimBorder bg-white px-1 py-2 text-center text-[10px]">
-      <Link href="/"><span className="block text-xl">🏠</span>Home</Link>
-      <Link href="/buscar"><span className="block text-xl">🔎</span>Buscar</Link>
-      <Link href="/meu-evento"><span className="block text-xl">❤️</span>Evento</Link>
-      <Link href="/painel-fornecedor"><span className="block text-xl">💼</span>Fornecedor</Link>
-      <Link href="/admin"><span className="block text-xl">🛡️</span>Admin</Link>
+    <nav className="fixed bottom-0 left-1/2 z-50 w-full max-w-[430px] -translate-x-1/2 rounded-t-[34px] bg-white/95 px-6 pb-4 pt-3 shadow-[0_-10px_30px_rgba(0,0,0,.16)] backdrop-blur">
+      <div className="grid grid-cols-5 items-end text-center">
+        <Link href="/" className="text-[#e3a925]">
+          <Home size={30} className="mx-auto" fill="#e3a925" />
+          <div className="mt-1 text-[12px] font-bold">Home</div>
+          <div className="mx-auto mt-1 h-[2px] w-7 rounded-full bg-[#e3a925]" />
+        </Link>
+
+        <Link href="/buscar" className="text-[#222]">
+          <Search size={30} className="mx-auto" />
+          <div className="mt-1 text-[12px]">Buscar</div>
+        </Link>
+
+        <Link href="/meu-evento" className="-mt-10">
+          <div className="mx-auto flex h-[76px] w-[76px] items-center justify-center rounded-full bg-[#e3a925] text-white shadow-[0_8px_25px_rgba(227,169,37,.55)]">
+            <Heart size={40} strokeWidth={2.4} />
+          </div>
+          <div className="mt-1 text-[12px] font-bold text-[#222]">
+            Meu Evento
+          </div>
+        </Link>
+
+        <Link href="/orcamentos" className="text-[#222]">
+          <MessageSquare size={30} className="mx-auto" />
+          <div className="mt-1 text-[12px]">Orçamentos</div>
+        </Link>
+
+        <Link href="/perfil" className="text-[#222]">
+          <User size={30} className="mx-auto" />
+          <div className="mt-1 text-[12px]">Perfil</div>
+        </Link>
+      </div>
     </nav>
   );
 }
