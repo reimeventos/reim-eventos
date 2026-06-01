@@ -60,16 +60,16 @@ export default function HomePage() {
   return (
     <main className="min-h-screen bg-black text-[#151515]">
       <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] shadow-2xl">
-        {/* TOPO COM IMAGEM OFICIAL LAYOUT 01 */}
-        <section className="relative h-[560px] overflow-hidden rounded-b-[34px] bg-black text-white">
+        {/* TOPO LAYOUT 01 */}
+        <section className="relative h-[470px] overflow-hidden rounded-b-[34px] bg-black text-white">
           <img
             src="/layout01-fundo.png"
-            alt="REIM Eventos"
-            className="absolute inset-0 h-full w-full object-cover object-top"
+            alt="Fundo REIM Eventos"
+            className="absolute inset-0 h-full w-full object-cover object-[64%_top]"
           />
 
-          <div className="absolute inset-0 bg-gradient-to-b from-black/5 via-black/0 to-black/20" />
-          <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#fbf7f1] via-[#fbf7f1]/80 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/20 to-black/80" />
+          <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#fbf7f1] via-[#fbf7f1]/65 to-transparent" />
 
           <div className="relative z-10 flex items-center justify-between px-7 pt-7">
             <button className="flex h-[58px] w-[58px] items-center justify-center rounded-full bg-black/75 text-white shadow-xl">
@@ -86,10 +86,31 @@ export default function HomePage() {
               </span>
             </Link>
           </div>
+
+          {/* LOGO CENTRAL POR CIMA DO FUNDO */}
+          <div className="relative z-10 mt-7 text-center">
+            <div className="text-[66px] leading-none text-[#e3a925] drop-shadow-[0_0_14px_rgba(227,169,37,.65)]">
+              ♛
+            </div>
+
+            <h1 className="mt-1 font-serif text-[58px] leading-none tracking-[0.13em] text-white drop-shadow-lg">
+              REIM
+            </h1>
+
+            <div className="mt-2 text-[22px] font-semibold tracking-[0.42em] text-[#e3a925]">
+              EVENTOS
+            </div>
+
+            <p className="mx-auto mt-4 max-w-[310px] font-serif text-[20px] italic leading-7 text-white drop-shadow">
+              Todos os fornecedores do seu evento em um só lugar
+            </p>
+
+            <div className="mx-auto mt-4 h-[3px] w-28 rounded-full bg-[#e3a925]" />
+          </div>
         </section>
 
         {/* BUSCA */}
-        <section className="relative z-20 -mt-20 px-7">
+        <section className="relative z-20 -mt-16 px-7">
           <div className="rounded-[30px] bg-white/95 p-4 shadow-[0_20px_45px_rgba(0,0,0,.18)] backdrop-blur">
             <div className="mb-4 flex items-center justify-between rounded-[24px] bg-white px-5 py-4 text-[18px] font-extrabold shadow-sm">
               <span className="flex items-center gap-3">
