@@ -56,52 +56,95 @@ const suppliers = [
   },
 ];
 
+function CrownLogo() {
+  return (
+    <svg
+      width="92"
+      height="72"
+      viewBox="0 0 120 90"
+      className="mx-auto drop-shadow-[0_0_14px_rgba(227,169,37,.85)]"
+      aria-hidden="true"
+    >
+      <defs>
+        <linearGradient id="goldGradient" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#ffe59a" />
+          <stop offset="45%" stopColor="#e8b53c" />
+          <stop offset="100%" stopColor="#b87a06" />
+        </linearGradient>
+      </defs>
+
+      <circle cx="18" cy="18" r="6.5" fill="url(#goldGradient)" />
+      <circle cx="40" cy="11" r="6.5" fill="url(#goldGradient)" />
+      <circle cx="60" cy="8" r="6.5" fill="url(#goldGradient)" />
+      <circle cx="80" cy="11" r="6.5" fill="url(#goldGradient)" />
+      <circle cx="102" cy="18" r="6.5" fill="url(#goldGradient)" />
+
+      <path
+        d="M16 24 L26 58 L40 24 L52 58 L60 18 L68 58 L80 24 L94 58 L104 24 L108 64 H12 Z"
+        fill="url(#goldGradient)"
+        stroke="#f8d77c"
+        strokeWidth="2.5"
+        strokeLinejoin="round"
+      />
+
+      <rect
+        x="20"
+        y="64"
+        width="80"
+        height="9"
+        rx="4.5"
+        fill="url(#goldGradient)"
+        stroke="#f8d77c"
+        strokeWidth="2"
+      />
+    </svg>
+  );
+}
+
 export default function HomePage() {
   return (
     <main className="min-h-screen bg-black text-[#151515]">
       <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] shadow-2xl">
-        {/* TOPO LAYOUT 01 */}
-        <section className="relative h-[470px] overflow-hidden rounded-b-[34px] bg-black text-white">
+        {/* TOPO */}
+        <section className="relative h-[480px] overflow-hidden rounded-b-[36px] bg-black text-white">
           <img
             src="/layout01-fundo.png"
             alt="Fundo REIM Eventos"
-            className="absolute inset-0 h-full w-full object-cover object-[64%_top]"
+            className="absolute inset-0 h-full w-full object-cover object-[78%_top]"
           />
 
-          <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/20 to-black/80" />
-          <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#fbf7f1] via-[#fbf7f1]/65 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/18 to-black/78" />
+          <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#fbf7f1] via-[#fbf7f1]/75 to-transparent" />
 
           <div className="relative z-10 flex items-center justify-between px-7 pt-7">
-            <button className="flex h-[58px] w-[58px] items-center justify-center rounded-full bg-black/75 text-white shadow-xl">
-              <Menu size={32} strokeWidth={3} />
+            <button className="flex h-[58px] w-[58px] items-center justify-center rounded-full bg-black/72 text-white shadow-xl">
+              <Menu size={32} strokeWidth={2.8} />
             </button>
 
             <Link
               href="/admin"
-              className="relative flex h-[58px] w-[58px] items-center justify-center rounded-full bg-black/75 text-[#e7ad28] shadow-xl"
+              className="relative flex h-[58px] w-[58px] items-center justify-center rounded-full bg-black/72 text-[#e7ad28] shadow-xl"
             >
-              <Bell size={30} fill="#e7ad28" />
+              <Bell size={28} fill="#e7ad28" />
               <span className="absolute -right-1 -top-1 flex h-7 min-w-7 items-center justify-center rounded-full bg-pink-500 px-1 text-sm font-extrabold text-white">
                 3
               </span>
             </Link>
           </div>
 
-          {/* LOGO CENTRAL POR CIMA DO FUNDO */}
-          <div className="relative z-10 mt-7 text-center">
-            <div className="text-[66px] leading-none text-[#e3a925] drop-shadow-[0_0_14px_rgba(227,169,37,.65)]">
-              ♛
-            </div>
+          {/* LOGO CENTRAL */}
+          <div className="relative z-10 mt-5 text-center">
+            <CrownLogo />
 
-            <h1 className="mt-1 font-serif text-[58px] leading-none tracking-[0.13em] text-white drop-shadow-lg">
+            <h1 className="mt-1 font-serif text-[60px] leading-none tracking-[0.12em] text-white drop-shadow-[0_3px_8px_rgba(0,0,0,.35)]">
               REIM
             </h1>
 
-            <div className="mt-2 text-[22px] font-semibold tracking-[0.42em] text-[#e3a925]">
+            <div className="mt-2 text-[20px] font-semibold tracking-[0.42em] text-[#e3a925]">
               EVENTOS
             </div>
 
-            <p className="mx-auto mt-4 max-w-[310px] font-serif text-[20px] italic leading-7 text-white drop-shadow">
+            <p className="mx-auto mt-4 max-w-[310px] font-serif text-[19px] italic leading-7 text-white drop-shadow-[0_2px_6px_rgba(0,0,0,.45)]">
               Todos os fornecedores do seu evento em um só lugar
             </p>
 
@@ -110,42 +153,46 @@ export default function HomePage() {
         </section>
 
         {/* BUSCA */}
-        <section className="relative z-20 -mt-16 px-7">
-          <div className="rounded-[30px] bg-white/95 p-4 shadow-[0_20px_45px_rgba(0,0,0,.18)] backdrop-blur">
+        <section className="relative z-20 -mt-14 px-6">
+          <div className="rounded-[30px] bg-[#f7f4ef] p-4 shadow-[0_20px_45px_rgba(0,0,0,.18)]">
             <div className="mb-4 flex items-center justify-between rounded-[24px] bg-white px-5 py-4 text-[18px] font-extrabold shadow-sm">
               <span className="flex items-center gap-3">
-                <MapPin size={24} fill="#e0a21e" className="text-[#e0a21e]" />
+                <MapPin size={22} fill="#e0a21e" className="text-[#e0a21e]" />
                 Eunápolis
               </span>
-              <ChevronDown size={24} className="text-[#e0a21e]" />
+              <ChevronDown size={22} className="text-[#e0a21e]" />
             </div>
 
             <Link
               href="/buscar"
               className="flex items-center gap-4 rounded-[24px] bg-white px-5 py-5 shadow-lg"
             >
-              <Search size={34} className="text-[#d99200]" />
+              <Search size={32} className="text-[#d99200]" />
               <span className="flex-1 text-[15px] leading-5 text-gray-500">
                 O que você procura para seu evento?
               </span>
-              <Mic size={28} className="text-[#d99200]" />
+              <Mic size={24} className="text-[#d99200]" />
             </Link>
           </div>
         </section>
 
         {/* CATEGORIAS */}
-        <section className="px-7 pt-8">
-          <div className="grid grid-cols-4 gap-x-5 gap-y-7">
+        <section className="px-6 pt-8">
+          <div className="grid grid-cols-4 gap-x-4 gap-y-7">
             {categories.map((cat) => {
               const Icon = cat.icon;
 
               return (
                 <Link href="/buscar" key={cat.title} className="text-center">
-                  <div className="mx-auto flex h-[78px] w-[78px] items-center justify-center rounded-full bg-white text-[#d99200] shadow-[0_12px_25px_rgba(0,0,0,.08)]">
-                    <Icon size={38} strokeWidth={2.2} />
+                  <div className="mx-auto flex h-[76px] w-[76px] items-center justify-center rounded-full bg-white shadow-[0_10px_22px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]">
+                    <Icon
+                      size={32}
+                      strokeWidth={2.2}
+                      className="text-[#d89a12]"
+                    />
                   </div>
 
-                  <div className="mt-2 text-[12px] font-extrabold leading-4 text-black">
+                  <div className="mt-2 text-[11px] font-extrabold leading-4 text-black">
                     {cat.title}
                     {cat.subtitle && (
                       <>
@@ -161,7 +208,7 @@ export default function HomePage() {
         </section>
 
         {/* PLANEJE SEU EVENTO */}
-        <section className="px-7 pt-8">
+        <section className="px-6 pt-8">
           <div className="overflow-hidden rounded-[26px] bg-black text-white shadow-xl">
             <div className="relative min-h-[132px] p-5">
               <div
@@ -171,25 +218,25 @@ export default function HomePage() {
                     "url('https://images.unsplash.com/photo-1523438885200-e635ba2c371e?q=80&w=800&auto=format&fit=crop')",
                 }}
               />
-              <div className="absolute inset-0 bg-gradient-to-r from-black via-black/90 to-black/15" />
+              <div className="absolute inset-0 bg-gradient-to-r from-black via-black/90 to-black/20" />
 
               <div className="relative flex items-center gap-4">
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl text-[#e3a925]">
-                  <CalendarDays size={42} strokeWidth={2.2} />
+                  <CalendarDays size={40} strokeWidth={2.2} />
                 </div>
 
                 <div className="max-w-[230px]">
-                  <h2 className="text-[19px] font-extrabold">
+                  <h2 className="text-[18px] font-extrabold">
                     PLANEJE SEU EVENTO
                   </h2>
 
-                  <p className="mt-1 text-[14px] leading-5 text-white/90">
+                  <p className="mt-1 text-[13px] leading-5 text-white/90">
                     Monte sua lista e organize tudo em um só lugar!
                   </p>
 
                   <Link
                     href="/meu-evento"
-                    className="mt-3 inline-flex items-center gap-2 rounded-full bg-[#e3a925] px-5 py-2 text-[13px] font-bold text-white shadow-lg"
+                    className="mt-3 inline-flex items-center gap-2 rounded-full bg-[#e3a925] px-5 py-2 text-[12px] font-bold text-white shadow-lg"
                   >
                     Criar meu evento
                     <span className="text-lg leading-none">›</span>
@@ -201,13 +248,13 @@ export default function HomePage() {
         </section>
 
         {/* FORNECEDORES */}
-        <section className="px-7 pb-32 pt-8">
+        <section className="px-6 pb-32 pt-8">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-[19px] font-extrabold">
+            <h2 className="text-[18px] font-extrabold">
               Fornecedores em destaque ✨
             </h2>
 
-            <Link href="/buscar" className="text-[14px] font-bold text-[#d99200]">
+            <Link href="/buscar" className="text-[13px] font-bold text-[#d99200]">
               Ver todos
             </Link>
           </div>
@@ -258,19 +305,19 @@ export default function HomePage() {
         <nav className="fixed bottom-0 left-1/2 z-50 w-full max-w-[430px] -translate-x-1/2 rounded-t-[34px] bg-white/95 px-6 pb-4 pt-3 shadow-[0_-10px_30px_rgba(0,0,0,.16)] backdrop-blur">
           <div className="grid grid-cols-5 items-end text-center">
             <Link href="/" className="text-[#e3a925]">
-              <Home size={32} className="mx-auto" fill="#e3a925" />
+              <Home size={30} className="mx-auto" fill="#e3a925" />
               <div className="mt-1 text-[12px] font-bold">Home</div>
               <div className="mx-auto mt-1 h-[2px] w-7 rounded-full bg-[#e3a925]" />
             </Link>
 
             <Link href="/buscar" className="text-[#222]">
-              <Search size={32} className="mx-auto" />
+              <Search size={30} className="mx-auto" />
               <div className="mt-1 text-[12px]">Buscar</div>
             </Link>
 
             <Link href="/meu-evento" className="-mt-10">
               <div className="mx-auto flex h-[76px] w-[76px] items-center justify-center rounded-full bg-[#e3a925] text-white shadow-[0_8px_25px_rgba(227,169,37,.55)]">
-                <Heart size={42} strokeWidth={2.4} />
+                <Heart size={40} strokeWidth={2.4} />
               </div>
               <div className="mt-1 text-[12px] font-bold text-[#222]">
                 Meu Evento
@@ -278,12 +325,12 @@ export default function HomePage() {
             </Link>
 
             <Link href="/orcamentos" className="text-[#222]">
-              <MessageSquare size={32} className="mx-auto" />
+              <MessageSquare size={30} className="mx-auto" />
               <div className="mt-1 text-[12px]">Orçamentos</div>
             </Link>
 
             <Link href="/perfil" className="text-[#222]">
-              <User size={32} className="mx-auto" />
+              <User size={30} className="mx-auto" />
               <div className="mt-1 text-[12px]">Perfil</div>
             </Link>
           </div>
