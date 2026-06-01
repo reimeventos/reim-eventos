@@ -164,7 +164,7 @@ export default function FornecedorPage() {
           {/* CTA PRINCIPAL */}
           <div className="mt-7 space-y-3">
             <Link
-              href="/orcamentos"
+              href="/solicitar-orcamento"
               className="flex items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg"
             >
               <MessageCircle size={22} />
