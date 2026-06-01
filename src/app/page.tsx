@@ -1,14 +1,36 @@
 import Link from 'next/link';
+import {
+  Bell,
+  Briefcase,
+  Cake,
+  CalendarDays,
+  Camera,
+  ChevronDown,
+  Flower2,
+  Gem,
+  Heart,
+  Home,
+  Landmark,
+  MapPin,
+  Menu,
+  MessageSquare,
+  Mic,
+  Music2,
+  Search,
+  User,
+  Utensils,
+  Video,
+} from 'lucide-react';
 
 const categories = [
-  { icon: '📸', title: 'Fotografia', subtitle: '& Filmagem' },
-  { icon: '🍽️', title: 'Buffet', subtitle: '' },
-  { icon: '🌸', title: 'Ornamentação', subtitle: '' },
-  { icon: '📷', title: 'Cabine &', subtitle: 'Totem' },
-  { icon: '💍', title: 'Cerimonial', subtitle: '' },
-  { icon: '🎵', title: 'Música &', subtitle: 'Bandas' },
-  { icon: '🎂', title: 'Bolos &', subtitle: 'Doces' },
-  { icon: '🏛️', title: 'Espaços de', subtitle: 'Eventos' },
+  { icon: Camera, title: 'Fotografia', subtitle: '& Filmagem' },
+  { icon: Utensils, title: 'Buffet', subtitle: '' },
+  { icon: Flower2, title: 'Ornamentação', subtitle: '' },
+  { icon: Video, title: 'Cabine &', subtitle: 'Totem' },
+  { icon: Gem, title: 'Cerimonial', subtitle: '' },
+  { icon: Music2, title: 'Música &', subtitle: 'Bandas' },
+  { icon: Cake, title: 'Bolos &', subtitle: 'Doces' },
+  { icon: Landmark, title: 'Espaços de', subtitle: 'Eventos' },
 ];
 
 const suppliers = [
@@ -37,128 +59,137 @@ const suppliers = [
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen bg-black py-0 text-[#161616] sm:py-6">
-      <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] shadow-2xl sm:min-h-[920px] sm:rounded-[42px] sm:border-[8px] sm:border-[#151515]">
-        
-        {/* TOPO */}
-        <section className="relative overflow-hidden rounded-b-[34px] bg-black text-white">
-          <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=1200&auto=format&fit=crop')] bg-cover bg-center opacity-75" />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/35 to-black/90" />
-          <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#fbf7f1] via-[#fbf7f1]/80 to-transparent" />
+    <main className="min-h-screen bg-black text-[#151515]">
+      <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] shadow-2xl">
+        <section className="relative h-[455px] overflow-hidden rounded-b-[34px] bg-black text-white">
+          <div
+            className="absolute inset-0 bg-cover bg-center"
+            style={{
+              backgroundImage:
+                "url('https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=1200&auto=format&fit=crop')",
+            }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/25 to-black/75" />
+          <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-[#fbf7f1] via-[#fbf7f1]/70 to-transparent" />
 
-          <div className="relative px-6 pb-20 pt-8">
-            <div className="flex items-center justify-between">
-              <button className="flex h-14 w-14 items-center justify-center rounded-full bg-black/65 text-3xl shadow-xl">
-                ≡
-              </button>
+          <div className="relative z-10 flex items-center justify-between px-7 pt-7">
+            <button className="flex h-[58px] w-[58px] items-center justify-center rounded-full bg-black/75 shadow-xl">
+              <Menu size={32} strokeWidth={3} />
+            </button>
 
-              <Link
-                href="/admin"
-                className="relative flex h-14 w-14 items-center justify-center rounded-full bg-black/65 text-2xl shadow-xl"
-              >
-                🔔
-                <span className="absolute -right-1 -top-1 flex h-6 min-w-6 items-center justify-center rounded-full bg-pink-500 px-1 text-xs font-bold text-white">
-                  3
-                </span>
-              </Link>
+            <Link
+              href="/admin"
+              className="relative flex h-[58px] w-[58px] items-center justify-center rounded-full bg-black/75 text-[#e7ad28] shadow-xl"
+            >
+              <Bell size={30} fill="#e7ad28" />
+              <span className="absolute -right-1 -top-1 flex h-7 min-w-7 items-center justify-center rounded-full bg-pink-500 px-1 text-sm font-extrabold text-white">
+                3
+              </span>
+            </Link>
+          </div>
+
+          <div className="relative z-10 mt-8 text-center">
+            <div className="text-[74px] leading-none text-[#e3a925] drop-shadow-[0_0_14px_rgba(227,169,37,.55)]">
+              ♛
             </div>
 
-            <div className="mt-5 text-center">
-              <div className="text-6xl leading-none text-[#e4ad32] drop-shadow-[0_0_16px_rgba(228,173,50,.55)]">
-                ♛
-              </div>
+            <h1 className="mt-1 font-serif text-[64px] leading-none tracking-[0.14em] text-white drop-shadow-lg">
+              REIM
+            </h1>
 
-              <h1 className="mt-1 font-serif text-[54px] leading-none tracking-[0.14em] text-white drop-shadow-xl">
-                REIM
-              </h1>
-
-              <div className="mt-1 text-[20px] font-semibold tracking-[0.42em] text-[#e4ad32]">
-                EVENTOS
-              </div>
-
-              <p className="mx-auto mt-4 max-w-[300px] font-serif text-[18px] italic leading-6 text-white drop-shadow">
-                Todos os fornecedores do seu evento em um só lugar
-              </p>
-
-              <div className="mx-auto mt-4 h-[2px] w-24 rounded-full bg-[#e4ad32]" />
+            <div className="mt-2 text-[24px] font-semibold tracking-[0.42em] text-[#e3a925]">
+              EVENTOS
             </div>
+
+            <p className="mx-auto mt-5 max-w-[320px] font-serif text-[22px] italic leading-8 text-white drop-shadow">
+              Todos os fornecedores do seu evento em um só lugar
+            </p>
+
+            <div className="mx-auto mt-5 h-[3px] w-28 rounded-full bg-[#e3a925]" />
           </div>
         </section>
 
-        {/* BUSCA */}
-        <section className="relative z-10 -mt-16 px-6">
-          <div className="rounded-[28px] bg-white/95 p-3 shadow-2xl backdrop-blur">
-            <div className="mb-3 flex items-center justify-between rounded-[22px] bg-white px-5 py-4 text-[16px] font-extrabold shadow-sm">
-              <span className="flex items-center gap-2">
-                <span className="text-[#e4a018]">📍</span>
+        <section className="relative z-20 -mt-16 px-7">
+          <div className="rounded-[30px] bg-white/95 p-4 shadow-[0_20px_45px_rgba(0,0,0,.18)] backdrop-blur">
+            <div className="mb-4 flex items-center justify-between rounded-[24px] bg-white px-5 py-4 text-[18px] font-extrabold shadow-sm">
+              <span className="flex items-center gap-3">
+                <MapPin size={24} fill="#e0a21e" className="text-[#e0a21e]" />
                 Eunápolis
               </span>
-              <span className="text-xl text-[#e4a018]">⌄</span>
+              <ChevronDown size={24} className="text-[#e0a21e]" />
             </div>
 
             <Link
               href="/buscar"
-              className="flex items-center gap-3 rounded-[22px] bg-white px-5 py-4 shadow-lg"
+              className="flex items-center gap-4 rounded-[24px] bg-white px-5 py-5 shadow-lg"
             >
-              <span className="text-3xl text-[#d89200]">⌕</span>
-              <span className="text-sm text-gray-500">
+              <Search size={34} className="text-[#d99200]" />
+              <span className="flex-1 text-[15px] leading-5 text-gray-500">
                 O que você procura para seu evento?
               </span>
-              <span className="ml-auto text-2xl text-[#d89200]">🎙️</span>
+              <Mic size={28} className="text-[#d99200]" />
             </Link>
           </div>
         </section>
 
-        {/* CATEGORIAS */}
-        <section className="px-6 pt-7">
-          <div className="grid grid-cols-4 gap-x-4 gap-y-5">
-            {categories.map((cat) => (
-              <Link href="/buscar" key={cat.title} className="text-center">
-                <div className="mx-auto flex h-[74px] w-[74px] items-center justify-center rounded-full bg-white text-[34px] text-[#d89200] shadow-[0_10px_25px_rgba(0,0,0,.08)]">
-                  {cat.icon}
-                </div>
+        <section className="px-7 pt-8">
+          <div className="grid grid-cols-4 gap-x-5 gap-y-7">
+            {categories.map((cat) => {
+              const Icon = cat.icon;
 
-                <div className="mt-2 text-[11px] font-extrabold leading-3 text-black">
-                  {cat.title}
-                  {cat.subtitle && (
-                    <>
-                      <br />
-                      {cat.subtitle}
-                    </>
-                  )}
-                </div>
-              </Link>
-            ))}
+              return (
+                <Link href="/buscar" key={cat.title} className="text-center">
+                  <div className="mx-auto flex h-[78px] w-[78px] items-center justify-center rounded-full bg-white text-[#d99200] shadow-[0_12px_25px_rgba(0,0,0,.08)]">
+                    <Icon size={38} strokeWidth={2.2} />
+                  </div>
+
+                  <div className="mt-2 text-[12px] font-extrabold leading-4 text-black">
+                    {cat.title}
+                    {cat.subtitle && (
+                      <>
+                        <br />
+                        {cat.subtitle}
+                      </>
+                    )}
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         </section>
 
-        {/* PLANEJE SEU EVENTO */}
-        <section className="px-6 pt-7">
+        <section className="px-7 pt-8">
           <div className="overflow-hidden rounded-[26px] bg-black text-white shadow-xl">
             <div className="relative min-h-[132px] p-5">
-              <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1523438885200-e635ba2c371e?q=80&w=800&auto=format&fit=crop')] bg-cover bg-right opacity-60" />
-              <div className="absolute inset-0 bg-gradient-to-r from-black via-black/90 to-black/10" />
+              <div
+                className="absolute inset-0 bg-cover bg-right"
+                style={{
+                  backgroundImage:
+                    "url('https://images.unsplash.com/photo-1523438885200-e635ba2c371e?q=80&w=800&auto=format&fit=crop')",
+                }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-r from-black via-black/90 to-black/15" />
 
               <div className="relative flex items-center gap-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[#e4ad32]/50 text-3xl text-[#e4ad32]">
-                  🗓️
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl text-[#e3a925]">
+                  <CalendarDays size={42} strokeWidth={2.2} />
                 </div>
 
-                <div className="max-w-[210px]">
-                  <h2 className="text-[18px] font-extrabold">
+                <div className="max-w-[230px]">
+                  <h2 className="text-[19px] font-extrabold">
                     PLANEJE SEU EVENTO
                   </h2>
 
-                  <p className="mt-1 text-[13px] leading-5 text-white/85">
+                  <p className="mt-1 text-[14px] leading-5 text-white/90">
                     Monte sua lista e organize tudo em um só lugar!
                   </p>
 
                   <Link
                     href="/meu-evento"
-                    className="mt-3 inline-flex items-center gap-2 rounded-full bg-[#e4ad32] px-5 py-2 text-[12px] font-bold text-white shadow-lg"
+                    className="mt-3 inline-flex items-center gap-2 rounded-full bg-[#e3a925] px-5 py-2 text-[13px] font-bold text-white shadow-lg"
                   >
                     Criar meu evento
-                    <span>›</span>
+                    <span className="text-lg leading-none">›</span>
                   </Link>
                 </div>
               </div>
@@ -166,14 +197,13 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* FORNECEDORES */}
-        <section className="px-6 pb-28 pt-7">
+        <section className="px-7 pb-32 pt-8">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-[18px] font-extrabold">
+            <h2 className="text-[19px] font-extrabold">
               Fornecedores em destaque ✨
             </h2>
 
-            <Link href="/buscar" className="text-[13px] font-bold text-[#d89200]">
+            <Link href="/buscar" className="text-[14px] font-bold text-[#d99200]">
               Ver todos
             </Link>
           </div>
@@ -186,10 +216,10 @@ export default function HomePage() {
                 className="overflow-hidden rounded-[20px] bg-white shadow-[0_10px_25px_rgba(0,0,0,.10)]"
               >
                 <div
-                  className="relative h-[92px] bg-cover bg-center"
+                  className="relative h-[96px] bg-cover bg-center"
                   style={{ backgroundImage: `url(${s.img})` }}
                 >
-                  <span className="absolute left-2 top-2 rounded-full bg-[#e4ad32] px-2 py-1 text-[9px] font-extrabold text-white">
+                  <span className="absolute left-2 top-2 rounded-full bg-[#e3a925] px-2 py-1 text-[9px] font-extrabold text-white">
                     ♛ Premium
                   </span>
 
@@ -207,8 +237,8 @@ export default function HomePage() {
                     {s.type}
                   </p>
 
-                  <p className="mt-1 text-[10px] font-bold text-[#d89200]">
-                    ⭐ {s.rating}
+                  <p className="mt-1 text-[10px] font-bold text-[#d99200]">
+                    ★ {s.rating}
                   </p>
 
                   <p className="truncate text-[10px] text-gray-500">
@@ -220,37 +250,36 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* MENU INFERIOR */}
-        <nav className="fixed bottom-0 left-1/2 z-50 w-full max-w-[430px] -translate-x-1/2 rounded-t-[34px] bg-white/95 px-5 pb-4 pt-3 shadow-[0_-10px_30px_rgba(0,0,0,.15)] backdrop-blur sm:bottom-6 sm:rounded-[34px]">
+        <nav className="fixed bottom-0 left-1/2 z-50 w-full max-w-[430px] -translate-x-1/2 rounded-t-[34px] bg-white/95 px-6 pb-4 pt-3 shadow-[0_-10px_30px_rgba(0,0,0,.16)] backdrop-blur">
           <div className="grid grid-cols-5 items-end text-center">
-            <Link href="/" className="text-[#e4ad32]">
-              <div className="text-3xl">🏠</div>
-              <div className="mt-1 text-[11px] font-bold">Home</div>
-              <div className="mx-auto mt-1 h-[2px] w-6 rounded-full bg-[#e4ad32]" />
+            <Link href="/" className="text-[#e3a925]">
+              <Home size={32} className="mx-auto" fill="#e3a925" />
+              <div className="mt-1 text-[12px] font-bold">Home</div>
+              <div className="mx-auto mt-1 h-[2px] w-7 rounded-full bg-[#e3a925]" />
             </Link>
 
             <Link href="/buscar" className="text-[#222]">
-              <div className="text-3xl">⌕</div>
-              <div className="mt-1 text-[11px]">Buscar</div>
+              <Search size={32} className="mx-auto" />
+              <div className="mt-1 text-[12px]">Buscar</div>
             </Link>
 
             <Link href="/meu-evento" className="-mt-10">
-              <div className="mx-auto flex h-[74px] w-[74px] items-center justify-center rounded-full bg-[#e4ad32] text-4xl text-white shadow-[0_8px_25px_rgba(228,173,50,.55)]">
-                ♡
+              <div className="mx-auto flex h-[76px] w-[76px] items-center justify-center rounded-full bg-[#e3a925] text-white shadow-[0_8px_25px_rgba(227,169,37,.55)]">
+                <Heart size={42} strokeWidth={2.4} />
               </div>
-              <div className="mt-1 text-[11px] font-bold text-[#222]">
+              <div className="mt-1 text-[12px] font-bold text-[#222]">
                 Meu Evento
               </div>
             </Link>
 
             <Link href="/orcamentos" className="text-[#222]">
-              <div className="text-3xl">💬</div>
-              <div className="mt-1 text-[11px]">Orçamentos</div>
+              <MessageSquare size={32} className="mx-auto" />
+              <div className="mt-1 text-[12px]">Orçamentos</div>
             </Link>
 
             <Link href="/perfil" className="text-[#222]">
-              <div className="text-3xl">👤</div>
-              <div className="mt-1 text-[11px]">Perfil</div>
+              <User size={32} className="mx-auto" />
+              <div className="mt-1 text-[12px]">Perfil</div>
             </Link>
           </div>
         </nav>
