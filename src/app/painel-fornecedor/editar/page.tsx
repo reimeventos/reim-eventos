@@ -7,10 +7,10 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft,
+  AtSign,
   Building2,
   Camera,
   Globe,
-  Instagram,
   MapPin,
   MessageCircle,
   Pencil,
@@ -21,7 +21,9 @@ import {
 
 export default function EditarVitrinePage() {
   const router = useRouter();
+
   const [categories, setCategories] = useState<any[]>([]);
+
   const [form, setForm] = useState({
     business_name: '',
     description: '',
@@ -33,6 +35,7 @@ export default function EditarVitrinePage() {
     category_id: '',
     show_price: 'false',
   });
+
   const [msg, setMsg] = useState('');
 
   useEffect(() => {
@@ -104,7 +107,7 @@ export default function EditarVitrinePage() {
           </div>
         </section>
 
-        {/* CARD */}
+        {/* CARD FORNECEDOR */}
         <section className="px-6 pt-6">
           <div className="rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)]">
             <div className="flex items-center gap-4">
@@ -188,7 +191,7 @@ export default function EditarVitrinePage() {
 
             <label className="block">
               <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
-                <Instagram size={17} className="text-[#d99200]" />
+                <AtSign size={17} className="text-[#d99200]" />
                 Instagram
               </span>
               <input
