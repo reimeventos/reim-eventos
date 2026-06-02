@@ -6,6 +6,7 @@ import {
   Camera,
   MapPin,
   MessageCircle,
+  PartyPopper,
   Send,
   User,
   Users,
@@ -79,6 +80,23 @@ export default function SolicitarOrcamentoPage() {
                 className="w-full rounded-[22px] bg-white px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400"
                 placeholder="(73) 99999-9999"
               />
+            </label>
+
+            <label className="block">
+              <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
+                <PartyPopper size={17} className="text-[#d99200]" />
+                Tipo de evento
+              </span>
+              <select className="w-full rounded-[22px] bg-white px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf]">
+                <option>Casamento</option>
+                <option>Aniversário</option>
+                <option>Debutante</option>
+                <option>Evento corporativo</option>
+                <option>Formatura</option>
+                <option>Batizado</option>
+                <option>Chá revelação</option>
+                <option>Outro</option>
+              </select>
             </label>
 
             <label className="block">
