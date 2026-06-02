@@ -1,75 +1,99 @@
 import Link from 'next/link';
 import {
   ArrowLeft,
+  BarChart3,
   Briefcase,
   CheckCircle2,
   Crown,
-  Eye,
-  MapPin,
-  Search,
+  FileText,
+  MessageCircle,
+  Settings,
   ShieldCheck,
   Star,
-  XCircle,
+  Users,
+  WalletCards,
 } from 'lucide-react';
 
-const suppliers = [
+const stats = [
+  {
+    title: 'Fornecedores',
+    value: '127',
+    desc: 'cadastrados',
+    icon: Briefcase,
+    color: 'text-[#d99200]',
+  },
+  {
+    title: 'Assinaturas',
+    value: '84',
+    desc: 'ativas',
+    icon: Crown,
+    color: 'text-blue-600',
+  },
+  {
+    title: 'Orçamentos',
+    value: '483',
+    desc: 'solicitados',
+    icon: MessageCircle,
+    color: 'text-green-600',
+  },
+  {
+    title: 'MRR',
+    value: 'R$ 4.820',
+    desc: 'receita mensal',
+    icon: WalletCards,
+    color: 'text-[#d99200]',
+  },
+];
+
+const actions = [
+  {
+    title: 'Fornecedores',
+    desc: 'Aprovar, editar e destacar vitrines',
+    href: '/admin/fornecedores',
+    icon: Briefcase,
+  },
+  {
+    title: 'Assinaturas',
+    desc: 'Acompanhar planos ativos',
+    href: '/admin',
+    icon: Crown,
+  },
+  {
+    title: 'Orçamentos',
+    desc: 'Ver solicitações e respostas',
+    href: '/admin',
+    icon: FileText,
+  },
+  {
+    title: 'Categorias',
+    desc: 'Gerenciar tipos de serviço',
+    href: '/admin',
+    icon: Settings,
+  },
+];
+
+const recentSuppliers = [
   {
     name: 'Studio Premium',
     category: 'Fotografia & Filmagem',
-    city: 'Eunápolis',
     status: 'Aprovado',
-    plan: 'Premium',
-    rating: '4.9',
-    featured: true,
+    premium: true,
   },
   {
     name: 'Photofest Totem',
     category: 'Cabine & Totem',
-    city: 'Eunápolis',
     status: 'Aprovado',
-    plan: 'Premium',
-    rating: '4.9',
-    featured: true,
+    premium: true,
   },
   {
     name: 'Sabor Eventos',
     category: 'Buffet',
-    city: 'Porto Seguro',
     status: 'Pendente',
-    plan: 'Básico',
-    rating: '4.8',
-    featured: false,
-  },
-  {
-    name: 'Decora Luxo',
-    category: 'Ornamentação',
-    city: 'Eunápolis',
-    status: 'Pendente',
-    plan: 'Básico',
-    rating: '4.7',
-    featured: false,
+    premium: false,
   },
 ];
 
-function StatusBadge({ status }: { status: string }) {
-  if (status === 'Aprovado') {
-    return (
-      <span className="flex items-center gap-1 rounded-full bg-green-50 px-3 py-1 text-[11px] font-extrabold text-green-700">
-        <CheckCircle2 size={13} />
-        Aprovado
-      </span>
-    );
-  }
-
-  return (
-    <span className="flex items-center gap-1 rounded-full bg-[#fff7e8] px-3 py-1 text-[11px] font-extrabold text-[#b97900]">
-      <ShieldCheck size={13} />
-      Pendente
-    </span>
-  );
-}
-
-export default function AdminFornecedoresPage() {
+export default function AdminPage() {
   return (
     <main className="min-h-screen bg-black text-[#151515]">
       <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] pb-10 shadow-2xl">
@@ -80,7 +104,7 @@ export default function AdminFornecedoresPage() {
 
           <div className="relative z-10">
             <Link
-              href="/admin"
+              href="/"
               className="inline-flex items-center gap-2 text-sm font-bold text-[#e3a925]"
             >
               <ArrowLeft size={17} />
@@ -89,7 +113,7 @@ export default function AdminFornecedoresPage() {
 
             <div className="mt-6 flex items-center gap-4">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#e3a925] text-white shadow-lg">
-                <Briefcase size={31} />
+                <ShieldCheck size={31} />
               </div>
 
               <div>
@@ -98,62 +122,93 @@ export default function AdminFornecedoresPage() {
                 </p>
 
                 <h1 className="font-serif text-[34px] leading-tight">
-                  Fornecedores
+                  Admin REIM
                 </h1>
 
                 <p className="mt-1 text-sm text-white/70">
-                  Aprove, destaque e gerencie vitrines.
+                  Controle geral da plataforma
                 </p>
               </div>
             </div>
+          </div>
+        </section>
 
-            <div className="mt-6 rounded-[26px] bg-white p-3 shadow-2xl">
-              <div className="flex items-center gap-3 rounded-[20px] bg-[#f7f2ea] px-4 py-4">
-                <Search size={25} className="text-[#d99200]" />
-                <input
-                  className="w-full bg-transparent text-sm font-medium text-black outline-none placeholder:text-gray-500"
-                  placeholder="Buscar fornecedor..."
-                />
+        {/* INDICADORES */}
+        <section className="grid grid-cols-2 gap-4 px-6 pt-6">
+          {stats.map((item) => {
+            const Icon = item.icon;
+
+            return (
+              <div
+                key={item.title}
+                className="rounded-[26px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#fff7e8]">
+                    <Icon size={26} className={item.color} />
+                  </div>
+
+                  <BarChart3 size={18} className="text-gray-300" />
+                </div>
+
+                <p className="mt-4 text-2xl font-extrabold">{item.value}</p>
+                <p className="mt-1 text-xs font-bold text-gray-500">
+                  {item.title} • {item.desc}
+                </p>
               </div>
-            </div>
-          </div>
+            );
+          })}
         </section>
 
-        {/* RESUMO */}
-        <section className="grid grid-cols-3 gap-3 px-6 pt-6">
-          <div className="rounded-[22px] bg-white p-4 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-            <p className="text-2xl font-extrabold text-[#d99200]">127</p>
-            <p className="mt-1 text-[11px] font-bold text-gray-600">
-              Total
-            </p>
-          </div>
-
-          <div className="rounded-[22px] bg-white p-4 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-            <p className="text-2xl font-extrabold text-green-600">96</p>
-            <p className="mt-1 text-[11px] font-bold text-gray-600">
-              Aprovados
-            </p>
-          </div>
-
-          <div className="rounded-[22px] bg-white p-4 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-            <p className="text-2xl font-extrabold text-[#b97900]">31</p>
-            <p className="mt-1 text-[11px] font-bold text-gray-600">
-              Pendentes
-            </p>
-          </div>
-        </section>
-
-        {/* LISTA */}
+        {/* AÇÕES */}
         <section className="px-6 pt-6">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-extrabold">Lista de fornecedores</h2>
-            <span className="text-xs font-bold text-gray-500">
-              {suppliers.length} exibidos
-            </span>
+            <h2 className="text-lg font-extrabold">Ações administrativas</h2>
+            <span className="text-xs font-bold text-gray-500">Gerenciar</span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            {actions.map((item) => {
+              const Icon = item.icon;
+
+              return (
+                <Link
+                  href={item.href}
+                  key={item.title}
+                  className="rounded-[26px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]"
+                >
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-black text-white">
+                    <Icon size={25} />
+                  </div>
+
+                  <h3 className="mt-4 text-sm font-extrabold">
+                    {item.title}
+                  </h3>
+
+                  <p className="mt-1 text-xs leading-4 text-gray-500">
+                    {item.desc}
+                  </p>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* FORNECEDORES RECENTES */}
+        <section className="px-6 pt-6">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-extrabold">Fornecedores recentes</h2>
+
+            <Link
+              href="/admin/fornecedores"
+              className="text-xs font-bold text-[#d99200]"
+            >
+              Ver todos
+            </Link>
           </div>
 
           <div className="space-y-4">
-            {suppliers.map((supplier) => (
+            {recentSuppliers.map((supplier) => (
               <div
                 key={supplier.name}
                 className="rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]"
@@ -169,69 +224,62 @@ export default function AdminFornecedoresPage() {
                     </p>
                   </div>
 
-                  <StatusBadge status={supplier.status} />
-                </div>
-
-                <div className="mt-4 grid grid-cols-2 gap-3">
-                  <div className="rounded-2xl bg-[#fbf7f1] p-3">
-                    <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
-                      <MapPin size={14} className="text-[#d99200]" />
-                      Cidade
-                    </p>
-                    <p className="mt-1 text-sm font-extrabold">
-                      {supplier.city}
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl bg-[#fbf7f1] p-3">
-                    <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
-                      <Crown size={14} className="text-[#d99200]" />
-                      Plano
-                    </p>
-                    <p className="mt-1 text-sm font-extrabold">
-                      {supplier.plan}
-                    </p>
-                  </div>
+                  {supplier.status === 'Aprovado' ? (
+                    <span className="flex items-center gap-1 rounded-full bg-green-50 px-3 py-1 text-[11px] font-extrabold text-green-700">
+                      <CheckCircle2 size={13} />
+                      Aprovado
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-[#fff7e8] px-3 py-1 text-[11px] font-extrabold text-[#b97900]">
+                      Pendente
+                    </span>
+                  )}
                 </div>
 
                 <div className="mt-4 flex items-center justify-between">
                   <span className="flex items-center gap-1 text-sm font-bold text-[#d99200]">
                     <Star size={15} fill="#e3a925" className="text-[#e3a925]" />
-                    {supplier.rating}
-                    {supplier.featured ? ' • Destaque' : ''}
+                    {supplier.premium ? 'Premium' : 'Básico'}
                   </span>
 
                   <div className="flex gap-2">
                     <Link
-                      href="/fornecedor/demo"
+                      href="/admin/fornecedores"
                       className="rounded-full bg-[#fbf7f1] px-4 py-2 text-xs font-extrabold text-[#151515] ring-1 ring-[#f1e7cf]"
                     >
-                      <span className="inline-flex items-center gap-1">
-                        <Eye size={14} />
-                        Ver
-                      </span>
+                      Editar
                     </Link>
 
-                    {supplier.status === 'Pendente' ? (
-                      <button className="rounded-full bg-green-600 px-4 py-2 text-xs font-extrabold text-white">
-                        Aprovar
-                      </button>
-                    ) : (
-                      <button className="rounded-full bg-black px-4 py-2 text-xs font-extrabold text-white">
-                        Destacar
-                      </button>
-                    )}
+                    <Link
+                      href="/admin/fornecedores"
+                      className="rounded-full bg-black px-4 py-2 text-xs font-extrabold text-white"
+                    >
+                      Destacar
+                    </Link>
                   </div>
                 </div>
-
-                {supplier.status === 'Pendente' && (
-                  <button className="mt-3 flex w-full items-center justify-center gap-2 rounded-[20px] bg-red-50 py-3 text-sm font-extrabold text-red-700">
-                    <XCircle size={18} />
-                    Reprovar cadastro
-                  </button>
-                )}
               </div>
             ))}
+          </div>
+        </section>
+
+        {/* RESUMO FINAL */}
+        <section className="px-6 pt-6">
+          <div className="rounded-[28px] bg-black p-5 text-white shadow-xl">
+            <div className="flex items-start gap-4">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#e3a925] text-white">
+                <Users size={30} />
+              </div>
+
+              <div className="flex-1">
+                <h2 className="text-lg font-extrabold">Status da plataforma</h2>
+
+                <p className="mt-2 text-sm leading-5 text-white/70">
+                  Plataforma ativa, fornecedores em crescimento e orçamentos
+                  sendo acompanhados dentro do REIM EVENTOS.
+                </p>
+              </div>
+            </div>
           </div>
         </section>
       </div>
