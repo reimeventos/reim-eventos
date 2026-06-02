@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { listPlans, simulatePlanActivation } from '@/lib/payments';
-import { useRouter } from 'next/navigation';
+import { listPlans } from '@/lib/payments';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -58,17 +57,11 @@ function getPlanBenefits(index: number) {
 }
 
 export default function PlanosPage() {
-  const router = useRouter();
   const [plans, setPlans] = useState<any[]>([]);
 
   useEffect(() => {
     listPlans().then(setPlans);
   }, []);
-
-  async function activate(id: string) {
-    await simulatePlanActivation(id);
-    router.push('/pagamento/sucesso');
-  }
 
   return (
     <main className="min-h-screen bg-black text-[#151515]">
@@ -240,16 +233,16 @@ export default function PlanosPage() {
                     Reajuste anual mediante aviso prévio.
                   </p>
 
-                  <button
-                    onClick={() => activate(plan.id)}
-                    className={`mt-5 w-full rounded-[24px] py-4 font-extrabold shadow-lg ${
+                  <Link
+                    href="/pagamento/sucesso"
+                    className={`mt-5 block w-full rounded-[24px] py-4 text-center font-extrabold shadow-lg ${
                       isFeatured
                         ? 'bg-[#e3a925] text-white'
                         : 'bg-black text-white'
                     }`}
                   >
-                    Assinar / Simular aprovação
-                  </button>
+                    Assinar plano
+                  </Link>
                 </div>
               );
             })}
