@@ -21,6 +21,7 @@ const budgets = [
     statusType: 'pending',
     message: 'Olá! Recebemos seu pedido e em breve enviaremos uma proposta.',
     rating: '4.9',
+    id: '1',
   },
   {
     supplier: 'Photofest Totem',
@@ -31,6 +32,7 @@ const budgets = [
     statusType: 'answered',
     message: 'Temos disponibilidade para sua data. Clique para ver a resposta.',
     rating: '4.9',
+    id: '2',
   },
   {
     supplier: 'Sabor Eventos',
@@ -41,6 +43,7 @@ const budgets = [
     statusType: 'closed',
     message: 'Orçamento aprovado. Fornecedor salvo no seu evento.',
     rating: '4.8',
+    id: '3',
   },
 ];
 
@@ -178,14 +181,14 @@ export default function OrcamentosPage() {
 
                   <div className="flex gap-2">
                     <Link
-                      href="/orcamentos"
+                      href={`/orcamentos/${item.id}`}
                       className="rounded-full bg-[#fbf7f1] px-4 py-2 text-xs font-extrabold text-[#151515] ring-1 ring-[#f1e7cf]"
                     >
                       Detalhes
                     </Link>
 
                     <Link
-                      href="/orcamentos"
+                      href={`/orcamentos/${item.id}/chat`}
                       className="rounded-full bg-black px-4 py-2 text-xs font-extrabold text-white"
                     >
                       Conversar
