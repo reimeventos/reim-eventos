@@ -10,6 +10,7 @@ import {
   Send,
   User,
   Users,
+  PartyPopper,
 } from 'lucide-react';
 
 export default function ResponderOrcamentoPage() {
@@ -62,6 +63,14 @@ export default function ResponderOrcamentoPage() {
 
               <div className="rounded-2xl bg-[#fbf7f1] p-3">
                 <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
+                  <PartyPopper size={14} className="text-[#d99200]" />
+                  Tipo de evento
+                </p>
+                <p className="mt-1 text-sm font-extrabold">Casamento</p>
+              </div>
+
+              <div className="rounded-2xl bg-[#fbf7f1] p-3">
+                <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
                   <CalendarDays size={14} className="text-[#d99200]" />
                   Data
                 </p>
@@ -82,6 +91,14 @@ export default function ResponderOrcamentoPage() {
                   Convidados
                 </p>
                 <p className="mt-1 text-sm font-extrabold">150</p>
+              </div>
+
+              <div className="rounded-2xl bg-[#fbf7f1] p-3">
+                <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
+                  <MessageCircle size={14} className="text-[#d99200]" />
+                  Status
+                </p>
+                <p className="mt-1 text-sm font-extrabold">Aguardando</p>
               </div>
             </div>
 
