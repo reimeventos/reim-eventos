@@ -45,18 +45,20 @@ export default function EditarVitrinePage() {
         listCategories(),
       ]);
 
+      const supplierData = supplier as any;
+
       setCategories(cats || []);
 
       setForm({
-        business_name: supplier?.business_name ?? '',
-        description: supplier?.description ?? '',
-        city: supplier?.city ?? '',
-        whatsapp: supplier?.whatsapp ?? '',
-        instagram: supplier?.instagram ?? '',
-        website: supplier?.website ?? '',
-        average_price: supplier?.average_price ?? '',
-        category_id: supplier?.category_id ?? '',
-        show_price: supplier?.show_price ? 'true' : 'false',
+        business_name: supplierData?.business_name ?? '',
+        description: supplierData?.description ?? '',
+        city: supplierData?.city ?? '',
+        whatsapp: supplierData?.whatsapp ?? '',
+        instagram: supplierData?.instagram ?? '',
+        website: supplierData?.website ?? '',
+        average_price: supplierData?.average_price ?? '',
+        category_id: supplierData?.category_id ?? '',
+        show_price: supplierData?.show_price ? 'true' : 'false',
       });
     }
 
@@ -71,8 +73,14 @@ export default function EditarVitrinePage() {
     e.preventDefault();
 
     await updateMySupplierProfile({
-      ...form,
-      show_price: form.show_price === 'true',
+      business_name: form.business_name,
+      description: form.description,
+      city: form.city,
+      whatsapp: form.whatsapp,
+      instagram: form.instagram,
+      website: form.website,
+      average_price: form.average_price,
+      category_id: form.category_id,
     });
 
     setMsg('Vitrine atualizada com sucesso.');
@@ -238,6 +246,10 @@ export default function EditarVitrinePage() {
                 <option value="false">Não mostrar preço público</option>
                 <option value="true">Mostrar preço público</option>
               </select>
+
+              <p className="mt-2 text-xs leading-5 text-gray-500">
+                Essa opção visual será conectada ao banco na próxima etapa.
+              </p>
             </div>
 
             <label className="block">
