@@ -30,7 +30,7 @@ const shortcuts = [
     color: 'bg-black',
   },
   {
-    title: 'Enviar fotos',
+    title: 'Enviar mídias',
     desc: 'Adicione imagens na sua galeria',
     href: '/painel-fornecedor/fotos',
     icon: ImageIcon,
