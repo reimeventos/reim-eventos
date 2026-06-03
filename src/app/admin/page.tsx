@@ -61,7 +61,7 @@ const actions = [
   {
     title: 'Orçamentos',
     desc: 'Ver solicitações e respostas',
-    href: '/admin',
+    href: '/admin/orcamentos',
     icon: FileText,
   },
   {
@@ -279,19 +279,26 @@ export default function AdminPage() {
                   sendo acompanhados dentro do REIM EVENTOS.
                 </p>
 
-                <div className="mt-4 grid grid-cols-2 gap-3">
+                <div className="mt-4 grid grid-cols-3 gap-2">
                   <Link
                     href="/admin/fornecedores"
-                    className="rounded-full bg-[#e3a925] px-4 py-2 text-center text-xs font-extrabold text-white"
+                    className="rounded-full bg-[#e3a925] px-3 py-2 text-center text-[11px] font-extrabold text-white"
                   >
                     Fornecedores
                   </Link>
 
                   <Link
                     href="/admin/assinaturas"
-                    className="rounded-full bg-white px-4 py-2 text-center text-xs font-extrabold text-[#151515]"
+                    className="rounded-full bg-white px-3 py-2 text-center text-[11px] font-extrabold text-[#151515]"
                   >
                     Assinaturas
+                  </Link>
+
+                  <Link
+                    href="/admin/orcamentos"
+                    className="rounded-full bg-white px-3 py-2 text-center text-[11px] font-extrabold text-[#151515]"
+                  >
+                    Orçamentos
                   </Link>
                 </div>
               </div>
