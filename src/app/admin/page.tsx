@@ -49,13 +49,13 @@ const actions = [
   {
     title: 'Fornecedores',
     desc: 'Aprovar, editar e destacar vitrines',
-    href: '/admin',
+    href: '/admin/fornecedores',
     icon: Briefcase,
   },
   {
     title: 'Assinaturas',
     desc: 'Acompanhar planos ativos',
-    href: '/admin',
+    href: '/admin/assinaturas',
     icon: Crown,
   },
   {
@@ -199,9 +199,12 @@ export default function AdminPage() {
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-extrabold">Fornecedores recentes</h2>
 
-            <span className="text-xs font-bold text-[#d99200]">
+            <Link
+              href="/admin/fornecedores"
+              className="text-xs font-bold text-[#d99200]"
+            >
               Ver todos
-            </span>
+            </Link>
           </div>
 
           <div className="space-y-4">
@@ -240,13 +243,19 @@ export default function AdminPage() {
                   </span>
 
                   <div className="flex gap-2">
-                    <button className="rounded-full bg-[#fbf7f1] px-4 py-2 text-xs font-extrabold text-[#151515] ring-1 ring-[#f1e7cf]">
+                    <Link
+                      href="/admin/fornecedores"
+                      className="rounded-full bg-[#fbf7f1] px-4 py-2 text-xs font-extrabold text-[#151515] ring-1 ring-[#f1e7cf]"
+                    >
                       Editar
-                    </button>
+                    </Link>
 
-                    <button className="rounded-full bg-black px-4 py-2 text-xs font-extrabold text-white">
+                    <Link
+                      href="/admin/fornecedores"
+                      className="rounded-full bg-black px-4 py-2 text-xs font-extrabold text-white"
+                    >
                       Destacar
-                    </button>
+                    </Link>
                   </div>
                 </div>
               </div>
@@ -255,25 +264,4 @@ export default function AdminPage() {
         </section>
 
         {/* RESUMO FINAL */}
-        <section className="px-6 pt-6">
-          <div className="rounded-[28px] bg-black p-5 text-white shadow-xl">
-            <div className="flex items-start gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#e3a925] text-white">
-                <Users size={30} />
-              </div>
-
-              <div className="flex-1">
-                <h2 className="text-lg font-extrabold">Status da plataforma</h2>
-
-                <p className="mt-2 text-sm leading-5 text-white/70">
-                  Plataforma ativa, fornecedores em crescimento e orçamentos
-                  sendo acompanhados dentro do REIM EVENTOS.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-      </div>
-    </main>
-  );
-}
+        <
