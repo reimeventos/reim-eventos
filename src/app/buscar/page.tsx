@@ -26,6 +26,7 @@ function getCategoryIcon(name: string) {
   if (normalized.includes('ornament') || normalized.includes('decor')) return Flower2;
   if (normalized.includes('totem') || normalized.includes('cabine')) return Video;
   if (normalized.includes('cerimonial')) return Gem;
+
   if (
     normalized.includes('música') ||
     normalized.includes('musica') ||
@@ -33,7 +34,9 @@ function getCategoryIcon(name: string) {
   ) {
     return Music2;
   }
+
   if (normalized.includes('bolo') || normalized.includes('doce')) return Cake;
+
   if (
     normalized.includes('espaço') ||
     normalized.includes('espaco') ||
@@ -97,7 +100,6 @@ export default function BuscarPage() {
       setLoadingSuppliers(true);
 
       const data = await listSuppliers({
-        city: 'Eunápolis',
         categoryId: categoryId || undefined,
         search: searchText || undefined,
       });
@@ -159,7 +161,7 @@ export default function BuscarPage() {
             </h1>
 
             <p className="mt-2 text-sm text-white/70">
-              Encontre serviços para seu evento em Eunápolis
+              Encontre serviços para seu evento
             </p>
 
             <form
@@ -262,7 +264,7 @@ export default function BuscarPage() {
                 Nenhum fornecedor encontrado
               </h3>
               <p className="mt-2 text-sm leading-5 text-gray-500">
-                Tente buscar por outro serviço ou remover o filtro de categoria.
+                Ainda não há fornecedores ativos cadastrados no Supabase para essa busca.
               </p>
             </div>
           )}
@@ -272,7 +274,7 @@ export default function BuscarPage() {
               const supplierName = supplier.business_name || 'Fornecedor';
               const categoryName =
                 supplier.categories?.name || 'Categoria não informada';
-              const city = supplier.city || 'Eunápolis';
+              const city = supplier.city || 'Cidade não informada';
               const rating = formatRating(supplier.rating_average);
               const price = formatPrice(supplier.average_price);
               const coverImage = getCoverImage(supplier);
