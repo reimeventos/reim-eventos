@@ -13,10 +13,8 @@ export async function listSuppliers(filters?: {
 
   /*
     Temporariamente sem filtro de status.
-    Isso ajuda a testar se os fornecedores estão realmente cadastrados no Supabase.
-
-    Depois que confirmarmos que aparecem na busca, podemos voltar a filtrar apenas:
-    ativo / aprovado / active
+    Assim conseguimos mostrar fornecedores cadastrados no Supabase,
+    mesmo que estejam como ativo, aprovado, pendente ou outro status.
   */
 
   if (filters?.city) {
@@ -35,7 +33,10 @@ export async function listSuppliers(filters?: {
 
   const { data, error } = await query;
 
-  if (error) throw error;
+  if (error) {
+    console.error('Erro em listSuppliers:', error);
+    throw error;
+  }
 
   return data ?? [];
 }
@@ -43,11 +44,14 @@ export async function listSuppliers(filters?: {
 export async function getSupplier(id: string) {
   const { data, error } = await supabase
     .from('suppliers')
-    .select('*, categories(name, slug), media(*)')
+    .select('*, categories(name, slug), media(file_url, is_cover)')
     .eq('id', id)
-    .single();
+    .maybeSingle();
 
-  if (error) throw error;
+  if (error) {
+    console.error('Erro em getSupplier:', error);
+    throw error;
+  }
 
   return data;
 }
@@ -59,7 +63,10 @@ export async function listCategories() {
     .eq('is_active', true)
     .order('name');
 
-  if (error) throw error;
+  if (error) {
+    console.error('Erro em listCategories:', error);
+    throw error;
+  }
 
   return data ?? [];
 }
