@@ -11,9 +11,13 @@ export async function listSuppliers(filters?: {
     .order('is_featured', { ascending: false })
     .order('rating_average', { ascending: false });
 
-  // Aceita fornecedores ativos/aprovados.
-  // Se depois quiser esconder pendentes, ajustamos aqui.
-  query = query.or('status.eq.ativo,status.eq.aprovado,status.eq.active');
+  /*
+    Temporariamente sem filtro de status.
+    Isso ajuda a testar se os fornecedores estão realmente cadastrados no Supabase.
+
+    Depois que confirmarmos que aparecem na busca, podemos voltar a filtrar apenas:
+    ativo / aprovado / active
+  */
 
   if (filters?.city) {
     query = query.ilike('city', `%${filters.city}%`);
