@@ -1,5 +1,9 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Nav } from '@/components/Nav';
+import { listCategories } from '@/lib/marketplace';
 import {
   Camera,
   Cake,
@@ -14,15 +18,30 @@ import {
   Video,
 } from 'lucide-react';
 
-const categories = [
-  { icon: Camera, name: 'Fotografia' },
-  { icon: Utensils, name: 'Buffet' },
-  { icon: Flower2, name: 'Ornamentação' },
-  { icon: Video, name: 'Totem' },
-  { icon: Gem, name: 'Cerimonial' },
-  { icon: Music2, name: 'Música' },
-  { icon: Cake, name: 'Bolos' },
-  { icon: Landmark, name: 'Espaços' },
+function getCategoryIcon(name: string) {
+  const normalized = name.toLowerCase();
+
+  if (normalized.includes('foto') || normalized.includes('film')) return Camera;
+  if (normalized.includes('buffet')) return Utensils;
+  if (normalized.includes('ornament') || normalized.includes('decor')) return Flower2;
+  if (normalized.includes('totem') || normalized.includes('cabine')) return Video;
+  if (normalized.includes('cerimonial')) return Gem;
+  if (normalized.includes('música') || normalized.includes('musica') || normalized.includes('banda')) return Music2;
+  if (normalized.includes('bolo') || normalized.includes('doce')) return Cake;
+  if (normalized.includes('espaço') || normalized.includes('espaco') || normalized.includes('eventos')) return Landmark;
+
+  return Camera;
+}
+
+const fallbackCategories = [
+  { id: '1', name: 'Fotografia & Filmagem' },
+  { id: '2', name: 'Buffet' },
+  { id: '3', name: 'Ornamentação' },
+  { id: '4', name: 'Cabine & Totem' },
+  { id: '5', name: 'Cerimonial' },
+  { id: '6', name: 'Música & Bandas' },
+  { id: '7', name: 'Bolos & Doces' },
+  { id: '8', name: 'Espaços de Eventos' },
 ];
 
 const suppliers = [
@@ -69,6 +88,30 @@ const suppliers = [
 ];
 
 export default function BuscarPage() {
+  const [categories, setCategories] = useState<any[]>([]);
+  const [loadingCategories, setLoadingCategories] = useState(true);
+
+  useEffect(() => {
+    async function loadCategories() {
+      try {
+        const data = await listCategories();
+
+        if (data && data.length > 0) {
+          setCategories(data);
+        } else {
+          setCategories(fallbackCategories);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar categorias:', error);
+        setCategories(fallbackCategories);
+      } finally {
+        setLoadingCategories(false);
+      }
+    }
+
+    loadCategories();
+  }, []);
+
   return (
     <main className="min-h-screen bg-black text-[#151515]">
       <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] pb-28 shadow-2xl">
@@ -107,27 +150,32 @@ export default function BuscarPage() {
           </div>
         </section>
 
-        {/* FILTROS */}
+        {/* CATEGORIAS */}
         <section className="px-6 pt-6">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-extrabold">Categorias</h2>
-            <span className="text-xs font-bold text-[#d99200]">Filtros</span>
+            <span className="text-xs font-bold text-[#d99200]">
+              {loadingCategories ? 'Carregando...' : `${categories.length} categorias`}
+            </span>
           </div>
 
           <div className="flex gap-3 overflow-x-auto pb-2">
             {categories.map((cat) => {
-              const Icon = cat.icon;
+              const Icon = getCategoryIcon(cat.name || '');
+              const categoryName = cat.name || 'Categoria';
 
               return (
                 <Link
-                  href="/buscar"
-                  key={cat.name}
-                  className="min-w-[92px] rounded-[22px] bg-white p-3 text-center shadow-sm ring-1 ring-[#f1e7cf]"
+                  href={`/buscar?categoria=${cat.id}`}
+                  key={cat.id || categoryName}
+                  className="min-w-[100px] rounded-[22px] bg-white p-3 text-center shadow-sm ring-1 ring-[#f1e7cf]"
                 >
                   <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#fff7e8] text-[#d99200]">
                     <Icon size={25} strokeWidth={2.2} />
                   </div>
-                  <p className="mt-2 text-[11px] font-extrabold">{cat.name}</p>
+                  <p className="mt-2 line-clamp-2 text-[11px] font-extrabold leading-4">
+                    {categoryName}
+                  </p>
                 </Link>
               );
             })}
@@ -187,7 +235,9 @@ export default function BuscarPage() {
                       {supplier.city}
                     </p>
                     <p className="mt-1 text-xs text-gray-500">
-                      A partir de {supplier.price}
+                      {supplier.price === 'Sob consulta'
+                        ? 'Valor sob consulta'
+                        : `A partir de ${supplier.price}`}
                     </p>
                   </div>
 
