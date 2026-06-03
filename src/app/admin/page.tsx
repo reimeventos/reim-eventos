@@ -264,4 +264,41 @@ export default function AdminPage() {
         </section>
 
         {/* RESUMO FINAL */}
-        
+        <section className="px-6 pt-6">
+          <div className="rounded-[28px] bg-black p-5 text-white shadow-xl">
+            <div className="flex items-start gap-4">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#e3a925] text-white">
+                <Users size={30} />
+              </div>
+
+              <div className="flex-1">
+                <h2 className="text-lg font-extrabold">Status da plataforma</h2>
+
+                <p className="mt-2 text-sm leading-5 text-white/70">
+                  Plataforma ativa, fornecedores em crescimento e orçamentos
+                  sendo acompanhados dentro do REIM EVENTOS.
+                </p>
+
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  <Link
+                    href="/admin/fornecedores"
+                    className="rounded-full bg-[#e3a925] px-4 py-2 text-center text-xs font-extrabold text-white"
+                  >
+                    Fornecedores
+                  </Link>
+
+                  <Link
+                    href="/admin/assinaturas"
+                    className="rounded-full bg-white px-4 py-2 text-center text-xs font-extrabold text-[#151515]"
+                  >
+                    Assinaturas
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  );
+}
