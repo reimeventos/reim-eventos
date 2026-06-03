@@ -4,7 +4,7 @@ import {
   BarChart3,
   Briefcase,
   CheckCircle2,
-  Crown,A
+  Crown,
   FileText,
   MessageCircle,
   Settings,
@@ -67,7 +67,7 @@ const actions = [
   {
     title: 'Categorias',
     desc: 'Gerenciar tipos de serviço',
-    href: '/admin',
+    href: '/admin/categorias',
     icon: Settings,
   },
 ];
@@ -279,7 +279,7 @@ export default function AdminPage() {
                   sendo acompanhados dentro do REIM EVENTOS.
                 </p>
 
-                <div className="mt-4 grid grid-cols-3 gap-2">
+                <div className="mt-4 grid grid-cols-2 gap-2">
                   <Link
                     href="/admin/fornecedores"
                     className="rounded-full bg-[#e3a925] px-3 py-2 text-center text-[11px] font-extrabold text-white"
@@ -299,6 +299,13 @@ export default function AdminPage() {
                     className="rounded-full bg-white px-3 py-2 text-center text-[11px] font-extrabold text-[#151515]"
                   >
                     Orçamentos
+                  </Link>
+
+                  <Link
+                    href="/admin/categorias"
+                    className="rounded-full bg-white px-3 py-2 text-center text-[11px] font-extrabold text-[#151515]"
+                  >
+                    Categorias
                   </Link>
                 </div>
               </div>
