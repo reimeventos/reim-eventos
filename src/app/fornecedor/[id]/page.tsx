@@ -1,5 +1,8 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { getSupplier } from '@/lib/marketplace';
 import {
   ArrowLeft,
@@ -15,13 +18,13 @@ import {
 } from 'lucide-react';
 
 function getCoverImage(supplier: any) {
-  const cover = supplier.media?.find((item: any) => item.is_cover);
+  const cover = supplier?.media?.find((item: any) => item.is_cover);
 
   if (cover?.file_url) {
     return cover.file_url;
   }
 
-  if (supplier.media?.[0]?.file_url) {
+  if (supplier?.media?.[0]?.file_url) {
     return supplier.media[0].file_url;
   }
 
@@ -29,7 +32,7 @@ function getCoverImage(supplier: any) {
 }
 
 function getGallery(supplier: any) {
-  const media = supplier.media || [];
+  const media = supplier?.media || [];
 
   if (media.length > 0) {
     return media
@@ -48,8 +51,10 @@ function getGallery(supplier: any) {
 function formatPrice(value: any) {
   if (!value) return 'Sob consulta';
 
-  if (typeof value === 'number') {
-    return value.toLocaleString('pt-BR', {
+  const numberValue = Number(value);
+
+  if (!Number.isNaN(numberValue)) {
+    return numberValue.toLocaleString('pt-BR', {
       style: 'currency',
       currency: 'BRL',
     });
@@ -132,22 +137,89 @@ function getServices(categoryName: string) {
   ];
 }
 
-export default async function FornecedorPage({
-  params,
-}: {
-  params: { id: string };
-}) {
-  let supplier: any = null;
+export default function FornecedorPage() {
+  const params = useParams();
+  const supplierId = String(params?.id || '');
 
-  try {
-    supplier = await getSupplier(params.id);
-  } catch (error) {
-    console.error('Erro ao carregar fornecedor:', error);
-    notFound();
+  const [supplier, setSupplier] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  useEffect(() => {
+    async function loadSupplier() {
+      try {
+        setLoading(true);
+        setErrorMessage('');
+
+        if (!supplierId) {
+          setErrorMessage('Fornecedor não informado.');
+          return;
+        }
+
+        const data = await getSupplier(supplierId);
+
+        if (!data) {
+          setErrorMessage('Fornecedor não encontrado no Supabase.');
+          return;
+        }
+
+        setSupplier(data);
+      } catch (error) {
+        console.error('Erro ao carregar fornecedor:', error);
+        setErrorMessage('Erro ao carregar fornecedor.');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadSupplier();
+  }, [supplierId]);
+
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-black text-[#151515]">
+        <div className="mx-auto flex min-h-screen w-full max-w-[430px] items-center justify-center bg-[#fbf7f1] px-6 text-center shadow-2xl">
+          <div className="rounded-[28px] bg-white p-6 shadow-sm ring-1 ring-[#f1e7cf]">
+            <Camera size={42} className="mx-auto text-[#d99200]" />
+            <h1 className="mt-4 text-xl font-extrabold">
+              Carregando vitrine
+            </h1>
+            <p className="mt-2 text-sm text-gray-500">
+              Buscando dados do fornecedor...
+            </p>
+          </div>
+        </div>
+      </main>
+    );
   }
 
-  if (!supplier) {
-    notFound();
+  if (errorMessage || !supplier) {
+    return (
+      <main className="min-h-screen bg-black text-[#151515]">
+        <div className="mx-auto flex min-h-screen w-full max-w-[430px] items-center justify-center bg-[#fbf7f1] px-6 text-center shadow-2xl">
+          <div className="rounded-[28px] bg-white p-6 shadow-sm ring-1 ring-[#f1e7cf]">
+            <Camera size={42} className="mx-auto text-[#d99200]" />
+            <h1 className="mt-4 text-xl font-extrabold">
+              Vitrine não encontrada
+            </h1>
+            <p className="mt-2 text-sm leading-5 text-gray-500">
+              {errorMessage || 'Não foi possível carregar esse fornecedor.'}
+            </p>
+
+            <p className="mt-3 rounded-2xl bg-[#fbf7f1] p-3 text-xs font-bold text-gray-500">
+              ID: {supplierId}
+            </p>
+
+            <Link
+              href="/buscar"
+              className="mt-5 block rounded-[22px] bg-[#e3a925] py-3 text-sm font-extrabold text-white"
+            >
+              Voltar para busca
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
   }
 
   const supplierName = supplier.business_name || 'Fornecedor';
