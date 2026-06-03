@@ -4,7 +4,7 @@ import {
   BarChart3,
   Briefcase,
   CheckCircle2,
-  Crown,
+  Crown,A
   FileText,
   MessageCircle,
   Settings,
