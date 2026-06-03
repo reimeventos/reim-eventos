@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
+import { getSupplier } from '@/lib/marketplace';
 import {
   ArrowLeft,
   CalendarDays,
@@ -12,28 +14,156 @@ import {
   Star,
 } from 'lucide-react';
 
-const gallery = [
-  'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?q=80&w=900&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=900&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1523438885200-e635ba2c371e?q=80&w=900&auto=format&fit=crop',
-];
+function getCoverImage(supplier: any) {
+  const cover = supplier.media?.find((item: any) => item.is_cover);
 
-const services = [
-  'Casamentos',
-  'Aniversários',
-  'Eventos corporativos',
-  'Ensaio pré-evento',
-  'Filmagem',
-  'Álbum digital',
-];
+  if (cover?.file_url) {
+    return cover.file_url;
+  }
 
-// Aqui o fornecedor poderá escolher futuramente no painel.
-// false = não mostra preço público
-// true = mostra preço público
-const mostrarPreco = false;
-const precoInicial = 'R$ 1.200';
+  if (supplier.media?.[0]?.file_url) {
+    return supplier.media[0].file_url;
+  }
 
-export default function FornecedorPage() {
+  return 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?q=80&w=1000&auto=format&fit=crop';
+}
+
+function getGallery(supplier: any) {
+  const media = supplier.media || [];
+
+  if (media.length > 0) {
+    return media
+      .filter((item: any) => item.file_url)
+      .slice(0, 3)
+      .map((item: any) => item.file_url);
+  }
+
+  return [
+    'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?q=80&w=900&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=900&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1523438885200-e635ba2c371e?q=80&w=900&auto=format&fit=crop',
+  ];
+}
+
+function formatPrice(value: any) {
+  if (!value) return 'Sob consulta';
+
+  if (typeof value === 'number') {
+    return value.toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    });
+  }
+
+  return String(value);
+}
+
+function formatRating(value: any) {
+  if (!value) return '4.9';
+
+  const numberValue = Number(value);
+
+  if (Number.isNaN(numberValue)) {
+    return String(value);
+  }
+
+  return numberValue.toFixed(1);
+}
+
+function formatWhatsAppLink(value: any) {
+  if (!value) return 'https://wa.me/5573999999999';
+
+  const onlyNumbers = String(value).replace(/\D/g, '');
+
+  if (!onlyNumbers) {
+    return 'https://wa.me/5573999999999';
+  }
+
+  if (onlyNumbers.startsWith('55')) {
+    return `https://wa.me/${onlyNumbers}`;
+  }
+
+  return `https://wa.me/55${onlyNumbers}`;
+}
+
+function getServices(categoryName: string) {
+  const normalized = categoryName.toLowerCase();
+
+  if (normalized.includes('foto') || normalized.includes('film')) {
+    return [
+      'Casamentos',
+      'Aniversários',
+      'Eventos corporativos',
+      'Ensaio pré-evento',
+      'Filmagem',
+      'Álbum digital',
+    ];
+  }
+
+  if (normalized.includes('buffet')) {
+    return [
+      'Casamentos',
+      'Aniversários',
+      'Eventos corporativos',
+      'Jantar',
+      'Coquetel',
+      'Coffee break',
+    ];
+  }
+
+  if (normalized.includes('totem') || normalized.includes('cabine')) {
+    return [
+      'Totem fotográfico',
+      'Cabine de fotos',
+      'Fotos impressas',
+      'Aniversários',
+      'Casamentos',
+      'Eventos corporativos',
+    ];
+  }
+
+  return [
+    'Casamentos',
+    'Aniversários',
+    'Eventos corporativos',
+    'Debutantes',
+    'Eventos sociais',
+    'Serviço personalizado',
+  ];
+}
+
+export default async function FornecedorPage({
+  params,
+}: {
+  params: { id: string };
+}) {
+  let supplier: any = null;
+
+  try {
+    supplier = await getSupplier(params.id);
+  } catch (error) {
+    console.error('Erro ao carregar fornecedor:', error);
+    notFound();
+  }
+
+  if (!supplier) {
+    notFound();
+  }
+
+  const supplierName = supplier.business_name || 'Fornecedor';
+  const categoryName = supplier.categories?.name || 'Categoria não informada';
+  const city = supplier.city || 'Cidade não informada';
+  const rating = formatRating(supplier.rating_average);
+  const price = formatPrice(supplier.average_price);
+  const description =
+    supplier.description ||
+    'Fornecedor cadastrado no REIM EVENTOS. Solicite um orçamento para saber mais detalhes sobre serviços, disponibilidade e valores.';
+  const coverImage = getCoverImage(supplier);
+  const gallery = getGallery(supplier);
+  const services = getServices(categoryName);
+  const whatsappLink = formatWhatsAppLink(supplier.whatsapp);
+  const supplierTag = supplier.is_featured ? 'Destaque' : 'Premium';
+
   return (
     <main className="min-h-screen bg-black text-[#151515]">
       <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] pb-8 shadow-2xl">
@@ -41,11 +171,11 @@ export default function FornecedorPage() {
         <section className="relative h-[340px] overflow-hidden bg-black text-white">
           <img
             className="absolute inset-0 h-full w-full object-cover"
-            src="https://images.unsplash.com/photo-1511285560929-80b456fea0bc?q=80&w=1000&auto=format&fit=crop"
-            alt="Studio Premium"
+            src={coverImage}
+            alt={supplierName}
           />
 
-          <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/10 to-black/85" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/45 via-black/10 to-black/85" />
 
           <div className="relative z-10 flex items-center justify-between px-6 pt-7">
             <Link
@@ -68,16 +198,16 @@ export default function FornecedorPage() {
 
           <div className="absolute bottom-8 left-6 right-6 z-10">
             <span className="rounded-full bg-[#e3a925] px-3 py-1 text-xs font-extrabold text-white">
-              ♛ Premium
+              ♛ {supplierTag}
             </span>
 
             <h1 className="mt-3 font-serif text-[36px] leading-tight">
-              Studio Premium
+              {supplierName}
             </h1>
 
             <p className="mt-1 flex items-center gap-2 text-sm text-white/85">
               <Camera size={16} className="text-[#e3a925]" />
-              Fotografia & Filmagem
+              {categoryName}
             </p>
           </div>
         </section>
@@ -90,22 +220,22 @@ export default function FornecedorPage() {
               <div>
                 <p className="flex items-center gap-2 text-sm font-bold text-gray-700">
                   <MapPin size={17} className="text-[#d99200]" />
-                  Eunápolis
+                  {city}
                 </p>
 
                 <p className="mt-2 flex items-center gap-2 text-sm font-bold text-gray-700">
                   <Star size={17} fill="#e3a925" className="text-[#e3a925]" />
-                  4.9 • 128 avaliações
+                  {rating} • 128 avaliações
                 </p>
               </div>
 
               <div className="rounded-2xl bg-[#fff7e8] px-4 py-3 text-center">
                 <p className="text-xs font-bold text-gray-500">
-                  {mostrarPreco ? 'A partir de' : 'Valor'}
+                  {price === 'Sob consulta' ? 'Valor' : 'A partir de'}
                 </p>
 
                 <p className="text-sm font-extrabold text-[#d99200]">
-                  {mostrarPreco ? precoInicial : 'Sob consulta'}
+                  {price}
                 </p>
               </div>
             </div>
@@ -116,9 +246,7 @@ export default function FornecedorPage() {
             <h2 className="text-lg font-extrabold">Sobre o fornecedor</h2>
 
             <p className="mt-3 text-sm leading-6 text-gray-700">
-              Fornecedor premium especializado em fotografia e filmagem para
-              casamentos, aniversários, debutantes e eventos corporativos.
-              Atendimento com qualidade, pontualidade e acabamento profissional.
+              {description}
             </p>
           </div>
 
@@ -150,12 +278,12 @@ export default function FornecedorPage() {
             </div>
 
             <div className="grid grid-cols-3 gap-3">
-              {gallery.map((img) => (
+              {gallery.map((img: string) => (
                 <img
                   key={img}
                   src={img}
                   alt="Galeria do fornecedor"
-                  className="h-28 rounded-[20px] object-cover shadow-sm"
+                  className="h-28 w-full rounded-[20px] object-cover shadow-sm"
                 />
               ))}
             </div>
@@ -164,7 +292,7 @@ export default function FornecedorPage() {
           {/* CTA PRINCIPAL */}
           <div className="mt-7 space-y-3">
             <Link
-              href="/solicitar-orcamento"
+              href={`/solicitar-orcamento?fornecedor=${supplier.id}`}
               className="flex items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg"
             >
               <MessageCircle size={22} />
@@ -180,7 +308,7 @@ export default function FornecedorPage() {
             </Link>
 
             <a
-              href="https://wa.me/5573999999999"
+              href={whatsappLink}
               className="flex items-center justify-center gap-2 rounded-[22px] bg-white py-4 text-center font-extrabold text-[#151515] shadow-sm ring-1 ring-[#f1e7cf]"
             >
               <Phone size={22} className="text-[#d99200]" />
