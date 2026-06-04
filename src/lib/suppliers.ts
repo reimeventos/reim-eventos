@@ -86,3 +86,43 @@ export async function getSupplierLeads() {
   if (error) throw error;
   return data ?? [];
 }
+export async function createQuoteRequest(data: {
+  supplier_id: string;
+  customer_name: string;
+  customer_whatsapp: string;
+  event_type: string;
+  event_date?: string;
+  event_time?: string;
+  event_space?: string;
+  event_city?: string;
+  guests_count?: number;
+  service_needed?: string;
+  notes?: string;
+}) {
+  const { data: quoteRequest, error } = await supabase
+    .from('quote_requests')
+    .insert([
+      {
+        supplier_id: data.supplier_id,
+        customer_name: data.customer_name,
+        customer_whatsapp: data.customer_whatsapp,
+        event_type: data.event_type,
+        event_date: data.event_date || null,
+        event_time: data.event_time || null,
+        event_space: data.event_space || null,
+        event_city: data.event_city || null,
+        guests_count: data.guests_count || null,
+        service_needed: data.service_needed || null,
+        notes: data.notes || null,
+      },
+    ])
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Erro ao criar solicitação de orçamento:', error);
+    throw error;
+  }
+
+  return quoteRequest;
+}
