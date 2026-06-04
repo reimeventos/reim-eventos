@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import {
   ArrowLeft,
   Building2,
@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { createQuoteRequest } from '../../lib/suppliers';
 
-export default function SolicitarOrcamentoPage() {
+function SolicitarOrcamentoContent() {
   const searchParams = useSearchParams();
   const supplierId = searchParams.get('fornecedor') || '';
 
@@ -53,11 +53,6 @@ export default function SolicitarOrcamentoPage() {
 
     if (!customerWhatsapp.trim()) {
       setErrorMessage('Informe seu WhatsApp.');
-      return;
-    }
-
-    if (!eventType.trim()) {
-      setErrorMessage('Informe o tipo de evento.');
       return;
     }
 
@@ -99,7 +94,6 @@ export default function SolicitarOrcamentoPage() {
   return (
     <main className="min-h-screen bg-black text-[#151515]">
       <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] pb-10 shadow-2xl">
-        {/* TOPO */}
         <section className="relative overflow-hidden rounded-b-[34px] bg-black px-6 pb-8 pt-7 text-white">
           <div className="absolute inset-0 bg-[url('/layout01-fundo.png')] bg-cover bg-center opacity-45" />
           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/80 to-black" />
@@ -123,7 +117,6 @@ export default function SolicitarOrcamentoPage() {
           </div>
         </section>
 
-        {/* FORNECEDOR */}
         <section className="px-6 pt-6">
           <div className="rounded-[26px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)]">
             <div className="flex items-center gap-4">
@@ -140,7 +133,6 @@ export default function SolicitarOrcamentoPage() {
           </div>
         </section>
 
-        {/* FORMULÁRIO */}
         <section className="px-6 pt-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             <label className="block">
@@ -305,5 +297,13 @@ export default function SolicitarOrcamentoPage() {
         </section>
       </div>
     </main>
+  );
+}
+
+export default function SolicitarOrcamentoPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#fbf7f1] p-6">Carregando...</div>}>
+      <SolicitarOrcamentoContent />
+    </Suspense>
   );
 }
