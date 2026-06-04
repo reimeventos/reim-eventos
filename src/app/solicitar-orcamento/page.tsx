@@ -27,6 +27,7 @@ function SolicitarOrcamentoContent() {
   const [eventDate, setEventDate] = useState('');
   const [eventCity, setEventCity] = useState('Eunápolis');
   const [eventSpace, setEventSpace] = useState('');
+  const [structurePreference, setStructurePreference] = useState('Ainda não sei');
   const [guestsCount, setGuestsCount] = useState('');
   const [serviceNeeded, setServiceNeeded] = useState('Fotografia & Filmagem');
   const [notes, setNotes] = useState('');
@@ -34,6 +35,8 @@ function SolicitarOrcamentoContent() {
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+
+  const isEventSpaceSupplier = serviceNeeded === 'Espaço de festa';
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -66,10 +69,14 @@ function SolicitarOrcamentoContent() {
         event_type: eventType,
         event_date: eventDate || undefined,
         event_city: eventCity,
-        event_space: eventSpace,
+        event_space: isEventSpaceSupplier ? structurePreference : eventSpace,
         guests_count: guestsCount ? Number(guestsCount) : undefined,
         service_needed: serviceNeeded,
-        notes,
+        notes: notes || (
+          isEventSpaceSupplier
+            ? 'Gostaria de consultar disponibilidade para a data informada e receber orçamento do espaço.'
+            : ''
+        ),
       });
 
       setSuccessMessage('Solicitação enviada com sucesso! O fornecedor poderá responder com um orçamento dentro do app.');
@@ -80,6 +87,7 @@ function SolicitarOrcamentoContent() {
       setEventDate('');
       setEventCity('Eunápolis');
       setEventSpace('');
+      setStructurePreference('Ainda não sei');
       setGuestsCount('');
       setServiceNeeded('Fotografia & Filmagem');
       setNotes('');
@@ -127,7 +135,7 @@ function SolicitarOrcamentoContent() {
               <div>
                 <p className="text-xs font-bold text-gray-500">Fornecedor</p>
                 <h2 className="text-lg font-extrabold">Studio Premium</h2>
-                <p className="text-sm text-gray-500">Fotografia & Filmagem</p>
+                <p className="text-sm text-gray-500">{serviceNeeded}</p>
               </div>
             </div>
           </div>
@@ -229,18 +237,43 @@ function SolicitarOrcamentoContent() {
               />
             </label>
 
-            <label className="block">
-              <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
-                <Building2 size={17} className="text-[#d99200]" />
-                Espaço do evento
-              </span>
-              <input
-                value={eventSpace}
-                onChange={(event) => setEventSpace(event.target.value)}
-                className="w-full rounded-[22px] bg-white px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400"
-                placeholder="Ex: Espaço Villa Real, clube, fazenda..."
-              />
-            </label>
+            {isEventSpaceSupplier ? (
+              <label className="block">
+                <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
+                  <Building2 size={17} className="text-[#d99200]" />
+                  Preferência de estrutura
+                </span>
+                <select
+                  value={structurePreference}
+                  onChange={(event) => setStructurePreference(event.target.value)}
+                  className="w-full rounded-[22px] bg-white px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf]"
+                >
+                  <option>Salão fechado</option>
+                  <option>Área ao ar livre</option>
+                  <option>Espaço com piscina</option>
+                  <option>Cerimônia e recepção no mesmo local</option>
+                  <option>Espaço com hospedagem</option>
+                  <option>Ainda não sei</option>
+                </select>
+
+                <p className="mt-2 text-xs leading-5 text-gray-500">
+                  Para espaços de evento, o cliente consulta disponibilidade da data e orçamento do local.
+                </p>
+              </label>
+            ) : (
+              <label className="block">
+                <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
+                  <Building2 size={17} className="text-[#d99200]" />
+                  Espaço do evento
+                </span>
+                <input
+                  value={eventSpace}
+                  onChange={(event) => setEventSpace(event.target.value)}
+                  className="w-full rounded-[22px] bg-white px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400"
+                  placeholder="Ex: Espaço Villa Real, clube, fazenda..."
+                />
+              </label>
+            )}
 
             <label className="block">
               <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
@@ -265,7 +298,11 @@ function SolicitarOrcamentoContent() {
                 value={notes}
                 onChange={(event) => setNotes(event.target.value)}
                 className="min-h-[130px] w-full resize-none rounded-[22px] bg-white px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400"
-                placeholder="Conte um pouco sobre seu evento..."
+                placeholder={
+                  isEventSpaceSupplier
+                    ? 'Ex: Gostaria de saber se o espaço está disponível para essa data e qual o orçamento...'
+                    : 'Conte um pouco sobre seu evento...'
+                }
               />
             </label>
 
