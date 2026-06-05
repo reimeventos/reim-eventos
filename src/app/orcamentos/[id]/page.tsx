@@ -16,6 +16,7 @@ import {
 import {
   acceptQuoteResponse,
   getQuoteResponseByRequestId,
+  requestQuoteAdjustment,
 } from '@/lib/suppliers';
 
 export default function OrcamentoRecebidoPage() {
@@ -25,6 +26,9 @@ export default function OrcamentoRecebidoPage() {
   const [quote, setQuote] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [accepting, setAccepting] = useState(false);
+  const [adjusting, setAdjusting] = useState(false);
+  const [showAdjustmentBox, setShowAdjustmentBox] = useState(false);
+  const [adjustmentNotes, setAdjustmentNotes] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
@@ -34,6 +38,7 @@ export default function OrcamentoRecebidoPage() {
     getQuoteResponseByRequestId(requestId)
       .then((data) => {
         setQuote(data);
+        setAdjustmentNotes(data?.adjustment_notes || '');
       })
       .catch((error) => {
         console.error('Erro ao carregar orçamento:', error);
@@ -76,12 +81,52 @@ export default function OrcamentoRecebidoPage() {
         status: 'aceito',
       });
 
+      setShowAdjustmentBox(false);
       setSuccessMessage('Orçamento aceito com sucesso! O fornecedor será informado pelo app.');
     } catch (error) {
       console.error(error);
       setErrorMessage('Não foi possível aceitar o orçamento. Tente novamente.');
     } finally {
       setAccepting(false);
+    }
+  }
+
+  async function handleRequestAdjustment() {
+    setSuccessMessage('');
+    setErrorMessage('');
+
+    if (!quote?.id || !requestId) {
+      setErrorMessage('Orçamento não identificado.');
+      return;
+    }
+
+    if (!adjustmentNotes.trim()) {
+      setErrorMessage('Descreva o ajuste que você deseja solicitar.');
+      return;
+    }
+
+    try {
+      setAdjusting(true);
+
+      await requestQuoteAdjustment({
+        quote_response_id: quote.id,
+        quote_request_id: requestId,
+        adjustment_notes: adjustmentNotes,
+      });
+
+      setQuote({
+        ...quote,
+        status: 'ajuste_solicitado',
+        adjustment_notes: adjustmentNotes,
+        adjustment_requested_at: new Date().toISOString(),
+      });
+
+      setSuccessMessage('Solicitação de ajuste enviada com sucesso! O fornecedor poderá revisar a proposta.');
+    } catch (error) {
+      console.error(error);
+      setErrorMessage('Não foi possível solicitar ajuste. Tente novamente.');
+    } finally {
+      setAdjusting(false);
     }
   }
 
@@ -92,6 +137,13 @@ export default function OrcamentoRecebidoPage() {
 
   const quoteStatus = quote?.status || 'enviado';
   const isAccepted = quoteStatus === 'aceito';
+  const isAdjustmentRequested = quoteStatus === 'ajuste_solicitado';
+
+  function statusLabel() {
+    if (isAccepted) return 'Aceito';
+    if (isAdjustmentRequested) return 'Ajuste solicitado';
+    return 'Respondido';
+  }
 
   return (
     <main className="min-h-screen bg-black text-[#151515]">
@@ -182,10 +234,12 @@ export default function OrcamentoRecebidoPage() {
                     className={
                       isAccepted
                         ? 'rounded-full bg-green-100 px-3 py-1 text-xs font-extrabold text-green-700'
-                        : 'rounded-full bg-green-50 px-3 py-1 text-xs font-extrabold text-green-700'
+                        : isAdjustmentRequested
+                          ? 'rounded-full bg-yellow-100 px-3 py-1 text-xs font-extrabold text-yellow-700'
+                          : 'rounded-full bg-green-50 px-3 py-1 text-xs font-extrabold text-green-700'
                     }
                   >
-                    {isAccepted ? 'Aceito' : 'Respondido'}
+                    {statusLabel()}
                   </span>
                 </div>
 
@@ -246,6 +300,17 @@ export default function OrcamentoRecebidoPage() {
                     </p>
                   </div>
 
+                  {quote.adjustment_notes && (
+                    <div className="rounded-2xl bg-yellow-50 p-3">
+                      <p className="text-xs font-bold text-yellow-700">
+                        Ajuste solicitado
+                      </p>
+                      <p className="mt-2 text-sm leading-5 text-yellow-800">
+                        {quote.adjustment_notes}
+                      </p>
+                    </div>
+                  )}
+
                   <div className="rounded-2xl bg-[#fbf7f1] p-3">
                     <p className="text-xs font-bold text-gray-500">
                       Enviado em
@@ -269,6 +334,34 @@ export default function OrcamentoRecebidoPage() {
                 </div>
               )}
 
+              {showAdjustmentBox && !isAccepted && (
+                <div className="mt-5 rounded-[28px] bg-white p-5 shadow-sm ring-1 ring-[#f1e7cf]">
+                  <h3 className="text-lg font-extrabold">
+                    Solicitar ajuste
+                  </h3>
+
+                  <p className="mt-1 text-sm leading-5 text-gray-500">
+                    Descreva o que você deseja alterar na proposta.
+                  </p>
+
+                  <textarea
+                    value={adjustmentNotes}
+                    onChange={(event) => setAdjustmentNotes(event.target.value)}
+                    className="mt-4 min-h-[120px] w-full resize-none rounded-[22px] bg-[#fbf7f1] px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400"
+                    placeholder="Ex: Gostaria de ajustar a forma de pagamento, incluir mais horas ou revisar o valor..."
+                  />
+
+                  <button
+                    onClick={handleRequestAdjustment}
+                    disabled={adjusting}
+                    className="mt-4 flex w-full items-center justify-center gap-2 rounded-[24px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg disabled:opacity-60"
+                  >
+                    <RefreshCcw size={21} />
+                    {adjusting ? 'Enviando ajuste...' : 'Enviar pedido de ajuste'}
+                  </button>
+                </div>
+              )}
+
               <div className="mt-6 space-y-3">
                 <button
                   onClick={handleAcceptQuote}
@@ -283,9 +376,17 @@ export default function OrcamentoRecebidoPage() {
                       : 'Aceitar orçamento'}
                 </button>
 
-                <button className="flex w-full items-center justify-center gap-2 rounded-[24px] bg-white py-4 text-center font-extrabold text-[#151515] shadow-sm ring-1 ring-[#f1e7cf]">
+                <button
+                  onClick={() => {
+                    setErrorMessage('');
+                    setSuccessMessage('');
+                    setShowAdjustmentBox(!showAdjustmentBox);
+                  }}
+                  disabled={isAccepted}
+                  className="flex w-full items-center justify-center gap-2 rounded-[24px] bg-white py-4 text-center font-extrabold text-[#151515] shadow-sm ring-1 ring-[#f1e7cf] disabled:opacity-60"
+                >
                   <RefreshCcw size={21} />
-                  Solicitar ajuste
+                  {showAdjustmentBox ? 'Fechar ajuste' : 'Solicitar ajuste'}
                 </button>
 
                 <Link
