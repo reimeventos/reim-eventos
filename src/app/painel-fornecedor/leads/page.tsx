@@ -10,12 +10,13 @@ import {
   Clock,
   MapPin,
   MessageCircle,
-  Send,
-  User,
   Users,
   Building2,
   FileText,
   Phone,
+  User,
+  PartyPopper,
+  Camera,
 } from 'lucide-react';
 
 export default function LeadsFornecedorPage() {
@@ -27,15 +28,29 @@ export default function LeadsFornecedorPage() {
       .then((data) => {
         setLeads(data || []);
       })
+      .catch((error) => {
+        console.error('Erro ao carregar leads:', error);
+      })
       .finally(() => {
         setLoading(false);
       });
   }, []);
 
+  function formatDate(date?: string) {
+    if (!date) return 'Data não informada';
+
+    const [year, month, day] = date.split('-');
+
+    if (!year || !month || !day) {
+      return date;
+    }
+
+    return `${day}/${month}/${year}`;
+  }
+
   return (
     <main className="min-h-screen bg-black text-[#151515]">
       <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] pb-10 shadow-2xl">
-        {/* TOPO */}
         <section className="relative overflow-hidden rounded-b-[34px] bg-black px-6 pb-8 pt-7 text-white">
           <div className="absolute inset-0 bg-[url('/layout01-fundo.png')] bg-cover bg-center opacity-45" />
           <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/85 to-black" />
@@ -59,7 +74,6 @@ export default function LeadsFornecedorPage() {
           </div>
         </section>
 
-        {/* RESUMO */}
         <section className="grid grid-cols-3 gap-3 px-6 pt-6">
           <div className="rounded-[22px] bg-white p-4 text-center shadow-sm ring-1 ring-[#f1e7cf]">
             <p className="text-2xl font-extrabold text-[#d99200]">
@@ -71,21 +85,24 @@ export default function LeadsFornecedorPage() {
           </div>
 
           <div className="rounded-[22px] bg-white p-4 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-            <p className="text-2xl font-extrabold text-blue-600">0</p>
+            <p className="text-2xl font-extrabold text-blue-600">
+              {leads.filter((lead) => lead.status === 'respondido').length}
+            </p>
             <p className="mt-1 text-[11px] font-bold text-gray-600">
               Respondidos
             </p>
           </div>
 
           <div className="rounded-[22px] bg-white p-4 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-            <p className="text-2xl font-extrabold text-green-600">0</p>
+            <p className="text-2xl font-extrabold text-green-600">
+              {leads.filter((lead) => lead.status === 'fechado').length}
+            </p>
             <p className="mt-1 text-[11px] font-bold text-gray-600">
               Fechados
             </p>
           </div>
         </section>
 
-        {/* LISTA */}
         <section className="px-6 pt-6">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-extrabold">Solicitações</h2>
@@ -121,37 +138,16 @@ export default function LeadsFornecedorPage() {
 
           <div className="space-y-4">
             {leads.map((lead) => {
-              const eventName =
-                lead.events?.event_name || lead.event_name || 'Evento sem nome';
-
-              const city = lead.events?.city || lead.city || 'Eunápolis';
-
-              const eventDate =
-                lead.events?.event_date || lead.event_date || 'Data não informada';
-
-              const eventSpace =
-                lead.events?.event_space ||
-                lead.event_space ||
-                lead.venue ||
-                'Espaço não informado';
-
-              const guests =
-                lead.events?.guests ||
-                lead.guests ||
-                lead.guest_count ||
-                'Não informado';
-
-              const clientName =
-                lead.client_name ||
-                lead.name ||
-                lead.user_name ||
-                'Cliente não informado';
-
-              const phone =
-                lead.phone ||
-                lead.whatsapp ||
-                lead.client_phone ||
-                'WhatsApp não informado';
+              const clientName = lead.customer_name || 'Cliente não informado';
+              const phone = lead.customer_whatsapp || 'WhatsApp não informado';
+              const eventType = lead.event_type || 'Evento não informado';
+              const serviceNeeded = lead.service_needed || 'Serviço não informado';
+              const city = lead.event_city || 'Cidade não informada';
+              const eventDate = formatDate(lead.event_date);
+              const eventSpace = lead.event_space || 'Não informado';
+              const guests = lead.guests_count || 'Não informado';
+              const notes = lead.notes || 'Cliente não informou mensagem.';
+              const status = lead.status || 'aguardando_resposta';
 
               return (
                 <div
@@ -160,7 +156,7 @@ export default function LeadsFornecedorPage() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <h3 className="text-lg font-extrabold">{eventName}</h3>
+                      <h3 className="text-lg font-extrabold">{eventType}</h3>
 
                       <p className="mt-1 flex items-center gap-1 text-sm font-bold text-gray-500">
                         <MapPin size={15} className="text-[#d99200]" />
@@ -170,7 +166,7 @@ export default function LeadsFornecedorPage() {
 
                     <span className="flex items-center gap-1 rounded-full bg-[#fff7e8] px-3 py-1 text-[11px] font-extrabold text-[#b97900]">
                       <Clock size={13} />
-                      Novo
+                      {status === 'aguardando_resposta' ? 'Novo' : status}
                     </span>
                   </div>
 
@@ -212,10 +208,34 @@ export default function LeadsFornecedorPage() {
 
                   <div className="mt-3 rounded-2xl bg-[#fbf7f1] p-3">
                     <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
-                      <Building2 size={14} className="text-[#d99200]" />
-                      Espaço do evento
+                      <Camera size={14} className="text-[#d99200]" />
+                      Serviço desejado
                     </p>
-                    <p className="mt-1 text-sm font-extrabold">{eventSpace}</p>
+                    <p className="mt-1 text-sm font-extrabold">
+                      {serviceNeeded}
+                    </p>
+                  </div>
+
+                  <div className="mt-3 rounded-2xl bg-[#fbf7f1] p-3">
+                    <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
+                      <Building2 size={14} className="text-[#d99200]" />
+                      {serviceNeeded === 'Espaço de festa'
+                        ? 'Preferência de estrutura'
+                        : 'Espaço do evento'}
+                    </p>
+                    <p className="mt-1 text-sm font-extrabold">
+                      {eventSpace}
+                    </p>
+                  </div>
+
+                  <div className="mt-3 rounded-2xl bg-[#fbf7f1] p-3">
+                    <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
+                      <PartyPopper size={14} className="text-[#d99200]" />
+                      Tipo de evento
+                    </p>
+                    <p className="mt-1 text-sm font-extrabold">
+                      {eventType}
+                    </p>
                   </div>
 
                   <div className="mt-4">
@@ -225,7 +245,7 @@ export default function LeadsFornecedorPage() {
                     </p>
 
                     <p className="mt-2 text-sm leading-5 text-gray-600">
-                      {lead.message || 'Cliente não informou mensagem.'}
+                      {notes}
                     </p>
                   </div>
 
