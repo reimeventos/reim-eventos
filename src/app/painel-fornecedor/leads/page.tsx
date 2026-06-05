@@ -17,6 +17,8 @@ import {
   User,
   PartyPopper,
   Camera,
+  RefreshCcw,
+  AlertCircle,
 } from 'lucide-react';
 
 export default function LeadsFornecedorPage() {
@@ -47,6 +49,35 @@ export default function LeadsFornecedorPage() {
 
     return `${day}/${month}/${year}`;
   }
+
+  function statusLabel(status: string) {
+    if (status === 'aguardando_resposta') return 'Novo';
+    if (status === 'respondido') return 'Respondido';
+    if (status === 'ajuste_solicitado') return 'Ajuste solicitado';
+    if (status === 'aceito') return 'Aceito';
+    if (status === 'fechado') return 'Fechado';
+    return status;
+  }
+
+  function statusClass(status: string) {
+    if (status === 'ajuste_solicitado') {
+      return 'bg-yellow-100 text-yellow-800';
+    }
+
+    if (status === 'aceito' || status === 'fechado') {
+      return 'bg-green-100 text-green-700';
+    }
+
+    if (status === 'respondido') {
+      return 'bg-blue-50 text-blue-700';
+    }
+
+    return 'bg-[#fff7e8] text-[#b97900]';
+  }
+
+  const respondedCount = leads.filter((lead) => lead.status === 'respondido').length;
+  const adjustmentCount = leads.filter((lead) => lead.status === 'ajuste_solicitado').length;
+  const closedCount = leads.filter((lead) => lead.status === 'aceito' || lead.status === 'fechado').length;
 
   return (
     <main className="min-h-screen bg-black text-[#151515]">
@@ -85,20 +116,20 @@ export default function LeadsFornecedorPage() {
           </div>
 
           <div className="rounded-[22px] bg-white p-4 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-            <p className="text-2xl font-extrabold text-blue-600">
-              {leads.filter((lead) => lead.status === 'respondido').length}
+            <p className="text-2xl font-extrabold text-yellow-600">
+              {adjustmentCount}
             </p>
             <p className="mt-1 text-[11px] font-bold text-gray-600">
-              Respondidos
+              Ajustes
             </p>
           </div>
 
           <div className="rounded-[22px] bg-white p-4 text-center shadow-sm ring-1 ring-[#f1e7cf]">
             <p className="text-2xl font-extrabold text-green-600">
-              {leads.filter((lead) => lead.status === 'fechado').length}
+              {closedCount}
             </p>
             <p className="mt-1 text-[11px] font-bold text-gray-600">
-              Fechados
+              Aceitos
             </p>
           </div>
         </section>
@@ -149,10 +180,24 @@ export default function LeadsFornecedorPage() {
               const notes = lead.notes || 'Cliente não informou mensagem.';
               const status = lead.status || 'aguardando_resposta';
 
+              const responses = lead.quote_responses || [];
+              const latestResponse = responses.length > 0 ? responses[responses.length - 1] : null;
+
+              const adjustmentNotes =
+                latestResponse?.adjustment_notes ||
+                lead.adjustment_notes ||
+                '';
+
+              const hasAdjustment = status === 'ajuste_solicitado';
+
               return (
                 <div
                   key={lead.id}
-                  className="rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)]"
+                  className={
+                    hasAdjustment
+                      ? 'rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.10)] ring-2 ring-yellow-300'
+                      : 'rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)]'
+                  }
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -164,11 +209,26 @@ export default function LeadsFornecedorPage() {
                       </p>
                     </div>
 
-                    <span className="flex items-center gap-1 rounded-full bg-[#fff7e8] px-3 py-1 text-[11px] font-extrabold text-[#b97900]">
-                      <Clock size={13} />
-                      {status === 'aguardando_resposta' ? 'Novo' : status}
+                    <span
+                      className={`flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-extrabold ${statusClass(status)}`}
+                    >
+                      {hasAdjustment ? <AlertCircle size={13} /> : <Clock size={13} />}
+                      {statusLabel(status)}
                     </span>
                   </div>
+
+                  {hasAdjustment && (
+                    <div className="mt-4 rounded-2xl bg-yellow-50 p-4 ring-1 ring-yellow-200">
+                      <p className="flex items-center gap-2 text-xs font-extrabold text-yellow-800">
+                        <RefreshCcw size={15} />
+                        Cliente solicitou ajuste
+                      </p>
+
+                      <p className="mt-2 text-sm leading-5 text-yellow-900">
+                        {adjustmentNotes || 'A cliente solicitou ajuste, mas não informou detalhes.'}
+                      </p>
+                    </div>
+                  )}
 
                   <div className="mt-4 grid grid-cols-2 gap-3">
                     <div className="rounded-2xl bg-[#fbf7f1] p-3">
@@ -252,10 +312,14 @@ export default function LeadsFornecedorPage() {
                   <div className="mt-5 space-y-3">
                     <Link
                       href={`/painel-fornecedor/leads/${lead.id}/responder`}
-                      className="flex items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg"
+                      className={
+                        hasAdjustment
+                          ? 'flex items-center justify-center gap-2 rounded-[22px] bg-yellow-500 py-4 text-center font-extrabold text-white shadow-lg'
+                          : 'flex items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg'
+                      }
                     >
                       <FileText size={21} />
-                      Responder orçamento
+                      {hasAdjustment ? 'Revisar orçamento' : 'Responder orçamento'}
                     </Link>
 
                     <div className="grid grid-cols-2 gap-3">
