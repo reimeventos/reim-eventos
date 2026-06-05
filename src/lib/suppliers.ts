@@ -252,3 +252,35 @@ export async function acceptQuoteResponse(data: {
 
   return true;
 }
+
+export async function requestQuoteAdjustment(data: {
+  quote_response_id: string;
+  quote_request_id: string;
+  adjustment_notes: string;
+}) {
+  const { error: responseError } = await supabase
+    .from('quote_responses')
+    .update({
+      status: 'ajuste_solicitado',
+      adjustment_notes: data.adjustment_notes,
+      adjustment_requested_at: new Date().toISOString(),
+    })
+    .eq('id', data.quote_response_id);
+
+  if (responseError) {
+    console.error('Erro ao solicitar ajuste:', responseError);
+    throw responseError;
+  }
+
+  const { error: requestError } = await supabase
+    .from('quote_requests')
+    .update({ status: 'ajuste_solicitado' })
+    .eq('id', data.quote_request_id);
+
+  if (requestError) {
+    console.error('Erro ao atualizar pedido como ajuste solicitado:', requestError);
+    throw requestError;
+  }
+
+  return true;
+}
