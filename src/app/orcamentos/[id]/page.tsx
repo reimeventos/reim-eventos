@@ -12,9 +12,11 @@ import {
   FileText,
   MessageCircle,
   RefreshCcw,
-  Send,
 } from 'lucide-react';
-import { getQuoteResponseByRequestId } from '@/lib/suppliers';
+import {
+  acceptQuoteResponse,
+  getQuoteResponseByRequestId,
+} from '@/lib/suppliers';
 
 export default function OrcamentoRecebidoPage() {
   const params = useParams();
@@ -22,7 +24,9 @@ export default function OrcamentoRecebidoPage() {
 
   const [quote, setQuote] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [accepting, setAccepting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
     if (!requestId) return;
@@ -43,19 +47,51 @@ export default function OrcamentoRecebidoPage() {
   function formatDateTime(date?: string) {
     if (!date) return 'Data não informada';
 
-    const formatted = new Date(date).toLocaleDateString('pt-BR', {
+    return new Date(date).toLocaleDateString('pt-BR', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
     });
+  }
 
-    return formatted;
+  async function handleAcceptQuote() {
+    setSuccessMessage('');
+    setErrorMessage('');
+
+    if (!quote?.id || !requestId) {
+      setErrorMessage('Orçamento não identificado.');
+      return;
+    }
+
+    try {
+      setAccepting(true);
+
+      await acceptQuoteResponse({
+        quote_response_id: quote.id,
+        quote_request_id: requestId,
+      });
+
+      setQuote({
+        ...quote,
+        status: 'aceito',
+      });
+
+      setSuccessMessage('Orçamento aceito com sucesso! O fornecedor será informado pelo app.');
+    } catch (error) {
+      console.error(error);
+      setErrorMessage('Não foi possível aceitar o orçamento. Tente novamente.');
+    } finally {
+      setAccepting(false);
+    }
   }
 
   const supplierName = quote?.suppliers?.business_name || 'Fornecedor';
   const supplierCity = quote?.suppliers?.city || 'Cidade não informada';
   const supplierCategory =
     quote?.suppliers?.categories?.name || 'Fornecedor de eventos';
+
+  const quoteStatus = quote?.status || 'enviado';
+  const isAccepted = quoteStatus === 'aceito';
 
   return (
     <main className="min-h-screen bg-black text-[#151515]">
@@ -92,7 +128,7 @@ export default function OrcamentoRecebidoPage() {
             </div>
           )}
 
-          {!loading && errorMessage && (
+          {!loading && errorMessage && !quote && (
             <div className="rounded-[28px] bg-white p-6 text-center shadow-sm ring-1 ring-[#f1e7cf]">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#fff7e8] text-[#d99200]">
                 <FileText size={32} />
@@ -142,8 +178,14 @@ export default function OrcamentoRecebidoPage() {
                 <div className="mb-4 flex items-center justify-between">
                   <h2 className="text-lg font-extrabold">Proposta</h2>
 
-                  <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-extrabold text-green-700">
-                    Respondido
+                  <span
+                    className={
+                      isAccepted
+                        ? 'rounded-full bg-green-100 px-3 py-1 text-xs font-extrabold text-green-700'
+                        : 'rounded-full bg-green-50 px-3 py-1 text-xs font-extrabold text-green-700'
+                    }
+                  >
+                    {isAccepted ? 'Aceito' : 'Respondido'}
                   </span>
                 </div>
 
@@ -215,10 +257,30 @@ export default function OrcamentoRecebidoPage() {
                 </div>
               </div>
 
+              {errorMessage && (
+                <div className="mt-5 rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+                  {errorMessage}
+                </div>
+              )}
+
+              {successMessage && (
+                <div className="mt-5 rounded-2xl bg-green-50 px-4 py-3 text-sm font-bold text-green-700">
+                  {successMessage}
+                </div>
+              )}
+
               <div className="mt-6 space-y-3">
-                <button className="flex w-full items-center justify-center gap-2 rounded-[24px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg">
+                <button
+                  onClick={handleAcceptQuote}
+                  disabled={accepting || isAccepted}
+                  className="flex w-full items-center justify-center gap-2 rounded-[24px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg disabled:opacity-60"
+                >
                   <CheckCircle2 size={21} />
-                  Aceitar orçamento
+                  {isAccepted
+                    ? 'Orçamento aceito'
+                    : accepting
+                      ? 'Aceitando...'
+                      : 'Aceitar orçamento'}
                 </button>
 
                 <button className="flex w-full items-center justify-center gap-2 rounded-[24px] bg-white py-4 text-center font-extrabold text-[#151515] shadow-sm ring-1 ring-[#f1e7cf]">
