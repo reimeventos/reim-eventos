@@ -106,8 +106,8 @@ export async function getSupplierLeads() {
   const supplier = await getMySupplierProfile();
 
   const { data, error } = await supabase
-    .from('quotes')
-    .select('*, events(event_name, event_date, city, guest_count), profiles(full_name, whatsapp)')
+    .from('quote_requests')
+    .select('*')
     .eq('supplier_id', supplier.id)
     .order('created_at', { ascending: false });
 
