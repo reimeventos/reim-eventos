@@ -115,6 +115,20 @@ export async function getSupplierLeads() {
   return data ?? [];
 }
 
+export async function getSupplierLeadById(id: string) {
+  const supplier = await getMySupplierProfile();
+
+  const { data, error } = await supabase
+    .from('quote_requests')
+    .select('*')
+    .eq('id', id)
+    .eq('supplier_id', supplier.id)
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
 export async function createQuoteRequest(data: {
   supplier_id: string;
   customer_name: string;
@@ -149,6 +163,51 @@ export async function createQuoteRequest(data: {
   if (error) {
     console.error('Erro ao criar solicitação de orçamento:', error);
     throw error;
+  }
+
+  return true;
+}
+
+export async function createQuoteResponse(data: {
+  quote_request_id: string;
+  service_offered: string;
+  duration_period?: string;
+  proposal_value: string;
+  payment_terms?: string;
+  proposal_validity?: string;
+  observations?: string;
+}) {
+  const supplier = await getMySupplierProfile();
+
+  const { error } = await supabase
+    .from('quote_responses')
+    .insert([
+      {
+        quote_request_id: data.quote_request_id,
+        supplier_id: supplier.id,
+        service_offered: data.service_offered,
+        duration_period: data.duration_period || null,
+        proposal_value: data.proposal_value,
+        payment_terms: data.payment_terms || null,
+        proposal_validity: data.proposal_validity || null,
+        observations: data.observations || null,
+      },
+    ]);
+
+  if (error) {
+    console.error('Erro ao criar resposta de orçamento:', error);
+    throw error;
+  }
+
+  const { error: updateError } = await supabase
+    .from('quote_requests')
+    .update({ status: 'respondido' })
+    .eq('id', data.quote_request_id)
+    .eq('supplier_id', supplier.id);
+
+  if (updateError) {
+    console.error('Erro ao atualizar status do pedido:', updateError);
+    throw updateError;
   }
 
   return true;
