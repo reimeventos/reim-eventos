@@ -107,7 +107,21 @@ export async function getSupplierLeads() {
 
   const { data, error } = await supabase
     .from('quote_requests')
-    .select('*')
+    .select(`
+      *,
+      quote_responses(
+        id,
+        status,
+        service_offered,
+        proposal_value,
+        payment_terms,
+        proposal_validity,
+        observations,
+        adjustment_notes,
+        adjustment_requested_at,
+        created_at
+      )
+    `)
     .eq('supplier_id', supplier.id)
     .order('created_at', { ascending: false });
 
