@@ -212,3 +212,16 @@ export async function createQuoteResponse(data: {
 
   return true;
 }
+
+export async function getQuoteResponseByRequestId(requestId: string) {
+  const { data, error } = await supabase
+    .from('quote_responses')
+    .select('*, suppliers(business_name, city, whatsapp, instagram, categories(name))')
+    .eq('quote_request_id', requestId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single();
+
+  if (error) throw error;
+  return data;
+}
