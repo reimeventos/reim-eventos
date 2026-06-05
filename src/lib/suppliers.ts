@@ -225,3 +225,30 @@ export async function getQuoteResponseByRequestId(requestId: string) {
   if (error) throw error;
   return data;
 }
+
+export async function acceptQuoteResponse(data: {
+  quote_response_id: string;
+  quote_request_id: string;
+}) {
+  const { error: responseError } = await supabase
+    .from('quote_responses')
+    .update({ status: 'aceito' })
+    .eq('id', data.quote_response_id);
+
+  if (responseError) {
+    console.error('Erro ao aceitar orçamento:', responseError);
+    throw responseError;
+  }
+
+  const { error: requestError } = await supabase
+    .from('quote_requests')
+    .update({ status: 'aceito' })
+    .eq('id', data.quote_request_id);
+
+  if (requestError) {
+    console.error('Erro ao atualizar solicitação como aceita:', requestError);
+    throw requestError;
+  }
+
+  return true;
+}
