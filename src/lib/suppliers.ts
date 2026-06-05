@@ -113,6 +113,7 @@ export async function getSupplierLeads() {
         id,
         status,
         service_offered,
+        duration_period,
         proposal_value,
         payment_terms,
         proposal_validity,
@@ -134,7 +135,22 @@ export async function getSupplierLeadById(id: string) {
 
   const { data, error } = await supabase
     .from('quote_requests')
-    .select('*')
+    .select(`
+      *,
+      quote_responses(
+        id,
+        status,
+        service_offered,
+        duration_period,
+        proposal_value,
+        payment_terms,
+        proposal_validity,
+        observations,
+        adjustment_notes,
+        adjustment_requested_at,
+        created_at
+      )
+    `)
     .eq('id', id)
     .eq('supplier_id', supplier.id)
     .single();
@@ -199,6 +215,7 @@ export async function createQuoteResponse(data: {
       {
         quote_request_id: data.quote_request_id,
         supplier_id: supplier.id,
+        status: 'respondido',
         service_offered: data.service_offered,
         duration_period: data.duration_period || null,
         proposal_value: data.proposal_value,
