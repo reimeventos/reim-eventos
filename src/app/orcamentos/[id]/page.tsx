@@ -59,6 +59,10 @@ export default function OrcamentoRecebidoPage() {
     });
   }
 
+  function handleDownloadPdf() {
+    window.print();
+  }
+
   async function handleAcceptQuote() {
     setSuccessMessage('');
     setErrorMessage('');
@@ -397,7 +401,10 @@ export default function OrcamentoRecebidoPage() {
                   Conversar com fornecedor
                 </Link>
 
-                <button className="flex w-full items-center justify-center gap-2 rounded-[24px] bg-white py-4 text-center font-extrabold text-[#151515] shadow-sm ring-1 ring-[#f1e7cf]">
+                <button
+                  onClick={handleDownloadPdf}
+                  className="flex w-full items-center justify-center gap-2 rounded-[24px] bg-white py-4 text-center font-extrabold text-[#151515] shadow-sm ring-1 ring-[#f1e7cf]"
+                >
                   <Download size={21} />
                   Baixar PDF
                 </button>
