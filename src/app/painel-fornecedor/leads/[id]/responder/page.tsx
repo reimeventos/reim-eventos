@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
   ArrowLeft,
+  AlertCircle,
   Building2,
   CalendarDays,
   FileText,
@@ -15,6 +16,7 @@ import {
   User,
   Users,
   PartyPopper,
+  RefreshCcw,
 } from 'lucide-react';
 import { createQuoteResponse, getSupplierLeadById } from '@/lib/suppliers';
 
@@ -23,6 +25,7 @@ export default function ResponderOrcamentoPage() {
   const leadId = String(params.id || '');
 
   const [lead, setLead] = useState<any>(null);
+  const [latestResponse, setLatestResponse] = useState<any>(null);
   const [loadingLead, setLoadingLead] = useState(true);
 
   const [serviceOffered, setServiceOffered] = useState('');
@@ -43,9 +46,20 @@ export default function ResponderOrcamentoPage() {
       .then((data) => {
         setLead(data);
 
-        if (data?.service_needed) {
-          setServiceOffered(data.service_needed);
-        }
+        const responses = data?.quote_responses || [];
+        const sortedResponses = [...responses].sort((a, b) => {
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        });
+
+        const last = sortedResponses[0] || null;
+        setLatestResponse(last);
+
+        setServiceOffered(last?.service_offered || data?.service_needed || '');
+        setDurationPeriod(last?.duration_period || '');
+        setProposalValue(last?.proposal_value || '');
+        setPaymentTerms(last?.payment_terms || '');
+        setProposalValidity(last?.proposal_validity || '');
+        setObservations(last?.observations || '');
       })
       .catch((error) => {
         console.error('Erro ao carregar pedido:', error);
@@ -66,6 +80,15 @@ export default function ResponderOrcamentoPage() {
     }
 
     return `${day}/${month}/${year}`;
+  }
+
+  function statusLabel(status: string) {
+    if (status === 'aguardando_resposta') return 'Novo';
+    if (status === 'respondido') return 'Respondido';
+    if (status === 'ajuste_solicitado') return 'Ajuste solicitado';
+    if (status === 'aceito') return 'Aceito';
+    if (status === 'fechado') return 'Fechado';
+    return status;
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -102,7 +125,16 @@ export default function ResponderOrcamentoPage() {
         observations,
       });
 
-      setSuccessMessage('Orçamento enviado com sucesso! O pedido foi marcado como respondido.');
+      setLead({
+        ...lead,
+        status: 'respondido',
+      });
+
+      setSuccessMessage(
+        isAdjustmentRequested
+          ? 'Proposta revisada enviada com sucesso! O status voltou para respondido.'
+          : 'Orçamento enviado com sucesso! O pedido foi marcado como respondido.'
+      );
     } catch (error) {
       console.error(error);
       setErrorMessage('Não foi possível enviar o orçamento. Tente novamente.');
@@ -120,6 +152,8 @@ export default function ResponderOrcamentoPage() {
   const notes = lead?.notes || 'Cliente não informou mensagem.';
   const status = lead?.status || 'aguardando_resposta';
   const isEventSpace = lead?.service_needed === 'Espaço de festa';
+  const isAdjustmentRequested = status === 'ajuste_solicitado';
+  const adjustmentNotes = latestResponse?.adjustment_notes || '';
 
   return (
     <main className="min-h-screen bg-black text-[#151515]">
@@ -138,11 +172,13 @@ export default function ResponderOrcamentoPage() {
             </Link>
 
             <h1 className="mt-5 font-serif text-[34px] leading-tight">
-              Responder orçamento
+              {isAdjustmentRequested ? 'Revisar orçamento' : 'Responder orçamento'}
             </h1>
 
             <p className="mt-2 text-sm text-white/70">
-              Preencha a proposta para enviar ao cliente.
+              {isAdjustmentRequested
+                ? 'Edite a proposta conforme o ajuste solicitado pela cliente.'
+                : 'Preencha a proposta para enviar ao cliente.'}
             </p>
           </div>
         </section>
@@ -152,8 +188,14 @@ export default function ResponderOrcamentoPage() {
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-extrabold">Pedido recebido</h2>
 
-              <span className="rounded-full bg-[#fff7e8] px-3 py-1 text-xs font-extrabold text-[#b97900]">
-                {status === 'aguardando_resposta' ? 'Novo' : status}
+              <span
+                className={
+                  isAdjustmentRequested
+                    ? 'rounded-full bg-yellow-100 px-3 py-1 text-xs font-extrabold text-yellow-800'
+                    : 'rounded-full bg-[#fff7e8] px-3 py-1 text-xs font-extrabold text-[#b97900]'
+                }
+              >
+                {statusLabel(status)}
               </span>
             </div>
 
@@ -163,6 +205,19 @@ export default function ResponderOrcamentoPage() {
               </p>
             ) : (
               <>
+                {isAdjustmentRequested && (
+                  <div className="mb-4 rounded-2xl bg-yellow-50 p-4 ring-1 ring-yellow-200">
+                    <p className="flex items-center gap-2 text-xs font-extrabold text-yellow-800">
+                      <AlertCircle size={15} />
+                      Cliente solicitou ajuste
+                    </p>
+
+                    <p className="mt-2 text-sm leading-5 text-yellow-900">
+                      {adjustmentNotes || 'A cliente solicitou ajuste, mas não informou detalhes.'}
+                    </p>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-3">
                   <div className="rounded-2xl bg-[#fbf7f1] p-3">
                     <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
@@ -210,7 +265,7 @@ export default function ResponderOrcamentoPage() {
                       Status
                     </p>
                     <p className="mt-1 text-sm font-extrabold">
-                      {status === 'aguardando_resposta' ? 'Aguardando' : status}
+                      {statusLabel(status)}
                     </p>
                   </div>
                 </div>
@@ -240,9 +295,14 @@ export default function ResponderOrcamentoPage() {
 
         <section className="px-6 pt-6">
           <div className="mb-4">
-            <h2 className="text-lg font-extrabold">Montar proposta</h2>
+            <h2 className="text-lg font-extrabold">
+              {isAdjustmentRequested ? 'Revisar proposta' : 'Montar proposta'}
+            </h2>
+
             <p className="mt-1 text-sm text-gray-500">
-              Essa resposta poderá virar um orçamento oficial dentro do app.
+              {isAdjustmentRequested
+                ? 'Os dados abaixo foram preenchidos com a última proposta. Altere apenas o necessário.'
+                : 'Essa resposta poderá virar um orçamento oficial dentro do app.'}
             </p>
           </div>
 
@@ -339,8 +399,12 @@ export default function ResponderOrcamentoPage() {
                 disabled={sending}
                 className="flex w-full items-center justify-center gap-2 rounded-[24px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg disabled:opacity-60"
               >
-                <Send size={21} />
-                {sending ? 'Enviando...' : 'Enviar orçamento'}
+                {isAdjustmentRequested ? <RefreshCcw size={21} /> : <Send size={21} />}
+                {sending
+                  ? 'Enviando...'
+                  : isAdjustmentRequested
+                    ? 'Enviar proposta revisada'
+                    : 'Enviar orçamento'}
               </button>
 
               <button
