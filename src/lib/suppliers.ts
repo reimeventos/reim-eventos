@@ -121,6 +121,15 @@ export async function getSupplierLeads() {
         adjustment_notes,
         adjustment_requested_at,
         created_at
+      ),
+      quote_messages(
+        id,
+        sender_type,
+        sender_name,
+        message,
+        read_by_supplier,
+        read_by_client,
+        created_at
       )
     `)
     .eq('supplier_id', supplier.id)
