@@ -1,4 +1,7 @@
+'use client';
+
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import {
   Bell,
   Cake,
@@ -20,6 +23,7 @@ import {
   Utensils,
   Video,
 } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 const categories = [
   { icon: Camera, title: 'Fotografia', subtitle: '& Filmagem' },
@@ -32,28 +36,10 @@ const categories = [
   { icon: Landmark, title: 'Espaços de', subtitle: 'Eventos' },
 ];
 
-const suppliers = [
-  {
-    name: 'Studio Premium',
-    type: 'Fotografia & Filmagem',
-    city: 'Eunápolis',
-    rating: '4.9',
-    img: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?q=80&w=800&auto=format&fit=crop',
-  },
-  {
-    name: 'Sabor Eventos',
-    type: 'Buffet',
-    city: 'Eunápolis',
-    rating: '4.8',
-    img: 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?q=80&w=800&auto=format&fit=crop',
-  },
-  {
-    name: 'Photofest Totem',
-    type: 'Cabine & Totem',
-    city: 'Trancoso',
-    rating: '4.9',
-    img: 'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?q=80&w=800&auto=format&fit=crop',
-  },
+const fallbackImages = [
+  'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?q=80&w=800&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?q=80&w=800&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?q=80&w=800&auto=format&fit=crop',
 ];
 
 function CrownLogo() {
@@ -102,6 +88,57 @@ function CrownLogo() {
 }
 
 export default function HomePage() {
+  const [featuredSuppliers, setFeaturedSuppliers] = useState<any[]>([]);
+  const [loadingSuppliers, setLoadingSuppliers] = useState(true);
+
+  useEffect(() => {
+    async function loadFeaturedSuppliers() {
+      try {
+        setLoadingSuppliers(true);
+
+        const { data, error } = await supabase
+          .from('suppliers')
+          .select(`
+            id,
+            business_name,
+            city,
+            rating_average,
+            is_featured,
+            status,
+            categories(name),
+            media(file_url, is_cover)
+          `)
+          .or('status.eq.ativo,status.eq.aprovado')
+          .order('is_featured', { ascending: false })
+          .order('rating_average', { ascending: false })
+          .limit(3);
+
+        if (error) throw error;
+
+        setFeaturedSuppliers(data || []);
+      } catch (error) {
+        console.error('Erro ao carregar fornecedores em destaque:', error);
+        setFeaturedSuppliers([]);
+      } finally {
+        setLoadingSuppliers(false);
+      }
+    }
+
+    loadFeaturedSuppliers();
+  }, []);
+
+  function getSupplierImage(supplier: any, index: number) {
+    const media = supplier?.media || [];
+    const cover = media.find((item: any) => item.is_cover);
+    const firstMedia = media[0];
+
+    return cover?.file_url || firstMedia?.file_url || fallbackImages[index] || fallbackImages[0];
+  }
+
+  function getSupplierCategory(supplier: any) {
+    return supplier?.categories?.name || 'Fornecedor de eventos';
+  }
+
   return (
     <main className="min-h-screen bg-black text-[#151515]">
       <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] shadow-2xl">
@@ -259,46 +296,60 @@ export default function HomePage() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
-            {suppliers.map((s) => (
-              <Link
-                href="/fornecedor/demo"
-                key={s.name}
-                className="overflow-hidden rounded-[20px] bg-white shadow-[0_10px_25px_rgba(0,0,0,.10)]"
-              >
-                <div
-                  className="relative h-[96px] bg-cover bg-center"
-                  style={{ backgroundImage: `url(${s.img})` }}
+          {loadingSuppliers && (
+            <div className="rounded-[22px] bg-white p-5 text-center text-sm font-bold text-gray-500 shadow-sm ring-1 ring-[#f1e7cf]">
+              Carregando fornecedores...
+            </div>
+          )}
+
+          {!loadingSuppliers && featuredSuppliers.length === 0 && (
+            <div className="rounded-[22px] bg-white p-5 text-center text-sm font-bold text-gray-500 shadow-sm ring-1 ring-[#f1e7cf]">
+              Nenhum fornecedor em destaque encontrado.
+            </div>
+          )}
+
+          {!loadingSuppliers && featuredSuppliers.length > 0 && (
+            <div className="grid grid-cols-3 gap-4">
+              {featuredSuppliers.map((supplier, index) => (
+                <Link
+                  href={`/fornecedor/${supplier.id}`}
+                  key={supplier.id}
+                  className="overflow-hidden rounded-[20px] bg-white shadow-[0_10px_25px_rgba(0,0,0,.10)]"
                 >
-                  <span className="absolute left-2 top-2 rounded-full bg-[#e3a925] px-2 py-1 text-[9px] font-extrabold text-white">
-                    ♛ Premium
-                  </span>
+                  <div
+                    className="relative h-[96px] bg-cover bg-center"
+                    style={{ backgroundImage: `url(${getSupplierImage(supplier, index)})` }}
+                  >
+                    <span className="absolute left-2 top-2 rounded-full bg-[#e3a925] px-2 py-1 text-[9px] font-extrabold text-white">
+                      ♛ Premium
+                    </span>
 
-                  <span className="absolute right-2 top-2 text-xl text-white drop-shadow">
-                    ♡
-                  </span>
-                </div>
+                    <span className="absolute right-2 top-2 text-xl text-white drop-shadow">
+                      ♡
+                    </span>
+                  </div>
 
-                <div className="p-3">
-                  <b className="block truncate text-[12px] leading-4">
-                    {s.name}
-                  </b>
+                  <div className="p-3">
+                    <b className="block truncate text-[12px] leading-4">
+                      {supplier.business_name || 'Fornecedor'}
+                    </b>
 
-                  <p className="mt-1 truncate text-[10px] text-gray-600">
-                    {s.type}
-                  </p>
+                    <p className="mt-1 truncate text-[10px] text-gray-600">
+                      {getSupplierCategory(supplier)}
+                    </p>
 
-                  <p className="mt-1 text-[10px] font-bold text-[#d99200]">
-                    ★ {s.rating}
-                  </p>
+                    <p className="mt-1 text-[10px] font-bold text-[#d99200]">
+                      ★ {supplier.rating_average || '4.9'}
+                    </p>
 
-                  <p className="truncate text-[10px] text-gray-500">
-                    📍 {s.city}
-                  </p>
-                </div>
-              </Link>
-            ))}
-          </div>
+                    <p className="truncate text-[10px] text-gray-500">
+                      📍 {supplier.city || 'Eunápolis'}
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
         </section>
 
         {/* MENU INFERIOR */}
