@@ -150,273 +150,639 @@ export default function OrcamentoRecebidoPage() {
   }
 
   return (
-    <main className="min-h-screen bg-black text-[#151515]">
-      <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] pb-10 shadow-2xl">
-        <section className="relative overflow-hidden rounded-b-[34px] bg-black px-6 pb-8 pt-7 text-white">
-          <div className="absolute inset-0 bg-[url('/layout01-fundo.png')] bg-cover bg-center opacity-45" />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/85 to-black" />
+    <>
+      <style jsx global>{`
+        .print-area {
+          display: none;
+        }
 
-          <div className="relative z-10">
-            <Link
-              href="/orcamentos"
-              className="inline-flex items-center gap-2 text-sm font-bold text-[#e3a925]"
-            >
-              <ArrowLeft size={17} />
-              Voltar
-            </Link>
+        @media print {
+          @page {
+            size: A4;
+            margin: 0;
+          }
 
-            <h1 className="mt-5 font-serif text-[34px] leading-tight">
-              Orçamento recebido
-            </h1>
+          html,
+          body {
+            background: #ffffff !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
 
-            <p className="mt-2 text-sm text-white/70">
-              Veja a proposta enviada pelo fornecedor.
-            </p>
-          </div>
-        </section>
+          body * {
+            visibility: hidden !important;
+          }
 
-        <section className="px-6 pt-6">
-          {loading && (
-            <div className="rounded-[28px] bg-white p-6 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-              <p className="text-sm font-bold text-gray-500">
-                Carregando orçamento...
-              </p>
-            </div>
-          )}
+          .print-area,
+          .print-area * {
+            visibility: visible !important;
+          }
 
-          {!loading && errorMessage && !quote && (
-            <div className="rounded-[28px] bg-white p-6 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#fff7e8] text-[#d99200]">
-                <FileText size={32} />
-              </div>
+          .print-area {
+            display: block !important;
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            min-height: 100vh !important;
+            background: #ffffff !important;
+            color: #151515 !important;
+            font-family: Arial, Helvetica, sans-serif !important;
+          }
 
-              <h2 className="mt-4 text-lg font-extrabold">
-                Orçamento não disponível
-              </h2>
+          .screen-area {
+            display: none !important;
+          }
+        }
+      `}</style>
 
-              <p className="mt-2 text-sm leading-5 text-gray-500">
-                {errorMessage}
-              </p>
+      <main className="screen-area min-h-screen bg-black text-[#151515]">
+        <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] pb-10 shadow-2xl">
+          <section className="relative overflow-hidden rounded-b-[34px] bg-black px-6 pb-8 pt-7 text-white">
+            <div className="absolute inset-0 bg-[url('/layout01-fundo.png')] bg-cover bg-center opacity-45" />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/85 to-black" />
 
+            <div className="relative z-10">
               <Link
-                href="/buscar"
-                className="mt-5 flex items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg"
+                href="/orcamentos"
+                className="inline-flex items-center gap-2 text-sm font-bold text-[#e3a925]"
               >
-                Buscar fornecedores
+                <ArrowLeft size={17} />
+                Voltar
               </Link>
+
+              <h1 className="mt-5 font-serif text-[34px] leading-tight">
+                Orçamento recebido
+              </h1>
+
+              <p className="mt-2 text-sm text-white/70">
+                Veja a proposta enviada pelo fornecedor.
+              </p>
             </div>
-          )}
+          </section>
 
-          {!loading && quote && (
-            <>
-              <div className="rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)]">
-                <div className="flex items-center gap-4">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]">
-                    <Building2 size={30} />
-                  </div>
-
-                  <div>
-                    <p className="text-xs font-bold text-gray-500">
-                      Fornecedor
-                    </p>
-                    <h2 className="text-lg font-extrabold">{supplierName}</h2>
-                    <p className="text-sm text-gray-500">{supplierCategory}</p>
-                  </div>
-                </div>
-
-                <div className="mt-4 rounded-2xl bg-[#fbf7f1] p-3">
-                  <p className="text-xs font-bold text-gray-500">Cidade</p>
-                  <p className="mt-1 text-sm font-extrabold">{supplierCity}</p>
-                </div>
+          <section className="px-6 pt-6">
+            {loading && (
+              <div className="rounded-[28px] bg-white p-6 text-center shadow-sm ring-1 ring-[#f1e7cf]">
+                <p className="text-sm font-bold text-gray-500">
+                  Carregando orçamento...
+                </p>
               </div>
+            )}
 
-              <div className="mt-5 rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)]">
-                <div className="mb-4 flex items-center justify-between">
-                  <h2 className="text-lg font-extrabold">Proposta</h2>
-
-                  <span
-                    className={
-                      isAccepted
-                        ? 'rounded-full bg-green-100 px-3 py-1 text-xs font-extrabold text-green-700'
-                        : isAdjustmentRequested
-                          ? 'rounded-full bg-yellow-100 px-3 py-1 text-xs font-extrabold text-yellow-700'
-                          : 'rounded-full bg-green-50 px-3 py-1 text-xs font-extrabold text-green-700'
-                    }
-                  >
-                    {statusLabel()}
-                  </span>
+            {!loading && errorMessage && !quote && (
+              <div className="rounded-[28px] bg-white p-6 text-center shadow-sm ring-1 ring-[#f1e7cf]">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#fff7e8] text-[#d99200]">
+                  <FileText size={32} />
                 </div>
 
-                <div className="space-y-3">
-                  <div className="rounded-2xl bg-[#fbf7f1] p-3">
-                    <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
-                      <FileText size={14} className="text-[#d99200]" />
-                      Serviço oferecido
-                    </p>
-                    <p className="mt-1 text-sm font-extrabold">
-                      {quote.service_offered || 'Não informado'}
-                    </p>
-                  </div>
+                <h2 className="mt-4 text-lg font-extrabold">
+                  Orçamento não disponível
+                </h2>
 
-                  <div className="rounded-2xl bg-[#fbf7f1] p-3">
-                    <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
-                      <CalendarDays size={14} className="text-[#d99200]" />
-                      Duração / período
-                    </p>
-                    <p className="mt-1 text-sm font-extrabold">
-                      {quote.duration_period || 'Não informado'}
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl bg-[#fff7e8] p-4">
-                    <p className="text-xs font-bold text-[#b97900]">
-                      Valor da proposta
-                    </p>
-                    <p className="mt-1 text-2xl font-extrabold text-[#151515]">
-                      {quote.proposal_value || 'Valor não informado'}
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl bg-[#fbf7f1] p-3">
-                    <p className="text-xs font-bold text-gray-500">
-                      Forma de pagamento
-                    </p>
-                    <p className="mt-1 text-sm font-extrabold">
-                      {quote.payment_terms || 'Não informado'}
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl bg-[#fbf7f1] p-3">
-                    <p className="text-xs font-bold text-gray-500">
-                      Validade da proposta
-                    </p>
-                    <p className="mt-1 text-sm font-extrabold">
-                      {quote.proposal_validity || 'Não informado'}
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl bg-[#fbf7f1] p-3">
-                    <p className="text-xs font-bold text-gray-500">
-                      Observações
-                    </p>
-                    <p className="mt-2 text-sm leading-5 text-gray-600">
-                      {quote.observations || 'Sem observações adicionais.'}
-                    </p>
-                  </div>
-
-                  {quote.adjustment_notes && (
-                    <div className="rounded-2xl bg-yellow-50 p-3">
-                      <p className="text-xs font-bold text-yellow-700">
-                        Ajuste solicitado
-                      </p>
-                      <p className="mt-2 text-sm leading-5 text-yellow-800">
-                        {quote.adjustment_notes}
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="rounded-2xl bg-[#fbf7f1] p-3">
-                    <p className="text-xs font-bold text-gray-500">
-                      Enviado em
-                    </p>
-                    <p className="mt-1 text-sm font-extrabold">
-                      {formatDateTime(quote.created_at)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {errorMessage && (
-                <div className="mt-5 rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+                <p className="mt-2 text-sm leading-5 text-gray-500">
                   {errorMessage}
-                </div>
-              )}
-
-              {successMessage && (
-                <div className="mt-5 rounded-2xl bg-green-50 px-4 py-3 text-sm font-bold text-green-700">
-                  {successMessage}
-                </div>
-              )}
-
-              {showAdjustmentBox && !isAccepted && (
-                <div className="mt-5 rounded-[28px] bg-white p-5 shadow-sm ring-1 ring-[#f1e7cf]">
-                  <h3 className="text-lg font-extrabold">
-                    Solicitar ajuste
-                  </h3>
-
-                  <p className="mt-1 text-sm leading-5 text-gray-500">
-                    Descreva o que você deseja alterar na proposta.
-                  </p>
-
-                  <textarea
-                    value={adjustmentNotes}
-                    onChange={(event) => setAdjustmentNotes(event.target.value)}
-                    className="mt-4 min-h-[120px] w-full resize-none rounded-[22px] bg-[#fbf7f1] px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400"
-                    placeholder="Ex: Gostaria de ajustar a forma de pagamento, incluir mais horas ou revisar o valor..."
-                  />
-
-                  <button
-                    onClick={handleRequestAdjustment}
-                    disabled={adjusting}
-                    className="mt-4 flex w-full items-center justify-center gap-2 rounded-[24px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg disabled:opacity-60"
-                  >
-                    <RefreshCcw size={21} />
-                    {adjusting ? 'Enviando ajuste...' : 'Enviar pedido de ajuste'}
-                  </button>
-                </div>
-              )}
-
-              <div className="mt-6 space-y-3">
-                <button
-                  onClick={handleAcceptQuote}
-                  disabled={accepting || isAccepted}
-                  className="flex w-full items-center justify-center gap-2 rounded-[24px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg disabled:opacity-60"
-                >
-                  <CheckCircle2 size={21} />
-                  {isAccepted
-                    ? 'Orçamento aceito'
-                    : accepting
-                      ? 'Aceitando...'
-                      : 'Aceitar orçamento'}
-                </button>
-
-                <button
-                  onClick={() => {
-                    setErrorMessage('');
-                    setSuccessMessage('');
-                    setShowAdjustmentBox(!showAdjustmentBox);
-                  }}
-                  disabled={isAccepted}
-                  className="flex w-full items-center justify-center gap-2 rounded-[24px] bg-white py-4 text-center font-extrabold text-[#151515] shadow-sm ring-1 ring-[#f1e7cf] disabled:opacity-60"
-                >
-                  <RefreshCcw size={21} />
-                  {showAdjustmentBox ? 'Fechar ajuste' : 'Solicitar ajuste'}
-                </button>
+                </p>
 
                 <Link
-                  href={`/orcamentos/${requestId}/chat`}
-                  className="flex w-full items-center justify-center gap-2 rounded-[24px] bg-black py-4 text-center font-extrabold text-white shadow-lg"
+                  href="/buscar"
+                  className="mt-5 flex items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg"
                 >
-                  <MessageCircle size={21} />
-                  Conversar com fornecedor
+                  Buscar fornecedores
                 </Link>
+              </div>
+            )}
 
-                <button
-                  onClick={handleDownloadPdf}
-                  className="flex w-full items-center justify-center gap-2 rounded-[24px] bg-white py-4 text-center font-extrabold text-[#151515] shadow-sm ring-1 ring-[#f1e7cf]"
+            {!loading && quote && (
+              <>
+                <div className="rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)]">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]">
+                      <Building2 size={30} />
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-bold text-gray-500">
+                        Fornecedor
+                      </p>
+                      <h2 className="text-lg font-extrabold">{supplierName}</h2>
+                      <p className="text-sm text-gray-500">{supplierCategory}</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 rounded-2xl bg-[#fbf7f1] p-3">
+                    <p className="text-xs font-bold text-gray-500">Cidade</p>
+                    <p className="mt-1 text-sm font-extrabold">{supplierCity}</p>
+                  </div>
+                </div>
+
+                <div className="mt-5 rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)]">
+                  <div className="mb-4 flex items-center justify-between">
+                    <h2 className="text-lg font-extrabold">Proposta</h2>
+
+                    <span
+                      className={
+                        isAccepted
+                          ? 'rounded-full bg-green-100 px-3 py-1 text-xs font-extrabold text-green-700'
+                          : isAdjustmentRequested
+                            ? 'rounded-full bg-yellow-100 px-3 py-1 text-xs font-extrabold text-yellow-700'
+                            : 'rounded-full bg-green-50 px-3 py-1 text-xs font-extrabold text-green-700'
+                      }
+                    >
+                      {statusLabel()}
+                    </span>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="rounded-2xl bg-[#fbf7f1] p-3">
+                      <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
+                        <FileText size={14} className="text-[#d99200]" />
+                        Serviço oferecido
+                      </p>
+                      <p className="mt-1 text-sm font-extrabold">
+                        {quote.service_offered || 'Não informado'}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl bg-[#fbf7f1] p-3">
+                      <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
+                        <CalendarDays size={14} className="text-[#d99200]" />
+                        Duração / período
+                      </p>
+                      <p className="mt-1 text-sm font-extrabold">
+                        {quote.duration_period || 'Não informado'}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl bg-[#fff7e8] p-4">
+                      <p className="text-xs font-bold text-[#b97900]">
+                        Valor da proposta
+                      </p>
+                      <p className="mt-1 text-2xl font-extrabold text-[#151515]">
+                        {quote.proposal_value || 'Valor não informado'}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl bg-[#fbf7f1] p-3">
+                      <p className="text-xs font-bold text-gray-500">
+                        Forma de pagamento
+                      </p>
+                      <p className="mt-1 text-sm font-extrabold">
+                        {quote.payment_terms || 'Não informado'}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl bg-[#fbf7f1] p-3">
+                      <p className="text-xs font-bold text-gray-500">
+                        Validade da proposta
+                      </p>
+                      <p className="mt-1 text-sm font-extrabold">
+                        {quote.proposal_validity || 'Não informado'}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl bg-[#fbf7f1] p-3">
+                      <p className="text-xs font-bold text-gray-500">
+                        Observações
+                      </p>
+                      <p className="mt-2 text-sm leading-5 text-gray-600">
+                        {quote.observations || 'Sem observações adicionais.'}
+                      </p>
+                    </div>
+
+                    {quote.adjustment_notes && (
+                      <div className="rounded-2xl bg-yellow-50 p-3">
+                        <p className="text-xs font-bold text-yellow-700">
+                          Ajuste solicitado
+                        </p>
+                        <p className="mt-2 text-sm leading-5 text-yellow-800">
+                          {quote.adjustment_notes}
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="rounded-2xl bg-[#fbf7f1] p-3">
+                      <p className="text-xs font-bold text-gray-500">
+                        Enviado em
+                      </p>
+                      <p className="mt-1 text-sm font-extrabold">
+                        {formatDateTime(quote.created_at)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {errorMessage && (
+                  <div className="mt-5 rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+                    {errorMessage}
+                  </div>
+                )}
+
+                {successMessage && (
+                  <div className="mt-5 rounded-2xl bg-green-50 px-4 py-3 text-sm font-bold text-green-700">
+                    {successMessage}
+                  </div>
+                )}
+
+                {showAdjustmentBox && !isAccepted && (
+                  <div className="mt-5 rounded-[28px] bg-white p-5 shadow-sm ring-1 ring-[#f1e7cf]">
+                    <h3 className="text-lg font-extrabold">
+                      Solicitar ajuste
+                    </h3>
+
+                    <p className="mt-1 text-sm leading-5 text-gray-500">
+                      Descreva o que você deseja alterar na proposta.
+                    </p>
+
+                    <textarea
+                      value={adjustmentNotes}
+                      onChange={(event) => setAdjustmentNotes(event.target.value)}
+                      className="mt-4 min-h-[120px] w-full resize-none rounded-[22px] bg-[#fbf7f1] px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400"
+                      placeholder="Ex: Gostaria de ajustar a forma de pagamento, incluir mais horas ou revisar o valor..."
+                    />
+
+                    <button
+                      onClick={handleRequestAdjustment}
+                      disabled={adjusting}
+                      className="mt-4 flex w-full items-center justify-center gap-2 rounded-[24px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg disabled:opacity-60"
+                    >
+                      <RefreshCcw size={21} />
+                      {adjusting ? 'Enviando ajuste...' : 'Enviar pedido de ajuste'}
+                    </button>
+                  </div>
+                )}
+
+                <div className="mt-6 space-y-3">
+                  <button
+                    onClick={handleAcceptQuote}
+                    disabled={accepting || isAccepted}
+                    className="flex w-full items-center justify-center gap-2 rounded-[24px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg disabled:opacity-60"
+                  >
+                    <CheckCircle2 size={21} />
+                    {isAccepted
+                      ? 'Orçamento aceito'
+                      : accepting
+                        ? 'Aceitando...'
+                        : 'Aceitar orçamento'}
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setErrorMessage('');
+                      setSuccessMessage('');
+                      setShowAdjustmentBox(!showAdjustmentBox);
+                    }}
+                    disabled={isAccepted}
+                    className="flex w-full items-center justify-center gap-2 rounded-[24px] bg-white py-4 text-center font-extrabold text-[#151515] shadow-sm ring-1 ring-[#f1e7cf] disabled:opacity-60"
+                  >
+                    <RefreshCcw size={21} />
+                    {showAdjustmentBox ? 'Fechar ajuste' : 'Solicitar ajuste'}
+                  </button>
+
+                  <Link
+                    href={`/orcamentos/${requestId}/chat`}
+                    className="flex w-full items-center justify-center gap-2 rounded-[24px] bg-black py-4 text-center font-extrabold text-white shadow-lg"
+                  >
+                    <MessageCircle size={21} />
+                    Conversar com fornecedor
+                  </Link>
+
+                  <button
+                    onClick={handleDownloadPdf}
+                    className="flex w-full items-center justify-center gap-2 rounded-[24px] bg-white py-4 text-center font-extrabold text-[#151515] shadow-sm ring-1 ring-[#f1e7cf]"
+                  >
+                    <Download size={21} />
+                    Baixar PDF
+                  </button>
+                </div>
+
+                <p className="mt-4 text-center text-xs leading-5 text-gray-500">
+                  Você pode aceitar, pedir ajuste ou conversar com o fornecedor antes de fechar.
+                </p>
+              </>
+            )}
+          </section>
+        </div>
+      </main>
+
+      {quote && (
+        <div className="print-area">
+          <div style={{ minHeight: '100vh', padding: '0 54px 28px' }}>
+            <header
+              style={{
+                marginLeft: -54,
+                marginRight: -54,
+                background: '#e3a925',
+                padding: '28px 54px 22px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                borderBottom: '4px solid #151515',
+              }}
+            >
+              <div>
+                <div
+                  style={{
+                    fontSize: 13,
+                    letterSpacing: 4,
+                    fontWeight: 700,
+                    color: '#151515',
+                  }}
                 >
-                  <Download size={21} />
-                  Baixar PDF
-                </button>
+                  REIM EVENTOS
+                </div>
+
+                <div
+                  style={{
+                    marginTop: 6,
+                    fontSize: 30,
+                    fontWeight: 800,
+                    color: '#151515',
+                  }}
+                >
+                  Orçamento Oficial
+                </div>
+
+                <div
+                  style={{
+                    marginTop: 4,
+                    fontSize: 12,
+                    color: '#151515',
+                  }}
+                >
+                  Documento gerado pela plataforma REIM EVENTOS
+                </div>
               </div>
 
-              <p className="mt-4 text-center text-xs leading-5 text-gray-500">
-                Você pode aceitar, pedir ajuste ou conversar com o fornecedor antes de fechar.
+              <div
+                style={{
+                  width: 92,
+                  height: 92,
+                  borderRadius: 999,
+                  border: '3px solid #151515',
+                  background: '#fff7e8',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  textAlign: 'center',
+                  fontSize: 15,
+                  fontWeight: 900,
+                  lineHeight: 1.1,
+                  color: '#151515',
+                }}
+              >
+                REIM<br />EVENTOS
+              </div>
+            </header>
+
+            <section style={{ paddingTop: 28 }}>
+              <h1
+                style={{
+                  margin: 0,
+                  fontSize: 26,
+                  textAlign: 'center',
+                  color: '#151515',
+                }}
+              >
+                Proposta de Orçamento
+              </h1>
+
+              <p
+                style={{
+                  marginTop: 8,
+                  textAlign: 'center',
+                  fontSize: 13,
+                  color: '#555',
+                }}
+              >
+                Este orçamento foi emitido por um fornecedor cadastrado no app REIM EVENTOS.
               </p>
-            </>
-          )}
-        </section>
-      </div>
-    </main>
+            </section>
+
+            <section
+              style={{
+                marginTop: 26,
+                border: '1px solid #eadfca',
+                borderRadius: 14,
+                overflow: 'hidden',
+              }}
+            >
+              <div
+                style={{
+                  background: '#151515',
+                  color: '#ffffff',
+                  padding: '12px 18px',
+                  fontSize: 15,
+                  fontWeight: 800,
+                }}
+              >
+                Dados do Fornecedor
+              </div>
+
+              <div style={{ padding: 18, display: 'grid', gap: 10 }}>
+                <p style={{ margin: 0, fontSize: 14 }}>
+                  <strong>Fornecedor:</strong> {supplierName}
+                </p>
+
+                <p style={{ margin: 0, fontSize: 14 }}>
+                  <strong>Categoria:</strong> {supplierCategory}
+                </p>
+
+                <p style={{ margin: 0, fontSize: 14 }}>
+                  <strong>Cidade:</strong> {supplierCity}
+                </p>
+
+                <p style={{ margin: 0, fontSize: 14 }}>
+                  <strong>Status da proposta:</strong> {statusLabel()}
+                </p>
+              </div>
+            </section>
+
+            <section
+              style={{
+                marginTop: 20,
+                border: '1px solid #eadfca',
+                borderRadius: 14,
+                overflow: 'hidden',
+              }}
+            >
+              <div
+                style={{
+                  background: '#151515',
+                  color: '#ffffff',
+                  padding: '12px 18px',
+                  fontSize: 15,
+                  fontWeight: 800,
+                }}
+              >
+                Detalhes da Proposta
+              </div>
+
+              <div style={{ padding: 18 }}>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: 14,
+                  }}
+                >
+                  <div
+                    style={{
+                      background: '#fbf7f1',
+                      borderRadius: 12,
+                      padding: 14,
+                    }}
+                  >
+                    <div style={{ fontSize: 11, fontWeight: 800, color: '#777' }}>
+                      Serviço oferecido
+                    </div>
+                    <div style={{ marginTop: 5, fontSize: 15, fontWeight: 800 }}>
+                      {quote.service_offered || 'Não informado'}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      background: '#fbf7f1',
+                      borderRadius: 12,
+                      padding: 14,
+                    }}
+                  >
+                    <div style={{ fontSize: 11, fontWeight: 800, color: '#777' }}>
+                      Duração / período
+                    </div>
+                    <div style={{ marginTop: 5, fontSize: 15, fontWeight: 800 }}>
+                      {quote.duration_period || 'Não informado'}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      background: '#fff7e8',
+                      borderRadius: 12,
+                      padding: 14,
+                      border: '1px solid #e3a925',
+                    }}
+                  >
+                    <div style={{ fontSize: 11, fontWeight: 800, color: '#b97900' }}>
+                      Valor da proposta
+                    </div>
+                    <div style={{ marginTop: 5, fontSize: 24, fontWeight: 900 }}>
+                      {quote.proposal_value || 'Valor não informado'}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      background: '#fbf7f1',
+                      borderRadius: 12,
+                      padding: 14,
+                    }}
+                  >
+                    <div style={{ fontSize: 11, fontWeight: 800, color: '#777' }}>
+                      Forma de pagamento
+                    </div>
+                    <div style={{ marginTop: 5, fontSize: 15, fontWeight: 800 }}>
+                      {quote.payment_terms || 'Não informado'}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      background: '#fbf7f1',
+                      borderRadius: 12,
+                      padding: 14,
+                    }}
+                  >
+                    <div style={{ fontSize: 11, fontWeight: 800, color: '#777' }}>
+                      Validade da proposta
+                    </div>
+                    <div style={{ marginTop: 5, fontSize: 15, fontWeight: 800 }}>
+                      {quote.proposal_validity || 'Não informado'}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      background: '#fbf7f1',
+                      borderRadius: 12,
+                      padding: 14,
+                    }}
+                  >
+                    <div style={{ fontSize: 11, fontWeight: 800, color: '#777' }}>
+                      Enviado em
+                    </div>
+                    <div style={{ marginTop: 5, fontSize: 15, fontWeight: 800 }}>
+                      {formatDateTime(quote.created_at)}
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    marginTop: 14,
+                    background: '#fbf7f1',
+                    borderRadius: 12,
+                    padding: 14,
+                  }}
+                >
+                  <div style={{ fontSize: 11, fontWeight: 800, color: '#777' }}>
+                    Observações
+                  </div>
+                  <div style={{ marginTop: 7, fontSize: 14, lineHeight: 1.5 }}>
+                    {quote.observations || 'Sem observações adicionais.'}
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section
+              style={{
+                marginTop: 20,
+                padding: 18,
+                borderRadius: 14,
+                background: '#fff7e8',
+                border: '1px solid #e3a925',
+              }}
+            >
+              <div style={{ fontSize: 14, fontWeight: 900 }}>
+                Informações importantes
+              </div>
+
+              <p style={{ margin: '8px 0 0', fontSize: 13, lineHeight: 1.5 }}>
+                Este documento registra a proposta enviada pelo fornecedor dentro do app REIM EVENTOS.
+                A contratação, pagamento, prazos, execução do serviço e demais condições devem ser
+                confirmados diretamente entre cliente e fornecedor.
+              </p>
+            </section>
+
+            <footer
+              style={{
+                marginTop: 30,
+                borderTop: '2px solid #151515',
+                paddingTop: 14,
+                fontSize: 11,
+                color: '#444',
+                display: 'flex',
+                justifyContent: 'space-between',
+                gap: 20,
+              }}
+            >
+              <div>
+                <strong>REIM EVENTOS</strong>
+                <br />
+                Todos os fornecedores do seu evento em um só lugar.
+              </div>
+
+              <div style={{ textAlign: 'right' }}>
+                Orçamento gerado em {new Date().toLocaleDateString('pt-BR')}
+                <br />
+                Código do pedido: {requestId}
+              </div>
+            </footer>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
