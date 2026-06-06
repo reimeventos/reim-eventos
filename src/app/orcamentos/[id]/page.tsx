@@ -222,6 +222,119 @@ export default function OrcamentoRecebidoPage() {
           .screen-area {
             display: none !important;
           }
+
+          .print-area > div {
+            min-height: auto !important;
+            padding: 0 34px 16px !important;
+          }
+
+          .print-area header {
+            padding: 16px 34px !important;
+            border-bottom-width: 4px !important;
+          }
+
+          .print-area header > div > div:first-child > div:nth-child(2) {
+            font-size: 28px !important;
+            margin-top: 6px !important;
+          }
+
+          .print-area header > div > div:first-child > div:nth-child(3) {
+            font-size: 11px !important;
+            margin-top: 4px !important;
+          }
+
+          .print-area header > div > div:last-child {
+            min-width: 125px !important;
+            padding: 10px 12px !important;
+            border-radius: 16px !important;
+          }
+
+          .print-area header > div > div:last-child > div:nth-child(1) {
+            font-size: 22px !important;
+          }
+
+          .print-area header > div > div:last-child > div:nth-child(2) {
+            font-size: 23px !important;
+          }
+
+          .print-area section {
+            margin-top: 12px !important;
+          }
+
+          .print-area section:first-of-type {
+            padding-top: 14px !important;
+          }
+
+          .print-area h1 {
+            font-size: 23px !important;
+          }
+
+          .print-area p {
+            margin-top: 5px !important;
+          }
+
+          .print-area section,
+          .print-area footer {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+          }
+
+          .print-area [style*='padding: 18px'] {
+            padding: 11px !important;
+          }
+
+          .print-area [style*='padding: 16px'] {
+            padding: 11px !important;
+          }
+
+          .print-area [style*='padding: 14px'] {
+            padding: 9px !important;
+          }
+
+          .print-area [style*='gap: 12'] {
+            gap: 8px !important;
+          }
+
+          .print-area [style*='gap: 20'] {
+            gap: 12px !important;
+          }
+
+          .print-area [style*='font-size: 35'] {
+            font-size: 28px !important;
+          }
+
+          .print-area [style*='font-size: 30'] {
+            font-size: 23px !important;
+          }
+
+          .print-area [style*='font-size: 28'] {
+            font-size: 23px !important;
+          }
+
+          .print-area [style*='font-size: 26'] {
+            font-size: 21px !important;
+          }
+
+          .print-area [style*='font-size: 16'] {
+            font-size: 14px !important;
+          }
+
+          .print-area [style*='font-size: 15'] {
+            font-size: 13px !important;
+          }
+
+          .print-area [style*='font-size: 14'] {
+            font-size: 12px !important;
+          }
+
+          .print-area [style*='marginTop: 22'] {
+            margin-top: 12px !important;
+          }
+
+          .print-area footer {
+            margin-top: 12px !important;
+            padding-top: 9px !important;
+          }
         }
       `}</style>
 
