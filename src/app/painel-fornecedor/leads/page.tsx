@@ -19,6 +19,7 @@ import {
   Camera,
   RefreshCcw,
   AlertCircle,
+  Bell,
 } from 'lucide-react';
 
 export default function LeadsFornecedorPage() {
@@ -75,9 +76,25 @@ export default function LeadsFornecedorPage() {
     return 'bg-[#fff7e8] text-[#b97900]';
   }
 
-  const respondedCount = leads.filter((lead) => lead.status === 'respondido').length;
-  const adjustmentCount = leads.filter((lead) => lead.status === 'ajuste_solicitado').length;
-  const closedCount = leads.filter((lead) => lead.status === 'aceito' || lead.status === 'fechado').length;
+  const adjustmentCount = leads.filter(
+    (lead) => lead.status === 'ajuste_solicitado'
+  ).length;
+
+  const closedCount = leads.filter(
+    (lead) => lead.status === 'aceito' || lead.status === 'fechado'
+  ).length;
+
+  const totalUnreadMessages = leads.reduce((total, lead) => {
+    const messages = lead.quote_messages || [];
+
+    const unread = messages.filter(
+      (message: any) =>
+        message.sender_type === 'cliente' &&
+        message.read_by_supplier === false
+    ).length;
+
+    return total + unread;
+  }, 0);
 
   return (
     <main className="min-h-screen bg-black text-[#151515]">
@@ -134,6 +151,27 @@ export default function LeadsFornecedorPage() {
           </div>
         </section>
 
+        {totalUnreadMessages > 0 && (
+          <section className="px-6 pt-4">
+            <div className="flex items-center gap-3 rounded-[22px] bg-[#151515] px-4 py-4 text-white shadow-lg">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#e3a925]">
+                <Bell size={22} />
+              </div>
+
+              <div>
+                <p className="text-sm font-extrabold">
+                  {totalUnreadMessages === 1
+                    ? '1 nova mensagem'
+                    : `${totalUnreadMessages} novas mensagens`}
+                </p>
+                <p className="mt-1 text-xs text-white/70">
+                  Abra o chat do orçamento para responder.
+                </p>
+              </div>
+            </div>
+          </section>
+        )}
+
         <section className="px-6 pt-6">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-extrabold">Solicitações</h2>
@@ -181,7 +219,8 @@ export default function LeadsFornecedorPage() {
               const status = lead.status || 'aguardando_resposta';
 
               const responses = lead.quote_responses || [];
-              const latestResponse = responses.length > 0 ? responses[responses.length - 1] : null;
+              const latestResponse =
+                responses.length > 0 ? responses[responses.length - 1] : null;
 
               const adjustmentNotes =
                 latestResponse?.adjustment_notes ||
@@ -190,13 +229,25 @@ export default function LeadsFornecedorPage() {
 
               const hasAdjustment = status === 'ajuste_solicitado';
 
+              const messages = lead.quote_messages || [];
+
+              const unreadMessages = messages.filter(
+                (message: any) =>
+                  message.sender_type === 'cliente' &&
+                  message.read_by_supplier === false
+              ).length;
+
+              const hasUnreadMessages = unreadMessages > 0;
+
               return (
                 <div
                   key={lead.id}
                   className={
                     hasAdjustment
                       ? 'rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.10)] ring-2 ring-yellow-300'
-                      : 'rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)]'
+                      : hasUnreadMessages
+                        ? 'rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.12)] ring-2 ring-[#e3a925]'
+                        : 'rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)]'
                   }
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -209,12 +260,23 @@ export default function LeadsFornecedorPage() {
                       </p>
                     </div>
 
-                    <span
-                      className={`flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-extrabold ${statusClass(status)}`}
-                    >
-                      {hasAdjustment ? <AlertCircle size={13} /> : <Clock size={13} />}
-                      {statusLabel(status)}
-                    </span>
+                    <div className="flex flex-col items-end gap-2">
+                      {hasUnreadMessages && (
+                        <span className="flex items-center gap-1 rounded-full bg-[#151515] px-3 py-1 text-[11px] font-extrabold text-white">
+                          <Bell size={13} className="text-[#e3a925]" />
+                          {unreadMessages === 1
+                            ? '1 nova msg'
+                            : `${unreadMessages} novas msg`}
+                        </span>
+                      )}
+
+                      <span
+                        className={`flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-extrabold ${statusClass(status)}`}
+                      >
+                        {hasAdjustment ? <AlertCircle size={13} /> : <Clock size={13} />}
+                        {statusLabel(status)}
+                      </span>
+                    </div>
                   </div>
 
                   {hasAdjustment && (
@@ -225,7 +287,24 @@ export default function LeadsFornecedorPage() {
                       </p>
 
                       <p className="mt-2 text-sm leading-5 text-yellow-900">
-                        {adjustmentNotes || 'A cliente solicitou ajuste, mas não informou detalhes.'}
+                        {adjustmentNotes ||
+                          'A cliente solicitou ajuste, mas não informou detalhes.'}
+                      </p>
+                    </div>
+                  )}
+
+                  {hasUnreadMessages && (
+                    <div className="mt-4 rounded-2xl bg-[#151515] p-4 text-white">
+                      <p className="flex items-center gap-2 text-xs font-extrabold text-[#f7d67b]">
+                        <Bell size={15} />
+                        Mensagem nova no chat
+                      </p>
+
+                      <p className="mt-2 text-sm leading-5 text-white/80">
+                        A cliente enviou{' '}
+                        {unreadMessages === 1
+                          ? 'uma nova mensagem.'
+                          : `${unreadMessages} novas mensagens.`}
                       </p>
                     </div>
                   )}
@@ -325,10 +404,20 @@ export default function LeadsFornecedorPage() {
                     <div className="grid grid-cols-2 gap-3">
                       <Link
                         href={`/orcamentos/${lead.id}/chat`}
-                        className="flex items-center justify-center gap-2 rounded-[20px] bg-black py-3 text-center text-sm font-extrabold text-white"
+                        className={
+                          hasUnreadMessages
+                            ? 'relative flex items-center justify-center gap-2 rounded-[20px] bg-[#151515] py-3 text-center text-sm font-extrabold text-white ring-2 ring-[#e3a925]'
+                            : 'flex items-center justify-center gap-2 rounded-[20px] bg-black py-3 text-center text-sm font-extrabold text-white'
+                        }
                       >
                         <MessageCircle size={18} />
                         Chat
+
+                        {hasUnreadMessages && (
+                          <span className="absolute -right-2 -top-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-[#e3a925] px-2 text-[11px] font-extrabold text-white">
+                            {unreadMessages}
+                          </span>
+                        )}
                       </Link>
 
                       <button className="flex items-center justify-center gap-2 rounded-[20px] bg-[#fbf7f1] py-3 text-center text-sm font-extrabold text-[#151515] ring-1 ring-[#f1e7cf]">
