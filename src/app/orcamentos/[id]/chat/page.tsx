@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { listQuoteMessages, sendQuoteMessage } from '@/lib/chat';
 import { getQuoteResponseByRequestId } from '@/lib/suppliers';
+import { supabase } from '@/lib/supabase';
 
 export default function ChatOrcamentoPage() {
   const params = useParams();
@@ -23,7 +24,7 @@ export default function ChatOrcamentoPage() {
   const [messages, setMessages] = useState<any[]>([]);
   const [message, setMessage] = useState('');
   const [senderType, setSenderType] = useState<'cliente' | 'fornecedor'>('cliente');
-  const [senderName, setSenderName] = useState('');
+  const [senderName, setSenderName] = useState('Cliente');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -42,6 +43,28 @@ export default function ChatOrcamentoPage() {
 
         setQuote(quoteData);
         setMessages(messagesData);
+
+        const user = (await supabase.auth.getUser()).data.user;
+
+        if (user && quoteData?.supplier_id) {
+          const { data: supplierOwner } = await supabase
+            .from('suppliers')
+            .select('id, business_name')
+            .eq('id', quoteData.supplier_id)
+            .eq('owner_id', user.id)
+            .maybeSingle();
+
+          if (supplierOwner) {
+            setSenderType('fornecedor');
+            setSenderName(supplierOwner.business_name || quoteData?.suppliers?.business_name || 'Fornecedor');
+          } else {
+            setSenderType('cliente');
+            setSenderName('Cliente');
+          }
+        } else {
+          setSenderType('cliente');
+          setSenderName('Cliente');
+        }
       } catch (error) {
         console.error(error);
         setErrorMessage('Não foi possível carregar o chat.');
@@ -73,11 +96,7 @@ export default function ChatOrcamentoPage() {
         quote_request_id: requestId,
         supplier_id: quote?.supplier_id || null,
         sender_type: senderType,
-        sender_name:
-          senderName.trim() ||
-          (senderType === 'fornecedor'
-            ? quote?.suppliers?.business_name || 'Fornecedor'
-            : 'Cliente'),
+        sender_name: senderName,
         message: message.trim(),
       });
 
@@ -97,6 +116,8 @@ export default function ChatOrcamentoPage() {
   const supplierCategory =
     quote?.suppliers?.categories?.name || 'Fornecedor de eventos';
 
+  const isSupplierMode = senderType === 'fornecedor';
+
   return (
     <main className="min-h-screen bg-black text-[#151515]">
       <div className="mx-auto flex min-h-screen w-full max-w-[430px] flex-col overflow-hidden bg-[#fbf7f1] shadow-2xl">
@@ -106,7 +127,7 @@ export default function ChatOrcamentoPage() {
 
           <div className="relative z-10">
             <Link
-              href={`/orcamentos/${requestId}`}
+              href={isSupplierMode ? '/painel-fornecedor/leads' : `/orcamentos/${requestId}`}
               className="inline-flex items-center gap-2 text-sm font-bold text-[#e3a925]"
             >
               <ArrowLeft size={17} />
@@ -136,6 +157,16 @@ export default function ChatOrcamentoPage() {
                 <p className="text-xs text-gray-500">{supplierCategory}</p>
               </div>
             </div>
+          </div>
+
+          <div
+            className={
+              isSupplierMode
+                ? 'mt-3 rounded-2xl bg-[#fff7e8] px-4 py-3 text-xs font-extrabold text-[#9a6a00] ring-1 ring-[#e3a925]/30'
+                : 'mt-3 rounded-2xl bg-white px-4 py-3 text-xs font-extrabold text-gray-600 ring-1 ring-[#f1e7cf]'
+            }
+          >
+            Você está respondendo como: {isSupplierMode ? 'Fornecedor' : 'Cliente'}
           </div>
         </section>
 
@@ -209,49 +240,16 @@ export default function ChatOrcamentoPage() {
         </section>
 
         <section className="border-t border-[#f1e7cf] bg-white px-5 py-4">
-          <div className="mb-3 grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => setSenderType('cliente')}
-              className={
-                senderType === 'cliente'
-                  ? 'rounded-2xl bg-[#e3a925] px-3 py-2 text-xs font-extrabold text-white'
-                  : 'rounded-2xl bg-[#fbf7f1] px-3 py-2 text-xs font-extrabold text-[#151515] ring-1 ring-[#f1e7cf]'
-              }
-            >
-              Cliente
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setSenderType('fornecedor')}
-              className={
-                senderType === 'fornecedor'
-                  ? 'rounded-2xl bg-[#e3a925] px-3 py-2 text-xs font-extrabold text-white'
-                  : 'rounded-2xl bg-[#fbf7f1] px-3 py-2 text-xs font-extrabold text-[#151515] ring-1 ring-[#f1e7cf]'
-              }
-            >
-              Fornecedor
-            </button>
-          </div>
-
-          <input
-            value={senderName}
-            onChange={(event) => setSenderName(event.target.value)}
-            className="mb-3 w-full rounded-[18px] bg-[#fbf7f1] px-4 py-3 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400"
-            placeholder={
-              senderType === 'fornecedor'
-                ? `Nome: ${supplierName}`
-                : 'Seu nome'
-            }
-          />
-
           <form onSubmit={handleSendMessage} className="flex items-center gap-2">
             <input
               value={message}
               onChange={(event) => setMessage(event.target.value)}
               className="min-w-0 flex-1 rounded-[22px] bg-[#fbf7f1] px-4 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400"
-              placeholder="Digite sua mensagem..."
+              placeholder={
+                isSupplierMode
+                  ? 'Responder como fornecedor...'
+                  : 'Digite sua mensagem...'
+              }
             />
 
             <button
