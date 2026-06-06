@@ -42,9 +42,7 @@ export default function OrcamentoRecebidoPage() {
       })
       .catch((error) => {
         console.error('Erro ao carregar orçamento:', error);
-        setErrorMessage(
-          'Orçamento ainda não encontrado ou não respondido pelo fornecedor.'
-        );
+        setErrorMessage('Orçamento ainda não encontrado ou não respondido pelo fornecedor.');
       })
       .finally(() => {
         setLoading(false);
@@ -88,9 +86,7 @@ export default function OrcamentoRecebidoPage() {
       });
 
       setShowAdjustmentBox(false);
-      setSuccessMessage(
-        'Orçamento aceito com sucesso! O fornecedor será informado pelo app.'
-      );
+      setSuccessMessage('Orçamento aceito com sucesso! O fornecedor será informado pelo app.');
     } catch (error) {
       console.error(error);
       setErrorMessage('Não foi possível aceitar o orçamento. Tente novamente.');
@@ -129,9 +125,7 @@ export default function OrcamentoRecebidoPage() {
         adjustment_requested_at: new Date().toISOString(),
       });
 
-      setSuccessMessage(
-        'Solicitação de ajuste enviada com sucesso! O fornecedor poderá revisar a proposta.'
-      );
+      setSuccessMessage('Solicitação de ajuste enviada com sucesso! O fornecedor poderá revisar a proposta.');
     } catch (error) {
       console.error(error);
       setErrorMessage('Não foi possível solicitar ajuste. Tente novamente.');
@@ -142,12 +136,15 @@ export default function OrcamentoRecebidoPage() {
 
   const supplierName = quote?.suppliers?.business_name || 'Fornecedor';
   const supplierCity = quote?.suppliers?.city || 'Cidade não informada';
-  const supplierCategory =
-    quote?.suppliers?.categories?.name || 'Fornecedor de eventos';
+  const supplierCategory = quote?.suppliers?.categories?.name || 'Fornecedor de eventos';
+  const supplierWhatsapp = quote?.suppliers?.whatsapp || '';
+  const supplierInstagram = quote?.suppliers?.instagram || '';
 
   const quoteStatus = quote?.status || 'enviado';
   const isAccepted = quoteStatus === 'aceito';
   const isAdjustmentRequested = quoteStatus === 'ajuste_solicitado';
+
+  const budgetCode = requestId ? `ORC-${requestId.slice(0, 8).toUpperCase()}` : 'ORC-REIM';
 
   function statusLabel() {
     if (isAccepted) return 'Aceito';
@@ -317,8 +314,8 @@ export default function OrcamentoRecebidoPage() {
                         isAccepted
                           ? 'rounded-full bg-green-100 px-3 py-1 text-xs font-extrabold text-green-700'
                           : isAdjustmentRequested
-                          ? 'rounded-full bg-yellow-100 px-3 py-1 text-xs font-extrabold text-yellow-700'
-                          : 'rounded-full bg-green-50 px-3 py-1 text-xs font-extrabold text-green-700'
+                            ? 'rounded-full bg-yellow-100 px-3 py-1 text-xs font-extrabold text-yellow-700'
+                            : 'rounded-full bg-green-50 px-3 py-1 text-xs font-extrabold text-green-700'
                       }
                     >
                       {statusLabel()}
@@ -418,7 +415,9 @@ export default function OrcamentoRecebidoPage() {
 
                 {showAdjustmentBox && !isAccepted && (
                   <div className="mt-5 rounded-[28px] bg-white p-5 shadow-sm ring-1 ring-[#f1e7cf]">
-                    <h3 className="text-lg font-extrabold">Solicitar ajuste</h3>
+                    <h3 className="text-lg font-extrabold">
+                      Solicitar ajuste
+                    </h3>
 
                     <p className="mt-1 text-sm leading-5 text-gray-500">
                       Descreva o que você deseja alterar na proposta.
@@ -437,9 +436,7 @@ export default function OrcamentoRecebidoPage() {
                       className="mt-4 flex w-full items-center justify-center gap-2 rounded-[24px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg disabled:opacity-60"
                     >
                       <RefreshCcw size={21} />
-                      {adjusting
-                        ? 'Enviando ajuste...'
-                        : 'Enviar pedido de ajuste'}
+                      {adjusting ? 'Enviando ajuste...' : 'Enviar pedido de ajuste'}
                     </button>
                   </div>
                 )}
@@ -454,8 +451,8 @@ export default function OrcamentoRecebidoPage() {
                     {isAccepted
                       ? 'Orçamento aceito'
                       : accepting
-                      ? 'Aceitando...'
-                      : 'Aceitar orçamento'}
+                        ? 'Aceitando...'
+                        : 'Aceitar orçamento'}
                   </button>
 
                   <button
@@ -489,8 +486,7 @@ export default function OrcamentoRecebidoPage() {
                 </div>
 
                 <p className="mt-4 text-center text-xs leading-5 text-gray-500">
-                  Você pode aceitar, pedir ajuste ou conversar com o fornecedor
-                  antes de fechar.
+                  Você pode aceitar, pedir ajuste ou conversar com o fornecedor antes de fechar.
                 </p>
               </>
             )}
@@ -513,9 +509,9 @@ export default function OrcamentoRecebidoPage() {
                 marginLeft: -42,
                 marginRight: -42,
                 background:
-                  'linear-gradient(135deg, #0f0f0f 0%, #1d1d1d 35%, #c89418 100%)',
+                  'linear-gradient(135deg, #0f0f0f 0%, #1d1d1d 42%, #c89418 100%)',
                 color: '#ffffff',
-                padding: '28px 42px',
+                padding: '26px 42px',
                 borderBottom: '6px solid #e3a925',
               }}
             >
@@ -534,7 +530,6 @@ export default function OrcamentoRecebidoPage() {
                       letterSpacing: 5,
                       fontWeight: 700,
                       color: '#f7d67b',
-                      textTransform: 'uppercase',
                     }}
                   >
                     REIM EVENTOS
@@ -566,16 +561,16 @@ export default function OrcamentoRecebidoPage() {
                 <div
                   style={{
                     minWidth: 170,
-                    border: '2px solid rgba(255,255,255,0.25)',
+                    border: '2px solid rgba(255,255,255,0.28)',
                     borderRadius: 20,
-                    background: 'rgba(255,255,255,0.08)',
+                    background: 'rgba(255,255,255,0.10)',
                     padding: '16px 18px',
                     textAlign: 'center',
                   }}
                 >
                   <div
                     style={{
-                      fontSize: 28,
+                      fontSize: 30,
                       lineHeight: 1,
                       color: '#f7d67b',
                     }}
@@ -586,10 +581,10 @@ export default function OrcamentoRecebidoPage() {
                   <div
                     style={{
                       marginTop: 6,
-                      fontSize: 28,
+                      fontSize: 30,
                       lineHeight: 1,
                       fontWeight: 800,
-                      letterSpacing: 1,
+                      letterSpacing: 2,
                       color: '#ffffff',
                       fontFamily: 'Georgia, Times New Roman, serif',
                     }}
@@ -612,36 +607,76 @@ export default function OrcamentoRecebidoPage() {
               </div>
             </header>
 
-            <section style={{ paddingTop: 26 }}>
-              <h1
+            <section style={{ paddingTop: 24 }}>
+              <div
                 style={{
-                  margin: 0,
-                  textAlign: 'center',
-                  fontSize: 28,
-                  fontWeight: 800,
-                  color: '#151515',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: 16,
                 }}
               >
-                Proposta de Orçamento
-              </h1>
+                <div>
+                  <h1
+                    style={{
+                      margin: 0,
+                      fontSize: 28,
+                      fontWeight: 900,
+                      color: '#151515',
+                    }}
+                  >
+                    Proposta de Orçamento
+                  </h1>
 
-              <p
-                style={{
-                  marginTop: 10,
-                  textAlign: 'center',
-                  fontSize: 14,
-                  color: '#555',
-                  lineHeight: 1.5,
-                }}
-              >
-                Este orçamento foi emitido por um fornecedor cadastrado na
-                plataforma <strong>REIM EVENTOS</strong>.
-              </p>
+                  <p
+                    style={{
+                      marginTop: 8,
+                      fontSize: 13,
+                      color: '#555',
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    Este orçamento foi emitido por um fornecedor cadastrado na plataforma{' '}
+                    <strong>REIM EVENTOS</strong>.
+                  </p>
+                </div>
+
+                <div
+                  style={{
+                    background: '#fff7e8',
+                    border: '1px solid #e3a925',
+                    borderRadius: 14,
+                    padding: '12px 16px',
+                    textAlign: 'right',
+                    minWidth: 145,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 800,
+                      color: '#9a6a00',
+                    }}
+                  >
+                    Nº DO ORÇAMENTO
+                  </div>
+                  <div
+                    style={{
+                      marginTop: 4,
+                      fontSize: 16,
+                      fontWeight: 900,
+                      color: '#151515',
+                    }}
+                  >
+                    {budgetCode}
+                  </div>
+                </div>
+              </div>
             </section>
 
             <section
               style={{
-                marginTop: 24,
+                marginTop: 22,
                 borderRadius: 18,
                 overflow: 'hidden',
                 border: '1px solid #eadfca',
@@ -676,19 +711,10 @@ export default function OrcamentoRecebidoPage() {
                     border: '1px solid #f1e7cf',
                   }}
                 >
-                  <div
-                    style={{ fontSize: 11, fontWeight: 800, color: '#8b8b8b' }}
-                  >
+                  <div style={{ fontSize: 11, fontWeight: 800, color: '#8b8b8b' }}>
                     Fornecedor
                   </div>
-                  <div
-                    style={{
-                      marginTop: 5,
-                      fontSize: 16,
-                      fontWeight: 800,
-                      color: '#151515',
-                    }}
-                  >
+                  <div style={{ marginTop: 5, fontSize: 16, fontWeight: 800 }}>
                     {supplierName}
                   </div>
                 </div>
@@ -701,19 +727,10 @@ export default function OrcamentoRecebidoPage() {
                     border: '1px solid #f1e7cf',
                   }}
                 >
-                  <div
-                    style={{ fontSize: 11, fontWeight: 800, color: '#8b8b8b' }}
-                  >
+                  <div style={{ fontSize: 11, fontWeight: 800, color: '#8b8b8b' }}>
                     Categoria
                   </div>
-                  <div
-                    style={{
-                      marginTop: 5,
-                      fontSize: 16,
-                      fontWeight: 800,
-                      color: '#151515',
-                    }}
-                  >
+                  <div style={{ marginTop: 5, fontSize: 16, fontWeight: 800 }}>
                     {supplierCategory}
                   </div>
                 </div>
@@ -726,19 +743,10 @@ export default function OrcamentoRecebidoPage() {
                     border: '1px solid #f1e7cf',
                   }}
                 >
-                  <div
-                    style={{ fontSize: 11, fontWeight: 800, color: '#8b8b8b' }}
-                  >
+                  <div style={{ fontSize: 11, fontWeight: 800, color: '#8b8b8b' }}>
                     Cidade
                   </div>
-                  <div
-                    style={{
-                      marginTop: 5,
-                      fontSize: 16,
-                      fontWeight: 800,
-                      color: '#151515',
-                    }}
-                  >
+                  <div style={{ marginTop: 5, fontSize: 16, fontWeight: 800 }}>
                     {supplierCity}
                   </div>
                 </div>
@@ -771,12 +779,46 @@ export default function OrcamentoRecebidoPage() {
                     {statusLabel()}
                   </div>
                 </div>
+
+                <div
+                  style={{
+                    gridColumn: '1 / -1',
+                    background: isAccepted ? '#e8fff2' : '#fff7e8',
+                    padding: 14,
+                    borderRadius: 14,
+                    border: isAccepted ? '1px solid #bbf7d0' : '1px solid #e3a925',
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 800,
+                      color: isAccepted ? '#166534' : '#9a6a00',
+                    }}
+                  >
+                    Contato do fornecedor
+                  </div>
+
+                  {isAccepted ? (
+                    <div style={{ marginTop: 6, fontSize: 14, lineHeight: 1.6 }}>
+                      {supplierWhatsapp && <div><strong>WhatsApp:</strong> {supplierWhatsapp}</div>}
+                      {supplierInstagram && <div><strong>Instagram:</strong> {supplierInstagram}</div>}
+                      {!supplierWhatsapp && !supplierInstagram && (
+                        <div>Contato direto não informado pelo fornecedor.</div>
+                      )}
+                    </div>
+                  ) : (
+                    <div style={{ marginTop: 6, fontSize: 14, lineHeight: 1.6 }}>
+                      Contato direto disponível após aceitar o orçamento. Antes disso, converse pelo chat do app REIM EVENTOS.
+                    </div>
+                  )}
+                </div>
               </div>
             </section>
 
             <section
               style={{
-                marginTop: 22,
+                marginTop: 20,
                 borderRadius: 18,
                 overflow: 'hidden',
                 border: '1px solid #eadfca',
@@ -810,19 +852,10 @@ export default function OrcamentoRecebidoPage() {
                       border: '1px solid #f1e7cf',
                     }}
                   >
-                    <div
-                      style={{ fontSize: 11, fontWeight: 800, color: '#8b8b8b' }}
-                    >
+                    <div style={{ fontSize: 11, fontWeight: 800, color: '#8b8b8b' }}>
                       Serviço oferecido
                     </div>
-                    <div
-                      style={{
-                        marginTop: 5,
-                        fontSize: 15,
-                        fontWeight: 800,
-                        color: '#151515',
-                      }}
-                    >
+                    <div style={{ marginTop: 5, fontSize: 15, fontWeight: 800 }}>
                       {quote.service_offered || 'Não informado'}
                     </div>
                   </div>
@@ -835,35 +868,23 @@ export default function OrcamentoRecebidoPage() {
                       border: '1px solid #f1e7cf',
                     }}
                   >
-                    <div
-                      style={{ fontSize: 11, fontWeight: 800, color: '#8b8b8b' }}
-                    >
+                    <div style={{ fontSize: 11, fontWeight: 800, color: '#8b8b8b' }}>
                       Duração / período
                     </div>
-                    <div
-                      style={{
-                        marginTop: 5,
-                        fontSize: 15,
-                        fontWeight: 800,
-                        color: '#151515',
-                      }}
-                    >
+                    <div style={{ marginTop: 5, fontSize: 15, fontWeight: 800 }}>
                       {quote.duration_period || 'Não informado'}
                     </div>
                   </div>
 
                   <div
                     style={{
-                      background:
-                        'linear-gradient(135deg, #fff7e8 0%, #fce8b4 100%)',
+                      background: 'linear-gradient(135deg, #fff7e8 0%, #fce8b4 100%)',
                       borderRadius: 14,
                       padding: 16,
                       border: '1px solid #e3a925',
                     }}
                   >
-                    <div
-                      style={{ fontSize: 11, fontWeight: 800, color: '#9a6a00' }}
-                    >
+                    <div style={{ fontSize: 11, fontWeight: 800, color: '#9a6a00' }}>
                       Valor da proposta
                     </div>
                     <div
@@ -871,7 +892,6 @@ export default function OrcamentoRecebidoPage() {
                         marginTop: 6,
                         fontSize: 26,
                         fontWeight: 900,
-                        color: '#151515',
                       }}
                     >
                       {quote.proposal_value || 'Valor não informado'}
@@ -886,19 +906,10 @@ export default function OrcamentoRecebidoPage() {
                       border: '1px solid #f1e7cf',
                     }}
                   >
-                    <div
-                      style={{ fontSize: 11, fontWeight: 800, color: '#8b8b8b' }}
-                    >
+                    <div style={{ fontSize: 11, fontWeight: 800, color: '#8b8b8b' }}>
                       Forma de pagamento
                     </div>
-                    <div
-                      style={{
-                        marginTop: 5,
-                        fontSize: 15,
-                        fontWeight: 800,
-                        color: '#151515',
-                      }}
-                    >
+                    <div style={{ marginTop: 5, fontSize: 15, fontWeight: 800 }}>
                       {quote.payment_terms || 'Não informado'}
                     </div>
                   </div>
@@ -911,19 +922,10 @@ export default function OrcamentoRecebidoPage() {
                       border: '1px solid #f1e7cf',
                     }}
                   >
-                    <div
-                      style={{ fontSize: 11, fontWeight: 800, color: '#8b8b8b' }}
-                    >
+                    <div style={{ fontSize: 11, fontWeight: 800, color: '#8b8b8b' }}>
                       Validade da proposta
                     </div>
-                    <div
-                      style={{
-                        marginTop: 5,
-                        fontSize: 15,
-                        fontWeight: 800,
-                        color: '#151515',
-                      }}
-                    >
+                    <div style={{ marginTop: 5, fontSize: 15, fontWeight: 800 }}>
                       {quote.proposal_validity || 'Não informado'}
                     </div>
                   </div>
@@ -936,19 +938,10 @@ export default function OrcamentoRecebidoPage() {
                       border: '1px solid #f1e7cf',
                     }}
                   >
-                    <div
-                      style={{ fontSize: 11, fontWeight: 800, color: '#8b8b8b' }}
-                    >
+                    <div style={{ fontSize: 11, fontWeight: 800, color: '#8b8b8b' }}>
                       Enviado em
                     </div>
-                    <div
-                      style={{
-                        marginTop: 5,
-                        fontSize: 15,
-                        fontWeight: 800,
-                        color: '#151515',
-                      }}
-                    >
+                    <div style={{ marginTop: 5, fontSize: 15, fontWeight: 800 }}>
                       {formatDateTime(quote.created_at)}
                     </div>
                   </div>
@@ -963,9 +956,7 @@ export default function OrcamentoRecebidoPage() {
                     border: '1px solid #f1e7cf',
                   }}
                 >
-                  <div
-                    style={{ fontSize: 11, fontWeight: 800, color: '#8b8b8b' }}
-                  >
+                  <div style={{ fontSize: 11, fontWeight: 800, color: '#8b8b8b' }}>
                     Observações
                   </div>
                   <div
@@ -973,7 +964,6 @@ export default function OrcamentoRecebidoPage() {
                       marginTop: 7,
                       fontSize: 14,
                       lineHeight: 1.5,
-                      color: '#151515',
                     }}
                   >
                     {quote.observations || 'Sem observações adicionais.'}
@@ -990,9 +980,7 @@ export default function OrcamentoRecebidoPage() {
                       border: '1px solid #f3d36b',
                     }}
                   >
-                    <div
-                      style={{ fontSize: 11, fontWeight: 800, color: '#9a6a00' }}
-                    >
+                    <div style={{ fontSize: 11, fontWeight: 800, color: '#9a6a00' }}>
                       Ajuste solicitado
                     </div>
                     <div
@@ -1007,6 +995,43 @@ export default function OrcamentoRecebidoPage() {
                     </div>
                   </div>
                 )}
+              </div>
+            </section>
+
+            <section
+              style={{
+                marginTop: 22,
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: 20,
+              }}
+            >
+              <div>
+                <div
+                  style={{
+                    borderTop: '1px solid #151515',
+                    paddingTop: 8,
+                    textAlign: 'center',
+                    fontSize: 12,
+                    color: '#151515',
+                  }}
+                >
+                  Assinatura do Cliente
+                </div>
+              </div>
+
+              <div>
+                <div
+                  style={{
+                    borderTop: '1px solid #151515',
+                    paddingTop: 8,
+                    textAlign: 'center',
+                    fontSize: 12,
+                    color: '#151515',
+                  }}
+                >
+                  Assinatura do Fornecedor
+                </div>
               </div>
             </section>
 
@@ -1037,16 +1062,15 @@ export default function OrcamentoRecebidoPage() {
                   color: '#f3f3f3',
                 }}
               >
-                Este documento registra a proposta enviada pelo fornecedor
-                dentro do app REIM EVENTOS. A contratação, pagamento, prazos,
-                execução do serviço e demais condições devem ser confirmados
+                Este documento registra a proposta enviada pelo fornecedor dentro do app REIM EVENTOS.
+                A contratação, pagamento, prazos, execução do serviço e demais condições devem ser confirmados
                 diretamente entre cliente e fornecedor.
               </p>
             </section>
 
             <footer
               style={{
-                marginTop: 26,
+                marginTop: 20,
                 borderTop: '3px solid #e3a925',
                 paddingTop: 14,
                 display: 'flex',
@@ -1070,6 +1094,9 @@ export default function OrcamentoRecebidoPage() {
                 <div style={{ marginTop: 4 }}>
                   Todos os fornecedores do seu evento em um só lugar.
                 </div>
+                <div style={{ marginTop: 4 }}>
+                  reimeventos.com.br • Eunápolis - BA
+                </div>
               </div>
 
               <div style={{ textAlign: 'right' }}>
@@ -1078,6 +1105,9 @@ export default function OrcamentoRecebidoPage() {
                 </div>
                 <div style={{ marginTop: 4 }}>
                   Código do pedido: {requestId}
+                </div>
+                <div style={{ marginTop: 4 }}>
+                  Nº {budgetCode}
                 </div>
               </div>
             </footer>
