@@ -181,10 +181,17 @@ export async function createQuoteRequest(data: {
   service_needed?: string;
   notes?: string;
 }) {
+  const user = (await supabase.auth.getUser()).data.user;
+
+  if (!user) {
+    throw new Error('Login necessário para solicitar orçamento.');
+  }
+
   const { error } = await supabase
     .from('quote_requests')
     .insert([
       {
+        customer_id: user.id,
         supplier_id: data.supplier_id,
         customer_name: data.customer_name,
         customer_whatsapp: data.customer_whatsapp,
