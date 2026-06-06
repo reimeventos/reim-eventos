@@ -108,8 +108,8 @@ export default function HomePage() {
             categories(name),
             media(file_url, is_cover)
           `)
-          .or('status.eq.ativo,status.eq.aprovado')
-          .order('is_featured', { ascending: false })
+          .eq('status', 'ativo')
+          .eq('is_featured', true)
           .order('rating_average', { ascending: false })
           .limit(3);
 
