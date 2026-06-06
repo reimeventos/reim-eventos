@@ -1,160 +1,145 @@
 'use client';
 
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
   ArrowLeft,
+  Bell,
   Building2,
   CalendarDays,
   CheckCircle2,
-  Download,
+  Clock,
   FileText,
   MessageCircle,
-  RefreshCcw,
+  Search,
 } from 'lucide-react';
-import {
-  acceptQuoteResponse,
-  getQuoteResponseByRequestId,
-  requestQuoteAdjustment,
-} from '@/lib/suppliers';
+import { supabase } from '@/lib/supabase';
 
-export default function OrcamentoRecebidoPage() {
-  const params = useParams();
-  const requestId = String(params.id || '');
-
-  const [quote, setQuote] = useState<any>(null);
+export default function OrcamentosPage() {
+  const [orcamentos, setOrcamentos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [accepting, setAccepting] = useState(false);
-  const [adjusting, setAdjusting] = useState(false);
-  const [showAdjustmentBox, setShowAdjustmentBox] = useState(false);
-  const [adjustmentNotes, setAdjustmentNotes] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
-    if (!requestId) return;
+    async function loadOrcamentos() {
+      try {
+        setLoading(true);
+        setErrorMessage('');
 
-    getQuoteResponseByRequestId(requestId)
-      .then((data) => {
-        setQuote(data);
-        setAdjustmentNotes(data?.adjustment_notes || '');
-      })
-      .catch((error) => {
-        console.error('Erro ao carregar orçamento:', error);
-        setErrorMessage('Orçamento ainda não encontrado ou não respondido pelo fornecedor.');
-      })
-      .finally(() => {
+        const { data, error } = await supabase
+          .from('quote_requests')
+          .select(`
+            *,
+            suppliers(
+              id,
+              business_name,
+              city,
+              categories(name)
+            ),
+            quote_responses(
+              id,
+              status,
+              service_offered,
+              duration_period,
+              proposal_value,
+              payment_terms,
+              proposal_validity,
+              observations,
+              adjustment_notes,
+              adjustment_requested_at,
+              created_at
+            ),
+            quote_messages(
+              id,
+              sender_type,
+              read_by_client,
+              read_by_supplier,
+              created_at
+            )
+          `)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        setOrcamentos(data || []);
+      } catch (error) {
+        console.error('Erro ao carregar orçamentos:', error);
+        setErrorMessage('Não foi possível carregar seus orçamentos.');
+      } finally {
         setLoading(false);
-      });
-  }, [requestId]);
+      }
+    }
 
-  function formatDateTime(date?: string) {
+    loadOrcamentos();
+  }, []);
+
+  function formatDate(date?: string) {
     if (!date) return 'Data não informada';
 
-    return new Date(date).toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    });
+    const [year, month, day] = date.split('-');
+
+    if (!year || !month || !day) {
+      return date;
+    }
+
+    return `${day}/${month}/${year}`;
   }
 
-  async function handleAcceptQuote() {
-    setSuccessMessage('');
-    setErrorMessage('');
-
-    if (!quote?.id || !requestId) {
-      setErrorMessage('Orçamento não identificado.');
-      return;
-    }
-
-    try {
-      setAccepting(true);
-
-      await acceptQuoteResponse({
-        quote_response_id: quote.id,
-        quote_request_id: requestId,
-      });
-
-      setQuote({
-        ...quote,
-        status: 'aceito',
-      });
-
-      setShowAdjustmentBox(false);
-      setSuccessMessage('Orçamento aceito com sucesso! O fornecedor será informado pelo app.');
-    } catch (error) {
-      console.error(error);
-      setErrorMessage('Não foi possível aceitar o orçamento. Tente novamente.');
-    } finally {
-      setAccepting(false);
-    }
+  function statusLabel(status?: string) {
+    if (status === 'aguardando_resposta') return 'Aguardando';
+    if (status === 'respondido') return 'Respondido';
+    if (status === 'ajuste_solicitado') return 'Ajuste solicitado';
+    if (status === 'aceito') return 'Aceito';
+    if (status === 'fechado') return 'Fechado';
+    return 'Aguardando';
   }
 
-  async function handleRequestAdjustment() {
-    setSuccessMessage('');
-    setErrorMessage('');
-
-    if (!quote?.id || !requestId) {
-      setErrorMessage('Orçamento não identificado.');
-      return;
+  function statusClass(status?: string) {
+    if (status === 'respondido') {
+      return 'bg-green-50 text-green-700';
     }
 
-    if (!adjustmentNotes.trim()) {
-      setErrorMessage('Descreva o ajuste que você deseja solicitar.');
-      return;
+    if (status === 'ajuste_solicitado') {
+      return 'bg-yellow-100 text-yellow-800';
     }
 
-    try {
-      setAdjusting(true);
-
-      await requestQuoteAdjustment({
-        quote_response_id: quote.id,
-        quote_request_id: requestId,
-        adjustment_notes: adjustmentNotes,
-      });
-
-      setQuote({
-        ...quote,
-        status: 'ajuste_solicitado',
-        adjustment_notes: adjustmentNotes,
-        adjustment_requested_at: new Date().toISOString(),
-      });
-
-      setSuccessMessage('Solicitação de ajuste enviada com sucesso! O fornecedor poderá revisar a proposta.');
-    } catch (error) {
-      console.error(error);
-      setErrorMessage('Não foi possível solicitar ajuste. Tente novamente.');
-    } finally {
-      setAdjusting(false);
+    if (status === 'aceito' || status === 'fechado') {
+      return 'bg-green-100 text-green-700';
     }
+
+    return 'bg-[#fff7e8] text-[#b97900]';
   }
 
-  const supplierName = quote?.suppliers?.business_name || 'Fornecedor';
-  const supplierCity = quote?.suppliers?.city || 'Cidade não informada';
-  const supplierCategory =
-    quote?.suppliers?.categories?.name || 'Fornecedor de eventos';
+  const totalUnreadMessages = orcamentos.reduce((total, item) => {
+    const messages = item.quote_messages || [];
 
-  const quoteStatus = quote?.status || 'enviado';
-  const isAccepted = quoteStatus === 'aceito';
-  const isAdjustmentRequested = quoteStatus === 'ajuste_solicitado';
+    const unread = messages.filter(
+      (message: any) =>
+        message.sender_type === 'fornecedor' &&
+        message.read_by_client === false
+    ).length;
 
-  function statusLabel() {
-    if (isAccepted) return 'Aceito';
-    if (isAdjustmentRequested) return 'Ajuste solicitado';
-    return 'Respondido';
-  }
+    return total + unread;
+  }, 0);
+
+  const respondedCount = orcamentos.filter(
+    (item) => item.status === 'respondido'
+  ).length;
+
+  const acceptedCount = orcamentos.filter(
+    (item) => item.status === 'aceito' || item.status === 'fechado'
+  ).length;
 
   return (
     <main className="min-h-screen bg-black text-[#151515]">
-      <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] pb-10 shadow-2xl">
+      <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] pb-24 shadow-2xl">
         <section className="relative overflow-hidden rounded-b-[34px] bg-black px-6 pb-8 pt-7 text-white">
           <div className="absolute inset-0 bg-[url('/layout01-fundo.png')] bg-cover bg-center opacity-45" />
           <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/85 to-black" />
 
           <div className="relative z-10">
             <Link
-              href="/orcamentos"
+              href="/perfil"
               className="inline-flex items-center gap-2 text-sm font-bold text-[#e3a925]"
             >
               <ArrowLeft size={17} />
@@ -162,36 +147,100 @@ export default function OrcamentoRecebidoPage() {
             </Link>
 
             <h1 className="mt-5 font-serif text-[34px] leading-tight">
-              Orçamento recebido
+              Meus Orçamentos
             </h1>
 
             <p className="mt-2 text-sm text-white/70">
-              Veja a proposta enviada pelo fornecedor.
+              Acompanhe suas solicitações, propostas e mensagens.
             </p>
           </div>
         </section>
 
+        <section className="grid grid-cols-3 gap-3 px-6 pt-6">
+          <div className="rounded-[22px] bg-white p-4 text-center shadow-sm ring-1 ring-[#f1e7cf]">
+            <p className="text-2xl font-extrabold text-[#d99200]">
+              {orcamentos.length}
+            </p>
+            <p className="mt-1 text-[11px] font-bold text-gray-600">
+              Pedidos
+            </p>
+          </div>
+
+          <div className="rounded-[22px] bg-white p-4 text-center shadow-sm ring-1 ring-[#f1e7cf]">
+            <p className="text-2xl font-extrabold text-green-600">
+              {respondedCount}
+            </p>
+            <p className="mt-1 text-[11px] font-bold text-gray-600">
+              Respondidos
+            </p>
+          </div>
+
+          <div className="rounded-[22px] bg-white p-4 text-center shadow-sm ring-1 ring-[#f1e7cf]">
+            <p className="text-2xl font-extrabold text-blue-600">
+              {acceptedCount}
+            </p>
+            <p className="mt-1 text-[11px] font-bold text-gray-600">
+              Aceitos
+            </p>
+          </div>
+        </section>
+
+        {totalUnreadMessages > 0 && (
+          <section className="px-6 pt-4">
+            <div className="flex items-center gap-3 rounded-[22px] bg-[#151515] px-4 py-4 text-white shadow-lg">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#e3a925]">
+                <Bell size={22} />
+              </div>
+
+              <div>
+                <p className="text-sm font-extrabold">
+                  {totalUnreadMessages === 1
+                    ? '1 nova mensagem'
+                    : `${totalUnreadMessages} novas mensagens`}
+                </p>
+                <p className="mt-1 text-xs text-white/70">
+                  Abra o chat do orçamento para visualizar.
+                </p>
+              </div>
+            </div>
+          </section>
+        )}
+
         <section className="px-6 pt-6">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-extrabold">Solicitações</h2>
+
+            <span className="rounded-full bg-[#fff7e8] px-3 py-1 text-xs font-extrabold text-[#b97900]">
+              {loading ? 'Carregando...' : `${orcamentos.length} orçamento(s)`}
+            </span>
+          </div>
+
           {loading && (
             <div className="rounded-[28px] bg-white p-6 text-center shadow-sm ring-1 ring-[#f1e7cf]">
               <p className="text-sm font-bold text-gray-500">
-                Carregando orçamento...
+                Carregando orçamentos...
               </p>
             </div>
           )}
 
-          {!loading && errorMessage && !quote && (
+          {!loading && errorMessage && (
+            <div className="rounded-[28px] bg-red-50 p-6 text-center text-sm font-bold text-red-700 ring-1 ring-red-100">
+              {errorMessage}
+            </div>
+          )}
+
+          {!loading && !errorMessage && orcamentos.length === 0 && (
             <div className="rounded-[28px] bg-white p-6 text-center shadow-sm ring-1 ring-[#f1e7cf]">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#fff7e8] text-[#d99200]">
-                <FileText size={32} />
+                <Search size={32} />
               </div>
 
-              <h2 className="mt-4 text-lg font-extrabold">
-                Orçamento não disponível
-              </h2>
+              <h3 className="mt-4 text-lg font-extrabold">
+                Nenhum orçamento ainda
+              </h3>
 
               <p className="mt-2 text-sm leading-5 text-gray-500">
-                {errorMessage}
+                Quando você solicitar orçamento a um fornecedor, ele aparecerá aqui.
               </p>
 
               <Link
@@ -203,211 +252,178 @@ export default function OrcamentoRecebidoPage() {
             </div>
           )}
 
-          {!loading && quote && (
-            <>
-              <div className="rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)]">
-                <div className="flex items-center gap-4">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]">
-                    <Building2 size={30} />
-                  </div>
+          <div className="space-y-4">
+            {orcamentos.map((item) => {
+              const responses = item.quote_responses || [];
+              const sortedResponses = [...responses].sort((a, b) => {
+                return (
+                  new Date(b.created_at).getTime() -
+                  new Date(a.created_at).getTime()
+                );
+              });
 
-                  <div>
-                    <p className="text-xs font-bold text-gray-500">
-                      Fornecedor
-                    </p>
-                    <h2 className="text-lg font-extrabold">{supplierName}</h2>
-                    <p className="text-sm text-gray-500">{supplierCategory}</p>
-                  </div>
-                </div>
+              const latestResponse = sortedResponses[0] || null;
 
-                <div className="mt-4 rounded-2xl bg-[#fbf7f1] p-3">
-                  <p className="text-xs font-bold text-gray-500">Cidade</p>
-                  <p className="mt-1 text-sm font-extrabold">{supplierCity}</p>
-                </div>
-              </div>
+              const messages = item.quote_messages || [];
+              const unreadMessages = messages.filter(
+                (message: any) =>
+                  message.sender_type === 'fornecedor' &&
+                  message.read_by_client === false
+              ).length;
 
-              <div className="mt-5 rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)]">
-                <div className="mb-4 flex items-center justify-between">
-                  <h2 className="text-lg font-extrabold">Proposta</h2>
+              const hasUnreadMessages = unreadMessages > 0;
 
-                  <span
-                    className={
-                      isAccepted
-                        ? 'rounded-full bg-green-100 px-3 py-1 text-xs font-extrabold text-green-700'
-                        : isAdjustmentRequested
-                          ? 'rounded-full bg-yellow-100 px-3 py-1 text-xs font-extrabold text-yellow-700'
-                          : 'rounded-full bg-green-50 px-3 py-1 text-xs font-extrabold text-green-700'
-                    }
-                  >
-                    {statusLabel()}
-                  </span>
-                </div>
+              const supplierName =
+                item.suppliers?.business_name || 'Fornecedor';
+              const supplierCity =
+                item.suppliers?.city || item.event_city || 'Cidade não informada';
+              const supplierCategory =
+                item.suppliers?.categories?.name ||
+                item.service_needed ||
+                'Fornecedor de eventos';
 
-                <div className="space-y-3">
-                  <div className="rounded-2xl bg-[#fbf7f1] p-3">
-                    <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
-                      <FileText size={14} className="text-[#d99200]" />
-                      Serviço oferecido
-                    </p>
-                    <p className="mt-1 text-sm font-extrabold">
-                      {quote.service_offered || 'Não informado'}
-                    </p>
-                  </div>
+              const status = item.status || 'aguardando_resposta';
+              const eventType = item.event_type || 'Evento não informado';
+              const eventDate = formatDate(item.event_date);
+              const serviceNeeded =
+                item.service_needed || latestResponse?.service_offered || 'Serviço não informado';
 
-                  <div className="rounded-2xl bg-[#fbf7f1] p-3">
-                    <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
-                      <CalendarDays size={14} className="text-[#d99200]" />
-                      Duração / período
-                    </p>
-                    <p className="mt-1 text-sm font-extrabold">
-                      {quote.duration_period || 'Não informado'}
-                    </p>
-                  </div>
+              return (
+                <div
+                  key={item.id}
+                  className={
+                    hasUnreadMessages
+                      ? 'rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.12)] ring-2 ring-[#e3a925]'
+                      : 'rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)]'
+                  }
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-lg font-extrabold">{eventType}</h3>
 
-                  <div className="rounded-2xl bg-[#fff7e8] p-4">
-                    <p className="text-xs font-bold text-[#b97900]">
-                      Valor da proposta
-                    </p>
-                    <p className="mt-1 text-2xl font-extrabold text-[#151515]">
-                      {quote.proposal_value || 'Valor não informado'}
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl bg-[#fbf7f1] p-3">
-                    <p className="text-xs font-bold text-gray-500">
-                      Forma de pagamento
-                    </p>
-                    <p className="mt-1 text-sm font-extrabold">
-                      {quote.payment_terms || 'Não informado'}
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl bg-[#fbf7f1] p-3">
-                    <p className="text-xs font-bold text-gray-500">
-                      Validade da proposta
-                    </p>
-                    <p className="mt-1 text-sm font-extrabold">
-                      {quote.proposal_validity || 'Não informado'}
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl bg-[#fbf7f1] p-3">
-                    <p className="text-xs font-bold text-gray-500">
-                      Observações
-                    </p>
-                    <p className="mt-2 text-sm leading-5 text-gray-600">
-                      {quote.observations || 'Sem observações adicionais.'}
-                    </p>
-                  </div>
-
-                  {quote.adjustment_notes && (
-                    <div className="rounded-2xl bg-yellow-50 p-3">
-                      <p className="text-xs font-bold text-yellow-700">
-                        Ajuste solicitado
+                      <p className="mt-1 flex items-center gap-1 text-sm font-bold text-gray-500">
+                        <Building2 size={15} className="text-[#d99200]" />
+                        {supplierName}
                       </p>
-                      <p className="mt-2 text-sm leading-5 text-yellow-800">
-                        {quote.adjustment_notes}
+                    </div>
+
+                    <div className="flex flex-col items-end gap-2">
+                      {hasUnreadMessages && (
+                        <span className="flex items-center gap-1 rounded-full bg-[#151515] px-3 py-1 text-[11px] font-extrabold text-white">
+                          <Bell size={13} className="text-[#e3a925]" />
+                          {unreadMessages === 1
+                            ? '1 nova msg'
+                            : `${unreadMessages} novas msg`}
+                        </span>
+                      )}
+
+                      <span
+                        className={`flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-extrabold ${statusClass(status)}`}
+                      >
+                        {status === 'respondido' || status === 'aceito' ? (
+                          <CheckCircle2 size={13} />
+                        ) : (
+                          <Clock size={13} />
+                        )}
+                        {statusLabel(status)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {hasUnreadMessages && (
+                    <div className="mt-4 rounded-2xl bg-[#151515] p-4 text-white">
+                      <p className="flex items-center gap-2 text-xs font-extrabold text-[#f7d67b]">
+                        <Bell size={15} />
+                        Mensagem nova no chat
+                      </p>
+
+                      <p className="mt-2 text-sm leading-5 text-white/80">
+                        O fornecedor enviou{' '}
+                        {unreadMessages === 1
+                          ? 'uma nova mensagem.'
+                          : `${unreadMessages} novas mensagens.`}
                       </p>
                     </div>
                   )}
 
-                  <div className="rounded-2xl bg-[#fbf7f1] p-3">
-                    <p className="text-xs font-bold text-gray-500">
-                      Enviado em
+                  <div className="mt-4 grid grid-cols-2 gap-3">
+                    <div className="rounded-2xl bg-[#fbf7f1] p-3">
+                      <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
+                        <CalendarDays size={14} className="text-[#d99200]" />
+                        Data
+                      </p>
+                      <p className="mt-1 text-sm font-extrabold">
+                        {eventDate}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl bg-[#fbf7f1] p-3">
+                      <p className="text-xs font-bold text-gray-500">
+                        Cidade
+                      </p>
+                      <p className="mt-1 text-sm font-extrabold">
+                        {supplierCity}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 rounded-2xl bg-[#fbf7f1] p-3">
+                    <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
+                      <FileText size={14} className="text-[#d99200]" />
+                      Serviço
                     </p>
                     <p className="mt-1 text-sm font-extrabold">
-                      {formatDateTime(quote.created_at)}
+                      {serviceNeeded}
                     </p>
                   </div>
+
+                  {latestResponse && (
+                    <div className="mt-3 rounded-2xl bg-[#fff7e8] p-4 ring-1 ring-[#f1e7cf]">
+                      <p className="text-xs font-bold text-[#b97900]">
+                        Última proposta
+                      </p>
+
+                      <p className="mt-1 text-2xl font-extrabold text-[#151515]">
+                        {latestResponse.proposal_value || 'Valor não informado'}
+                      </p>
+
+                      <p className="mt-1 text-xs font-bold text-gray-500">
+                        {latestResponse.payment_terms || 'Forma de pagamento não informada'}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="mt-5 space-y-3">
+                    <Link
+                      href={`/orcamentos/${item.id}`}
+                      className="flex items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg"
+                    >
+                      <FileText size={21} />
+                      {latestResponse ? 'Ver orçamento' : 'Aguardar resposta'}
+                    </Link>
+
+                    <Link
+                      href={`/orcamentos/${item.id}/chat`}
+                      className={
+                        hasUnreadMessages
+                          ? 'relative flex items-center justify-center gap-2 rounded-[22px] bg-black py-4 text-center font-extrabold text-white shadow-lg ring-2 ring-[#e3a925]'
+                          : 'flex items-center justify-center gap-2 rounded-[22px] bg-black py-4 text-center font-extrabold text-white shadow-lg'
+                      }
+                    >
+                      <MessageCircle size={21} />
+                      Chat
+
+                      {hasUnreadMessages && (
+                        <span className="absolute -right-2 -top-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-[#e3a925] px-2 text-[11px] font-extrabold text-white">
+                          {unreadMessages}
+                        </span>
+                      )}
+                    </Link>
+                  </div>
                 </div>
-              </div>
-
-              {errorMessage && (
-                <div className="mt-5 rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
-                  {errorMessage}
-                </div>
-              )}
-
-              {successMessage && (
-                <div className="mt-5 rounded-2xl bg-green-50 px-4 py-3 text-sm font-bold text-green-700">
-                  {successMessage}
-                </div>
-              )}
-
-              {showAdjustmentBox && !isAccepted && (
-                <div className="mt-5 rounded-[28px] bg-white p-5 shadow-sm ring-1 ring-[#f1e7cf]">
-                  <h3 className="text-lg font-extrabold">
-                    Solicitar ajuste
-                  </h3>
-
-                  <p className="mt-1 text-sm leading-5 text-gray-500">
-                    Descreva o que você deseja alterar na proposta.
-                  </p>
-
-                  <textarea
-                    value={adjustmentNotes}
-                    onChange={(event) => setAdjustmentNotes(event.target.value)}
-                    className="mt-4 min-h-[120px] w-full resize-none rounded-[22px] bg-[#fbf7f1] px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400"
-                    placeholder="Ex: Gostaria de ajustar a forma de pagamento, incluir mais horas ou revisar o valor..."
-                  />
-
-                  <button
-                    onClick={handleRequestAdjustment}
-                    disabled={adjusting}
-                    className="mt-4 flex w-full items-center justify-center gap-2 rounded-[24px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg disabled:opacity-60"
-                  >
-                    <RefreshCcw size={21} />
-                    {adjusting ? 'Enviando ajuste...' : 'Enviar pedido de ajuste'}
-                  </button>
-                </div>
-              )}
-
-              <div className="mt-6 space-y-3">
-                <button
-                  onClick={handleAcceptQuote}
-                  disabled={accepting || isAccepted}
-                  className="flex w-full items-center justify-center gap-2 rounded-[24px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg disabled:opacity-60"
-                >
-                  <CheckCircle2 size={21} />
-                  {isAccepted
-                    ? 'Orçamento aceito'
-                    : accepting
-                      ? 'Aceitando...'
-                      : 'Aceitar orçamento'}
-                </button>
-
-                <button
-                  onClick={() => {
-                    setErrorMessage('');
-                    setSuccessMessage('');
-                    setShowAdjustmentBox(!showAdjustmentBox);
-                  }}
-                  disabled={isAccepted}
-                  className="flex w-full items-center justify-center gap-2 rounded-[24px] bg-white py-4 text-center font-extrabold text-[#151515] shadow-sm ring-1 ring-[#f1e7cf] disabled:opacity-60"
-                >
-                  <RefreshCcw size={21} />
-                  {showAdjustmentBox ? 'Fechar ajuste' : 'Solicitar ajuste'}
-                </button>
-
-                <Link
-                  href={`/orcamentos/${requestId}/chat`}
-                  className="flex w-full items-center justify-center gap-2 rounded-[24px] bg-black py-4 text-center font-extrabold text-white shadow-lg"
-                >
-                  <MessageCircle size={21} />
-                  Conversar com fornecedor
-                </Link>
-
-                <button className="flex w-full items-center justify-center gap-2 rounded-[24px] bg-white py-4 text-center font-extrabold text-[#151515] shadow-sm ring-1 ring-[#f1e7cf]">
-                  <Download size={21} />
-                  Baixar PDF
-                </button>
-              </div>
-
-              <p className="mt-4 text-center text-xs leading-5 text-gray-500">
-                Você pode aceitar, pedir ajuste ou conversar com o fornecedor antes de fechar.
-              </p>
-            </>
-          )}
+              );
+            })}
+          </div>
         </section>
       </div>
     </main>
