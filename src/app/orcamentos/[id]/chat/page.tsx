@@ -10,7 +10,11 @@ import {
   User,
   Building2,
 } from 'lucide-react';
-import { listQuoteMessages, sendQuoteMessage } from '@/lib/chat';
+import {
+  listQuoteMessages,
+  markMessagesAsRead,
+  sendQuoteMessage,
+} from '@/lib/chat';
 import { getQuoteResponseByRequestId } from '@/lib/suppliers';
 import { supabase } from '@/lib/supabase';
 
@@ -46,6 +50,9 @@ export default function ChatOrcamentoPage() {
 
         const user = (await supabase.auth.getUser()).data.user;
 
+        let detectedSenderType: 'cliente' | 'fornecedor' = 'cliente';
+        let detectedSenderName = 'Cliente';
+
         if (user && quoteData?.supplier_id) {
           const { data: supplierOwner } = await supabase
             .from('suppliers')
@@ -55,16 +62,24 @@ export default function ChatOrcamentoPage() {
             .maybeSingle();
 
           if (supplierOwner) {
-            setSenderType('fornecedor');
-            setSenderName(supplierOwner.business_name || quoteData?.suppliers?.business_name || 'Fornecedor');
-          } else {
-            setSenderType('cliente');
-            setSenderName('Cliente');
+            detectedSenderType = 'fornecedor';
+            detectedSenderName =
+              supplierOwner.business_name ||
+              quoteData?.suppliers?.business_name ||
+              'Fornecedor';
           }
-        } else {
-          setSenderType('cliente');
-          setSenderName('Cliente');
         }
+
+        setSenderType(detectedSenderType);
+        setSenderName(detectedSenderName);
+
+        await markMessagesAsRead({
+          quote_request_id: requestId,
+          reader_type: detectedSenderType,
+        });
+
+        const updatedMessages = await listQuoteMessages(requestId);
+        setMessages(updatedMessages);
       } catch (error) {
         console.error(error);
         setErrorMessage('Não foi possível carregar o chat.');
