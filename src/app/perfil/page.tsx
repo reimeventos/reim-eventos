@@ -1,9 +1,13 @@
+'use client';
+
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import {
   Bell,
   Briefcase,
   CalendarDays,
   ChevronRight,
+  Crown,
   Heart,
   LogOut,
   MessageCircle,
@@ -14,6 +18,9 @@ import {
   WalletCards,
 } from 'lucide-react';
 import { Nav } from '@/components/Nav';
+import { getClientNotifications } from '@/lib/notifications';
+import { logout } from '@/lib/auth';
+import { useRouter } from 'next/navigation';
 
 const menuItems = [
   {
@@ -21,28 +28,79 @@ const menuItems = [
     desc: 'Organize fornecedores e orçamentos',
     href: '/meu-evento',
     icon: Heart,
+    type: 'evento',
   },
   {
     title: 'Meus Orçamentos',
     desc: 'Acompanhe pedidos e respostas',
     href: '/orcamentos',
     icon: MessageCircle,
+    type: 'orcamentos',
   },
   {
     title: 'Painel Fornecedor',
     desc: 'Gerencie sua vitrine e leads',
     href: '/painel-fornecedor',
     icon: Briefcase,
+    type: 'fornecedor',
   },
   {
     title: 'Planos REIM',
     desc: 'Assinatura e destaque no app',
     href: '/planos',
     icon: WalletCards,
+    type: 'planos',
   },
 ];
 
 export default function PerfilPage() {
+  const router = useRouter();
+
+  const [notifications, setNotifications] = useState<any>({
+    total: 0,
+    unreadMessages: 0,
+    respondedQuotes: 0,
+    adjustmentQuotes: 0,
+    acceptedQuotes: 0,
+  });
+
+  const [loadingNotifications, setLoadingNotifications] = useState(true);
+  const [leaving, setLeaving] = useState(false);
+
+  useEffect(() => {
+    async function loadNotifications() {
+      try {
+        setLoadingNotifications(true);
+
+        const data = await getClientNotifications();
+        setNotifications(data);
+      } catch (error) {
+        console.error('Erro ao carregar notificações do perfil:', error);
+      } finally {
+        setLoadingNotifications(false);
+      }
+    }
+
+    loadNotifications();
+  }, []);
+
+  async function handleLogout() {
+    try {
+      setLeaving(true);
+      await logout();
+      router.push('/login');
+    } catch (error) {
+      console.error('Erro ao sair:', error);
+      setLeaving(false);
+    }
+  }
+
+  const totalNotifications = notifications?.total || 0;
+  const unreadMessages = notifications?.unreadMessages || 0;
+  const respondedQuotes = notifications?.respondedQuotes || 0;
+  const adjustmentQuotes = notifications?.adjustmentQuotes || 0;
+  const acceptedQuotes = notifications?.acceptedQuotes || 0;
+
   return (
     <main className="min-h-screen bg-black text-[#151515]">
       <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] pb-28 shadow-2xl">
@@ -57,12 +115,18 @@ export default function PerfilPage() {
                 ‹ Voltar
               </Link>
 
-              <button className="relative flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-[#e3a925]">
+              <Link
+                href="/orcamentos"
+                className="relative flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-[#e3a925]"
+              >
                 <Bell size={22} />
-                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-pink-500 px-1 text-[10px] font-extrabold text-white">
-                  3
-                </span>
-              </button>
+
+                {totalNotifications > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-pink-500 px-1 text-[10px] font-extrabold text-white">
+                    {totalNotifications > 9 ? '9+' : totalNotifications}
+                  </span>
+                )}
+              </Link>
             </div>
 
             <div className="mt-7 flex items-center gap-4">
@@ -80,6 +144,51 @@ export default function PerfilPage() {
                 </p>
               </div>
             </div>
+
+            {totalNotifications > 0 && (
+              <div className="mt-5 rounded-[22px] bg-white/10 p-4 backdrop-blur">
+                <p className="flex items-center gap-2 text-sm font-extrabold text-[#f7d67b]">
+                  <Bell size={17} />
+                  {totalNotifications === 1
+                    ? 'Você tem 1 notificação'
+                    : `Você tem ${totalNotifications} notificações`}
+                </p>
+
+                <div className="mt-3 space-y-2 text-xs font-bold text-white/75">
+                  {unreadMessages > 0 && (
+                    <p>
+                      {unreadMessages === 1
+                        ? '1 mensagem nova no chat'
+                        : `${unreadMessages} mensagens novas no chat`}
+                    </p>
+                  )}
+
+                  {respondedQuotes > 0 && (
+                    <p>
+                      {respondedQuotes === 1
+                        ? '1 orçamento respondido'
+                        : `${respondedQuotes} orçamentos respondidos`}
+                    </p>
+                  )}
+
+                  {adjustmentQuotes > 0 && (
+                    <p>
+                      {adjustmentQuotes === 1
+                        ? '1 ajuste solicitado'
+                        : `${adjustmentQuotes} ajustes solicitados`}
+                    </p>
+                  )}
+
+                  {acceptedQuotes > 0 && (
+                    <p>
+                      {acceptedQuotes === 1
+                        ? '1 orçamento aceito'
+                        : `${acceptedQuotes} orçamentos aceitos`}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </section>
 
@@ -111,8 +220,15 @@ export default function PerfilPage() {
             </p>
           </div>
 
-          <div className="rounded-[22px] bg-white p-4 text-center shadow-sm ring-1 ring-[#f1e7cf]">
+          <div className="relative rounded-[22px] bg-white p-4 text-center shadow-sm ring-1 ring-[#f1e7cf]">
             <MessageCircle size={24} className="mx-auto text-[#d99200]" />
+
+            {unreadMessages > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-pink-500 px-1 text-[10px] font-extrabold text-white">
+                {unreadMessages > 9 ? '9+' : unreadMessages}
+              </span>
+            )}
+
             <p className="mt-2 text-[11px] font-bold text-gray-600">
               Orçamentos
             </p>
@@ -136,13 +252,25 @@ export default function PerfilPage() {
           <div className="space-y-4">
             {menuItems.map((item) => {
               const Icon = item.icon;
+              const showBudgetBadge =
+                item.type === 'orcamentos' && totalNotifications > 0;
 
               return (
                 <Link
                   href={item.href}
                   key={item.title}
-                  className="flex items-center gap-4 rounded-[26px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]"
+                  className={
+                    showBudgetBadge
+                      ? 'relative flex items-center gap-4 rounded-[26px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.10)] ring-2 ring-[#e3a925]'
+                      : 'relative flex items-center gap-4 rounded-[26px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]'
+                  }
                 >
+                  {showBudgetBadge && (
+                    <span className="absolute -right-1 -top-1 flex h-6 min-w-6 items-center justify-center rounded-full bg-[#e3a925] px-2 text-[11px] font-extrabold text-white">
+                      {totalNotifications > 9 ? '9+' : totalNotifications}
+                    </span>
+                  )}
+
                   <div className="flex h-13 w-13 min-w-13 items-center justify-center rounded-2xl bg-[#fff7e8] p-3 text-[#d99200]">
                     <Icon size={27} />
                   </div>
@@ -150,7 +278,9 @@ export default function PerfilPage() {
                   <div className="flex-1">
                     <h3 className="text-sm font-extrabold">{item.title}</h3>
                     <p className="mt-1 text-xs leading-4 text-gray-500">
-                      {item.desc}
+                      {showBudgetBadge
+                        ? 'Você tem novidades nos seus orçamentos'
+                        : item.desc}
                     </p>
                   </div>
 
@@ -192,9 +322,13 @@ export default function PerfilPage() {
 
         {/* SAIR */}
         <section className="px-6 pt-6">
-          <button className="flex w-full items-center justify-center gap-2 rounded-[24px] bg-white py-4 text-center font-extrabold text-[#151515] shadow-sm ring-1 ring-[#f1e7cf]">
+          <button
+            onClick={handleLogout}
+            disabled={leaving}
+            className="flex w-full items-center justify-center gap-2 rounded-[24px] bg-white py-4 text-center font-extrabold text-[#151515] shadow-sm ring-1 ring-[#f1e7cf] disabled:opacity-60"
+          >
             <LogOut size={21} className="text-[#d99200]" />
-            Sair da conta
+            {leaving ? 'Saindo...' : 'Sair da conta'}
           </button>
         </section>
 
