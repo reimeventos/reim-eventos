@@ -85,12 +85,7 @@ function formatDate(date?: string) {
 }
 
 function getEventTitle(event: any) {
-  return (
-    event?.couple_name ||
-    event?.event_name ||
-    event?.title ||
-    'Meu Evento'
-  );
+  return event?.couple_name || event?.event_name || event?.title || 'Meu Evento';
 }
 
 function getEventDate(event: any) {
@@ -107,15 +102,6 @@ function getGuestsCount(event: any) {
 
 function getEventSpace(event: any) {
   return event?.event_space || '';
-}
-
-function StatusBadge() {
-  return (
-    <span className="flex items-center gap-1 rounded-full bg-[#fff7e8] px-3 py-1 text-[11px] font-extrabold text-[#b97900]">
-      <Clock size={13} />
-      Salvo
-    </span>
-  );
 }
 
 export default function MeuEventoPage() {
@@ -140,8 +126,7 @@ export default function MeuEventoPage() {
     } catch (error: any) {
       console.error('Erro ao carregar Meu Evento:', error);
       setErrorMessage(
-        error?.message ||
-          'Não foi possível carregar os dados do Meu Evento.'
+        error?.message || 'Não foi possível carregar os dados do Meu Evento.'
       );
     } finally {
       setLoading(false);
@@ -180,7 +165,6 @@ export default function MeuEventoPage() {
   return (
     <main className="min-h-screen bg-black text-[#151515]">
       <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] pb-28 shadow-2xl">
-        {/* TOPO */}
         <section className="relative overflow-hidden rounded-b-[34px] bg-black px-6 pb-8 pt-7 text-white">
           <div className="absolute inset-0 bg-[url('/layout01-fundo.png')] bg-cover bg-center opacity-45" />
           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/80 to-black" />
@@ -191,9 +175,12 @@ export default function MeuEventoPage() {
                 ‹ Voltar
               </Link>
 
-              <button className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-[#e3a925]">
+              <a
+                href="/meu-evento/compartilhar"
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-[#e3a925]"
+              >
                 <Share2 size={21} />
-              </button>
+              </a>
             </div>
 
             <div className="mt-6 flex items-center gap-3">
@@ -227,9 +214,7 @@ export default function MeuEventoPage() {
                   <MapPin size={14} className="text-[#e3a925]" />
                   Cidade
                 </p>
-                <p className="mt-1 text-sm font-extrabold">
-                  {eventCity}
-                </p>
+                <p className="mt-1 text-sm font-extrabold">{eventCity}</p>
               </div>
 
               <div className="rounded-2xl bg-white/10 p-3">
@@ -277,7 +262,6 @@ export default function MeuEventoPage() {
           </div>
         </section>
 
-        {/* COMPARTILHAR COM CERIMONIALISTA */}
         <section className="px-6 pt-6">
           <div className="rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)]">
             <div className="flex items-start gap-4">
@@ -295,16 +279,18 @@ export default function MeuEventoPage() {
                   solicitar orçamentos e organizar a lista.
                 </p>
 
-                <button className="mt-4 flex w-full items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-3 text-sm font-extrabold text-white shadow-lg">
+                <a
+                  href="/meu-evento/compartilhar"
+                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-3 text-sm font-extrabold text-white shadow-lg"
+                >
                   <Share2 size={18} />
                   Compartilhar com cerimonialista
-                </button>
+                </a>
               </div>
             </div>
           </div>
         </section>
 
-        {/* COLABORADORES */}
         <section className="px-6 pt-6">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-lg font-extrabold">Colaboradores</h2>
@@ -334,7 +320,6 @@ export default function MeuEventoPage() {
           </div>
         </section>
 
-        {/* FORNECEDORES SALVOS */}
         <section className="px-6 pt-6">
           <div className="mb-4 flex items-center justify-between">
             <div>
