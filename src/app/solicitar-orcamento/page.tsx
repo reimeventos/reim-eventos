@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import {
   ArrowLeft,
   Building2,
@@ -15,11 +15,31 @@ import {
   User,
   Users,
 } from 'lucide-react';
-import { createQuoteRequest } from '../../lib/suppliers';
+import { createQuoteRequest } from '@/lib/suppliers';
+import { getSupplier } from '@/lib/marketplace';
+
+function formatCategoryName(supplier: any) {
+  return supplier?.categories?.name || 'Serviço não informado';
+}
+
+function isSpaceCategory(text: string) {
+  const normalized = text.toLowerCase();
+
+  return (
+    normalized.includes('espaço') ||
+    normalized.includes('espaco') ||
+    normalized.includes('local') ||
+    normalized.includes('salão') ||
+    normalized.includes('salao')
+  );
+}
 
 function SolicitarOrcamentoContent() {
   const searchParams = useSearchParams();
   const supplierId = searchParams.get('fornecedor') || '';
+
+  const [supplier, setSupplier] = useState<any>(null);
+  const [loadingSupplier, setLoadingSupplier] = useState(true);
 
   const [customerName, setCustomerName] = useState('');
   const [customerWhatsapp, setCustomerWhatsapp] = useState('');
@@ -29,14 +49,44 @@ function SolicitarOrcamentoContent() {
   const [eventSpace, setEventSpace] = useState('');
   const [structurePreference, setStructurePreference] = useState('Ainda não sei');
   const [guestsCount, setGuestsCount] = useState('');
-  const [serviceNeeded, setServiceNeeded] = useState('Fotografia & Filmagem');
+  const [serviceNeeded, setServiceNeeded] = useState('');
   const [notes, setNotes] = useState('');
 
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
-  const isEventSpaceSupplier = serviceNeeded === 'Espaço de festa';
+  const supplierCategory = formatCategoryName(supplier);
+  const supplierName = supplier?.business_name || 'Fornecedor';
+  const isEventSpaceSupplier =
+    isSpaceCategory(supplierCategory) || isSpaceCategory(serviceNeeded);
+
+  useEffect(() => {
+    async function loadSupplier() {
+      try {
+        setLoadingSupplier(true);
+
+        if (!supplierId) {
+          setSupplier(null);
+          return;
+        }
+
+        const data = await getSupplier(supplierId);
+
+        if (data) {
+          setSupplier(data);
+          setServiceNeeded(formatCategoryName(data));
+        }
+      } catch (error) {
+        console.error('Erro ao carregar fornecedor:', error);
+        setSupplier(null);
+      } finally {
+        setLoadingSupplier(false);
+      }
+    }
+
+    loadSupplier();
+  }, [supplierId]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -45,7 +95,9 @@ function SolicitarOrcamentoContent() {
     setErrorMessage('');
 
     if (!supplierId) {
-      setErrorMessage('Fornecedor não identificado. Volte para a vitrine e clique em Solicitar orçamento novamente.');
+      setErrorMessage(
+        'Fornecedor não identificado. Volte para a vitrine e clique em Solicitar orçamento novamente.'
+      );
       return;
     }
 
@@ -71,15 +123,17 @@ function SolicitarOrcamentoContent() {
         event_city: eventCity,
         event_space: isEventSpaceSupplier ? structurePreference : eventSpace,
         guests_count: guestsCount ? Number(guestsCount) : undefined,
-        service_needed: serviceNeeded,
-        notes: notes || (
-          isEventSpaceSupplier
+        service_needed: serviceNeeded || supplierCategory,
+        notes:
+          notes ||
+          (isEventSpaceSupplier
             ? 'Gostaria de consultar disponibilidade para a data informada e receber orçamento do espaço.'
-            : ''
-        ),
+            : ''),
       });
 
-      setSuccessMessage('Solicitação enviada com sucesso! O fornecedor poderá responder com um orçamento dentro do app.');
+      setSuccessMessage(
+        'Solicitação enviada com sucesso! O fornecedor poderá responder com um orçamento dentro do app.'
+      );
 
       setCustomerName('');
       setCustomerWhatsapp('');
@@ -89,7 +143,7 @@ function SolicitarOrcamentoContent() {
       setEventSpace('');
       setStructurePreference('Ainda não sei');
       setGuestsCount('');
-      setServiceNeeded('Fotografia & Filmagem');
+      setServiceNeeded(supplierCategory);
       setNotes('');
     } catch (error) {
       console.error(error);
@@ -134,8 +188,20 @@ function SolicitarOrcamentoContent() {
 
               <div>
                 <p className="text-xs font-bold text-gray-500">Fornecedor</p>
-                <h2 className="text-lg font-extrabold">Studio Premium</h2>
-                <p className="text-sm text-gray-500">{serviceNeeded}</p>
+
+                <h2 className="text-lg font-extrabold">
+                  {loadingSupplier ? 'Carregando fornecedor...' : supplierName}
+                </h2>
+
+                <p className="text-sm text-gray-500">
+                  {loadingSupplier ? 'Buscando dados...' : supplierCategory}
+                </p>
+
+                {!supplierId && (
+                  <p className="mt-1 text-xs font-bold text-red-600">
+                    Fornecedor não identificado.
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -195,20 +261,12 @@ function SolicitarOrcamentoContent() {
                 <Camera size={17} className="text-[#d99200]" />
                 Serviço desejado
               </span>
-              <select
+              <input
                 value={serviceNeeded}
                 onChange={(event) => setServiceNeeded(event.target.value)}
-                className="w-full rounded-[22px] bg-white px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf]"
-              >
-                <option>Fotografia & Filmagem</option>
-                <option>Buffet</option>
-                <option>Decoração</option>
-                <option>Som e iluminação</option>
-                <option>Cabine & Totem</option>
-                <option>Cerimonial</option>
-                <option>Espaço de festa</option>
-                <option>Outro serviço</option>
-              </select>
+                className="w-full rounded-[22px] bg-white px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400"
+                placeholder="Ex: Fotografia, buffet, decoração..."
+              />
             </label>
 
             <label className="block">
@@ -245,7 +303,9 @@ function SolicitarOrcamentoContent() {
                 </span>
                 <select
                   value={structurePreference}
-                  onChange={(event) => setStructurePreference(event.target.value)}
+                  onChange={(event) =>
+                    setStructurePreference(event.target.value)
+                  }
                   className="w-full rounded-[22px] bg-white px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf]"
                 >
                   <option>Salão fechado</option>
@@ -320,7 +380,7 @@ function SolicitarOrcamentoContent() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || loadingSupplier}
               className="mt-7 flex w-full items-center justify-center gap-2 rounded-[24px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg disabled:opacity-60"
             >
               <Send size={21} />
@@ -339,7 +399,11 @@ function SolicitarOrcamentoContent() {
 
 export default function SolicitarOrcamentoPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#fbf7f1] p-6">Carregando...</div>}>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#fbf7f1] p-6">Carregando...</div>
+      }
+    >
       <SolicitarOrcamentoContent />
     </Suspense>
   );
