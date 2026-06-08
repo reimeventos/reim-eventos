@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 
-export async function getMySupplierProfile() {
+async function getMySupplierProfiles() {
   const user = (await supabase.auth.getUser()).data.user;
   if (!user) throw new Error('Login necessário');
 
@@ -8,10 +8,31 @@ export async function getMySupplierProfile() {
     .from('suppliers')
     .select('*, categories(id, name, slug), media(*)')
     .eq('owner_id', user.id)
-    .single();
+    .order('created_at', { ascending: true });
 
   if (error) throw error;
-  return data;
+
+  return data ?? [];
+}
+
+async function getMySupplierIds() {
+  const suppliers = await getMySupplierProfiles();
+
+  if (suppliers.length === 0) {
+    throw new Error('Nenhum fornecedor vinculado a esta conta.');
+  }
+
+  return suppliers.map((supplier: any) => supplier.id);
+}
+
+export async function getMySupplierProfile() {
+  const suppliers = await getMySupplierProfiles();
+
+  if (suppliers.length === 0) {
+    throw new Error('Nenhum fornecedor vinculado a esta conta.');
+  }
+
+  return suppliers[0];
 }
 
 export async function updateMySupplierProfile(payload: {
@@ -216,12 +237,17 @@ export async function listSavedSuppliers() {
 /* LEADS / ORÇAMENTOS */
 
 export async function getSupplierLeads() {
-  const supplier = await getMySupplierProfile();
+  const supplierIds = await getMySupplierIds();
 
   const { data, error } = await supabase
     .from('quote_requests')
     .select(`
       *,
+      suppliers(
+        id,
+        business_name,
+        categories(name)
+      ),
       quote_responses(
         id,
         status,
@@ -245,7 +271,7 @@ export async function getSupplierLeads() {
         created_at
       )
     `)
-    .eq('supplier_id', supplier.id)
+    .in('supplier_id', supplierIds)
     .order('created_at', { ascending: false });
 
   if (error) throw error;
@@ -253,12 +279,17 @@ export async function getSupplierLeads() {
 }
 
 export async function getSupplierLeadById(id: string) {
-  const supplier = await getMySupplierProfile();
+  const supplierIds = await getMySupplierIds();
 
   const { data, error } = await supabase
     .from('quote_requests')
     .select(`
       *,
+      suppliers(
+        id,
+        business_name,
+        categories(name)
+      ),
       quote_responses(
         id,
         status,
@@ -274,7 +305,7 @@ export async function getSupplierLeadById(id: string) {
       )
     `)
     .eq('id', id)
-    .eq('supplier_id', supplier.id)
+    .in('supplier_id', supplierIds)
     .single();
 
   if (error) throw error;
@@ -337,14 +368,14 @@ export async function createQuoteResponse(data: {
   proposal_validity?: string;
   observations?: string;
 }) {
-  const supplier = await getMySupplierProfile();
+  const lead = await getSupplierLeadById(data.quote_request_id);
 
   const { error } = await supabase
     .from('quote_responses')
     .insert([
       {
         quote_request_id: data.quote_request_id,
-        supplier_id: supplier.id,
+        supplier_id: lead.supplier_id,
         status: 'respondido',
         service_offered: data.service_offered,
         duration_period: data.duration_period || null,
@@ -364,7 +395,7 @@ export async function createQuoteResponse(data: {
     .from('quote_requests')
     .update({ status: 'respondido' })
     .eq('id', data.quote_request_id)
-    .eq('supplier_id', supplier.id);
+    .eq('supplier_id', lead.supplier_id);
 
   if (updateError) {
     console.error('Erro ao atualizar status do pedido:', updateError);
