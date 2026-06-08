@@ -3,22 +3,23 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-  ArrowLeft,
-  Building2,
   CalendarDays,
   CheckCircle2,
+  Clock,
   Heart,
-  Lock,
-  LogIn,
   MapPin,
-  MessageCircle,
-  PartyPopper,
-  Send,
-  User,
+  Plus,
+  Share2,
+  ShieldCheck,
+  Trash2,
+  UserPlus,
   Users,
+  Camera,
+  MessageCircle,
+  Star,
 } from 'lucide-react';
-import { listSavedSuppliers, createQuoteRequest } from '@/lib/suppliers';
-import { supabase } from '@/lib/supabase';
+import { Nav } from '@/components/Nav';
+import { listSavedSuppliers, unsaveSupplier } from '@/lib/suppliers';
 
 function getSupplierFromSaved(item: any) {
   if (Array.isArray(item.suppliers)) {
@@ -29,522 +30,424 @@ function getSupplierFromSaved(item: any) {
 }
 
 function getCategoryName(supplier: any) {
-  if (!supplier) return 'Serviço não informado';
+  if (!supplier) return 'Categoria não informada';
 
   if (Array.isArray(supplier.categories)) {
-    return supplier.categories[0]?.name || 'Serviço não informado';
+    return supplier.categories[0]?.name || 'Categoria não informada';
   }
 
-  return supplier.categories?.name || 'Serviço não informado';
+  return supplier.categories?.name || 'Categoria não informada';
 }
 
-function formatWhatsapp(value: string) {
-  const digits = value.replace(/\D/g, '').slice(0, 11);
+function getCoverImage(supplier: any) {
+  const media = supplier?.media || [];
 
-  if (digits.length <= 2) {
-    return digits;
+  const cover = media.find((item: any) => item.is_cover);
+
+  if (cover?.file_url) {
+    return cover.file_url;
   }
 
-  if (digits.length <= 7) {
-    return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  if (media?.[0]?.file_url) {
+    return media[0].file_url;
   }
 
-  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+  return 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?q=80&w=1000&auto=format&fit=crop';
 }
 
-function countWhatsappDigits(value: string) {
-  return value.replace(/\D/g, '').length;
+function formatPrice(value: any) {
+  if (!value) return 'Sob consulta';
+
+  const numberValue = Number(value);
+
+  if (!Number.isNaN(numberValue)) {
+    return numberValue.toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    });
+  }
+
+  return String(value);
 }
 
-export default function SolicitarTodosPage() {
-  const [user, setUser] = useState<any>(null);
-  const [userEmail, setUserEmail] = useState('');
-  const [loadingUser, setLoadingUser] = useState(true);
+function formatRating(value: any) {
+  if (!value) return '4.9';
 
+  const numberValue = Number(value);
+
+  if (Number.isNaN(numberValue)) {
+    return String(value);
+  }
+
+  return numberValue.toFixed(1);
+}
+
+function StatusBadge() {
+  return (
+    <span className="flex items-center gap-1 rounded-full bg-[#fff7e8] px-3 py-1 text-[11px] font-extrabold text-[#b97900]">
+      <Clock size={13} />
+      Salvo
+    </span>
+  );
+}
+
+export default function MeuEventoPage() {
   const [savedSuppliers, setSavedSuppliers] = useState<any[]>([]);
-  const [loadingSuppliers, setLoadingSuppliers] = useState(true);
-
-  const [customerName, setCustomerName] = useState('');
-  const [customerWhatsapp, setCustomerWhatsapp] = useState('');
-  const [eventType, setEventType] = useState('Casamento');
-  const [eventDate, setEventDate] = useState('');
-  const [eventCity, setEventCity] = useState('Eunápolis');
-  const [eventSpace, setEventSpace] = useState('');
-  const [guestsCount, setGuestsCount] = useState('');
-  const [notes, setNotes] = useState('');
-
-  const [loading, setLoading] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [removingId, setRemovingId] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
-  useEffect(() => {
-    async function loadUser() {
-      try {
-        setLoadingUser(true);
-
-        const { data } = await supabase.auth.getUser();
-        const currentUser = data.user || null;
-
-        setUser(currentUser);
-        setUserEmail(currentUser?.email || '');
-      } catch (error) {
-        console.error('Erro ao verificar login:', error);
-        setUser(null);
-        setUserEmail('');
-      } finally {
-        setLoadingUser(false);
-      }
-    }
-
-    loadUser();
-  }, []);
-
-  useEffect(() => {
-    async function loadSavedSuppliers() {
-      try {
-        setLoadingSuppliers(true);
-
-        const data = await listSavedSuppliers();
-        setSavedSuppliers(data || []);
-      } catch (error) {
-        console.error('Erro ao carregar fornecedores salvos:', error);
-        setSavedSuppliers([]);
-      } finally {
-        setLoadingSuppliers(false);
-      }
-    }
-
-    loadSavedSuppliers();
-  }, []);
-
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    setSuccessMessage('');
-    setErrorMessage('');
-
-    if (!user) {
-      setErrorMessage('Para solicitar orçamento, faça login ou crie sua conta.');
-      return;
-    }
-
-    if (savedSuppliers.length === 0) {
-      setErrorMessage('Você ainda não possui fornecedores salvos no Meu Evento.');
-      return;
-    }
-
-    if (!customerName.trim()) {
-      setErrorMessage('Informe seu nome.');
-      return;
-    }
-
-    if (!customerWhatsapp.trim()) {
-      setErrorMessage('Informe seu WhatsApp.');
-      return;
-    }
-
-    if (countWhatsappDigits(customerWhatsapp) < 10) {
-      setErrorMessage('Informe um WhatsApp válido com DDD.');
-      return;
-    }
-
-    if (!eventDate) {
-      setErrorMessage('Informe a data do evento.');
-      return;
-    }
-
+  async function loadSavedSuppliers() {
     try {
       setLoading(true);
+      setErrorMessage('');
 
-      let totalSent = 0;
-
-      for (const item of savedSuppliers) {
-        const supplier = getSupplierFromSaved(item);
-
-        if (!supplier?.id) {
-          continue;
-        }
-
-        const categoryName = getCategoryName(supplier);
-
-        await createQuoteRequest({
-          supplier_id: supplier.id,
-          customer_name: customerName,
-          customer_whatsapp: customerWhatsapp,
-          event_type: eventType,
-          event_date: eventDate,
-          event_city: eventCity,
-          event_space: eventSpace,
-          guests_count: guestsCount ? Number(guestsCount) : undefined,
-          service_needed: categoryName,
-          notes:
-            notes ||
-            `Gostaria de orçamento para ${eventType.toLowerCase()} com ${guestsCount || 'quantidade de'} convidados.`,
-        });
-
-        totalSent += 1;
-      }
-
-      if (totalSent === 0) {
-        setErrorMessage('Não foi possível enviar para nenhum fornecedor salvo.');
-        return;
-      }
-
-      setSuccessMessage(
-        totalSent === 1
-          ? 'Solicitação enviada com sucesso para 1 fornecedor salvo.'
-          : `Solicitações enviadas com sucesso para ${totalSent} fornecedores salvos.`
-      );
-
-      setCustomerName('');
-      setCustomerWhatsapp('');
-      setEventType('Casamento');
-      setEventDate('');
-      setEventCity('Eunápolis');
-      setEventSpace('');
-      setGuestsCount('');
-      setNotes('');
+      const data = await listSavedSuppliers();
+      setSavedSuppliers(data || []);
     } catch (error: any) {
-      console.error('Erro ao solicitar orçamento para todos:', error);
+      console.error('Erro ao carregar fornecedores salvos:', error);
       setErrorMessage(
         error?.message ||
-          'Não foi possível enviar as solicitações. Tente novamente.'
+          'Não foi possível carregar os fornecedores salvos.'
       );
     } finally {
       setLoading(false);
     }
   }
 
+  useEffect(() => {
+    loadSavedSuppliers();
+  }, []);
+
+  async function handleRemoveSupplier(supplierId: string) {
+    try {
+      setRemovingId(supplierId);
+      await unsaveSupplier(supplierId);
+      await loadSavedSuppliers();
+    } catch (error: any) {
+      console.error('Erro ao remover fornecedor:', error);
+      setErrorMessage(
+        error?.message ||
+          'Não foi possível remover este fornecedor do Meu Evento.'
+      );
+    } finally {
+      setRemovingId('');
+    }
+  }
+
+  const totalSaved = savedSuppliers.length;
+  const progress = totalSaved > 0 ? Math.min(100, totalSaved * 20) : 0;
+
   return (
     <main className="min-h-screen bg-black text-[#151515]">
-      <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] pb-10 shadow-2xl">
+      <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] pb-28 shadow-2xl">
         {/* TOPO */}
         <section className="relative overflow-hidden rounded-b-[34px] bg-black px-6 pb-8 pt-7 text-white">
           <div className="absolute inset-0 bg-[url('/layout01-fundo.png')] bg-cover bg-center opacity-45" />
           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/80 to-black" />
 
           <div className="relative z-10">
-            <Link
-              href="/meu-evento"
-              className="inline-flex items-center gap-2 text-sm font-bold text-[#e3a925]"
-            >
-              <ArrowLeft size={17} />
-              Voltar
-            </Link>
+            <div className="flex items-center justify-between">
+              <Link href="/" className="text-sm font-bold text-[#e3a925]">
+                ‹ Voltar
+              </Link>
+
+              <button className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-[#e3a925]">
+                <Share2 size={21} />
+              </button>
+            </div>
 
             <div className="mt-6 flex items-center gap-3">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#e3a925] text-white shadow-lg">
-                <MessageCircle size={31} />
+                <Heart size={31} />
               </div>
 
               <div>
-                <h1 className="font-serif text-[31px] leading-tight">
-                  Orçamento para todos
+                <h1 className="font-serif text-[34px] leading-tight">
+                  Meu Evento
                 </h1>
-
                 <p className="mt-1 text-sm text-white/70">
-                  Envie uma solicitação para todos os fornecedores salvos.
+                  Organize fornecedores, orçamentos e favoritos
                 </p>
+              </div>
+            </div>
+
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <div className="rounded-2xl bg-white/10 p-3">
+                <p className="flex items-center gap-2 text-xs font-bold text-white/60">
+                  <CalendarDays size={14} className="text-[#e3a925]" />
+                  Data
+                </p>
+                <p className="mt-1 text-sm font-extrabold">22/06/2026</p>
+              </div>
+
+              <div className="rounded-2xl bg-white/10 p-3">
+                <p className="flex items-center gap-2 text-xs font-bold text-white/60">
+                  <MapPin size={14} className="text-[#e3a925]" />
+                  Cidade
+                </p>
+                <p className="mt-1 text-sm font-extrabold">Eunápolis</p>
+              </div>
+            </div>
+
+            <div className="mt-5">
+              <div className="flex items-center justify-between text-xs font-bold text-white/70">
+                <span>Progresso do evento</span>
+                <span>{progress}%</span>
+              </div>
+
+              <div className="mt-2 h-2 rounded-full bg-white/20">
+                <div
+                  className="h-full rounded-full bg-[#e3a925]"
+                  style={{ width: `${progress}%` }}
+                />
               </div>
             </div>
           </div>
         </section>
 
-        {/* STATUS LOGIN */}
-        {loadingUser && (
-          <section className="px-6 pt-6">
-            <div className="rounded-[28px] bg-white p-6 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-              <Lock size={36} className="mx-auto text-[#d99200]" />
-              <p className="mt-3 text-sm font-bold text-gray-600">
-                Verificando sua conta...
-              </p>
-            </div>
-          </section>
-        )}
-
-        {!loadingUser && !user && (
-          <section className="px-6 pt-6">
-            <div className="rounded-[28px] bg-white p-6 text-center shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]">
-                <Lock size={34} />
+        {/* COMPARTILHAR COM CERIMONIALISTA */}
+        <section className="px-6 pt-6">
+          <div className="rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)]">
+            <div className="flex items-start gap-4">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]">
+                <UserPlus size={30} />
               </div>
 
-              <h2 className="mt-5 text-xl font-extrabold">
-                Acesse sua conta
-              </h2>
+              <div className="flex-1">
+                <h2 className="text-lg font-extrabold">
+                  Compartilhar evento
+                </h2>
 
-              <p className="mt-3 text-sm leading-6 text-gray-600">
-                Para solicitar orçamento para seus fornecedores salvos, você precisa estar logado como cliente.
+                <p className="mt-1 text-sm leading-5 text-gray-600">
+                  Convide sua cerimonialista para ajudar a adicionar fornecedores,
+                  solicitar orçamentos e organizar a lista.
+                </p>
+
+                <button className="mt-4 flex w-full items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-3 text-sm font-extrabold text-white shadow-lg">
+                  <Share2 size={18} />
+                  Compartilhar com cerimonialista
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* COLABORADORES */}
+        <section className="px-6 pt-6">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-lg font-extrabold">Colaboradores</h2>
+            <span className="text-xs font-bold text-gray-500">2 pessoas</span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-[22px] bg-white p-4 shadow-sm ring-1 ring-[#f1e7cf]">
+              <div className="flex items-center gap-2">
+                <Users size={18} className="text-[#d99200]" />
+                <p className="text-sm font-extrabold">Cliente</p>
+              </div>
+              <p className="mt-2 text-xs font-bold text-gray-500">
+                Dona do evento
+              </p>
+            </div>
+
+            <div className="rounded-[22px] bg-white p-4 shadow-sm ring-1 ring-[#f1e7cf]">
+              <div className="flex items-center gap-2">
+                <ShieldCheck size={18} className="text-[#d99200]" />
+                <p className="text-sm font-extrabold">Cerimonialista</p>
+              </div>
+              <p className="mt-2 text-xs font-bold text-gray-500">
+                Editora
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* FORNECEDORES SALVOS */}
+        <section className="px-6 pt-6">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-extrabold">Fornecedores salvos</h2>
+              <p className="mt-1 text-xs font-bold text-gray-500">
+                {loading
+                  ? 'Carregando...'
+                  : `${totalSaved} fornecedor(es) no Meu Evento`}
+              </p>
+            </div>
+
+            <Link href="/buscar" className="text-xs font-extrabold text-[#d99200]">
+              Adicionar
+            </Link>
+          </div>
+
+          {errorMessage && (
+            <div className="mb-4 rounded-[22px] bg-red-50 p-4 text-sm font-bold leading-5 text-red-700 ring-1 ring-red-100">
+              {errorMessage}
+            </div>
+          )}
+
+          {loading && (
+            <div className="rounded-[28px] bg-white p-6 text-center shadow-sm ring-1 ring-[#f1e7cf]">
+              <p className="text-sm font-bold text-gray-500">
+                Carregando fornecedores salvos...
+              </p>
+            </div>
+          )}
+
+          {!loading && savedSuppliers.length === 0 && (
+            <div className="rounded-[28px] bg-white p-6 text-center shadow-sm ring-1 ring-[#f1e7cf]">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#fff7e8] text-[#d99200]">
+                <Heart size={32} />
+              </div>
+
+              <h3 className="mt-4 text-lg font-extrabold">
+                Nenhum fornecedor salvo ainda
+              </h3>
+
+              <p className="mt-2 text-sm leading-5 text-gray-500">
+                Abra uma vitrine e toque em “Salvar no Meu Evento” para montar
+                sua lista de fornecedores.
               </p>
 
               <Link
-                href="/login?redirect=/meu-evento/solicitar-todos"
-                className="mt-6 flex items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg"
+                href="/buscar"
+                className="mt-5 block rounded-[22px] bg-[#e3a925] py-3 text-sm font-extrabold text-white shadow-lg"
               >
-                <LogIn size={21} />
-                Fazer login
+                Buscar fornecedores
               </Link>
             </div>
-          </section>
-        )}
+          )}
 
-        {!loadingUser && user && (
-          <>
-            {/* RESUMO */}
-            <section className="px-6 pt-6">
-              <div className="rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]">
-                <div className="flex items-start gap-4">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]">
-                    <Heart size={30} />
-                  </div>
+          <div className="space-y-4">
+            {savedSuppliers.map((item) => {
+              const supplier = getSupplierFromSaved(item);
 
-                  <div className="flex-1">
-                    <h2 className="text-lg font-extrabold">
-                      Fornecedores salvos
-                    </h2>
+              if (!supplier) {
+                return null;
+              }
 
-                    <p className="mt-1 text-sm leading-5 text-gray-600">
-                      {loadingSuppliers
-                        ? 'Carregando fornecedores...'
-                        : `${savedSuppliers.length} fornecedor(es) receberão esta solicitação.`}
-                    </p>
+              const supplierId = supplier.id || item.supplier_id;
+              const supplierName = supplier.business_name || 'Fornecedor';
+              const categoryName = getCategoryName(supplier);
+              const city = supplier.city || 'Cidade não informada';
+              const rating = formatRating(supplier.rating_average);
+              const price = formatPrice(supplier.average_price);
+              const coverImage = getCoverImage(supplier);
 
-                    <p className="mt-3 rounded-2xl bg-[#fbf7f1] px-4 py-3 text-xs font-bold text-gray-500">
-                      Conta logada: {userEmail || 'cliente'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </section>
+              return (
+                <div
+                  key={item.id}
+                  className="overflow-hidden rounded-[28px] bg-white shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]"
+                >
+                  <div className="relative h-36">
+                    <img
+                      src={coverImage}
+                      alt={supplierName}
+                      className="h-full w-full object-cover"
+                    />
 
-            {/* LISTA DOS FORNECEDORES */}
-            {!loadingSuppliers && savedSuppliers.length > 0 && (
-              <section className="px-6 pt-5">
-                <div className="mb-3 flex items-center justify-between">
-                  <h2 className="text-lg font-extrabold">Será enviado para</h2>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
 
-                  <Link
-                    href="/meu-evento"
-                    className="text-xs font-extrabold text-[#d99200]"
-                  >
-                    Editar lista
-                  </Link>
-                </div>
+                    <span className="absolute left-4 top-4 rounded-full bg-[#e3a925] px-3 py-1 text-xs font-extrabold text-white">
+                      ♡ Salvo
+                    </span>
 
-                <div className="space-y-3">
-                  {savedSuppliers.map((item) => {
-                    const supplier = getSupplierFromSaved(item);
+                    <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between text-white">
+                      <div>
+                        <p className="text-xs font-bold text-white/75">
+                          {categoryName}
+                        </p>
 
-                    if (!supplier) {
-                      return null;
-                    }
-
-                    const categoryName = getCategoryName(supplier);
-
-                    return (
-                      <div
-                        key={item.id}
-                        className="rounded-[22px] bg-white p-4 shadow-sm ring-1 ring-[#f1e7cf]"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <h3 className="text-base font-extrabold">
-                              {supplier.business_name || 'Fornecedor'}
-                            </h3>
-
-                            <p className="mt-1 text-xs font-bold text-gray-500">
-                              {categoryName}
-                            </p>
-                          </div>
-
-                          <CheckCircle2 size={20} className="text-green-600" />
-                        </div>
+                        <h3 className="text-xl font-extrabold">
+                          {supplierName}
+                        </h3>
                       </div>
-                    );
-                  })}
-                </div>
-              </section>
-            )}
 
-            {!loadingSuppliers && savedSuppliers.length === 0 && (
-              <section className="px-6 pt-6">
-                <div className="rounded-[28px] bg-white p-6 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-                  <Heart size={38} className="mx-auto text-[#d99200]" />
+                      <div className="flex items-center gap-1 rounded-full bg-black/45 px-3 py-1 text-sm font-bold">
+                        <Star
+                          size={15}
+                          fill="#e3a925"
+                          className="text-[#e3a925]"
+                        />
+                        {rating}
+                      </div>
+                    </div>
+                  </div>
 
-                  <h2 className="mt-4 text-lg font-extrabold">
-                    Nenhum fornecedor salvo
-                  </h2>
+                  <div className="p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="flex items-center gap-1 text-sm font-bold text-gray-700">
+                          <MapPin size={15} className="text-[#d99200]" />
+                          {city}
+                        </p>
 
-                  <p className="mt-2 text-sm leading-5 text-gray-500">
-                    Salve fornecedores no Meu Evento antes de solicitar orçamento para todos.
-                  </p>
+                        <p className="mt-1 text-xs font-bold text-gray-500">
+                          {price === 'Sob consulta'
+                            ? 'Valor sob consulta'
+                            : `A partir de ${price}`}
+                        </p>
+                      </div>
 
-                  <Link
-                    href="/buscar"
-                    className="mt-5 block rounded-[22px] bg-[#e3a925] py-3 text-sm font-extrabold text-white shadow-lg"
-                  >
-                    Buscar fornecedores
-                  </Link>
-                </div>
-              </section>
-            )}
+                      <StatusBadge />
+                    </div>
 
-            {/* FORMULÁRIO */}
-            {!loadingSuppliers && savedSuppliers.length > 0 && (
-              <section className="px-6 pt-6">
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <label className="block">
-                    <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
-                      <User size={17} className="text-[#d99200]" />
-                      Nome
-                    </span>
-                    <input
-                      value={customerName}
-                      onChange={(event) => setCustomerName(event.target.value)}
-                      className="w-full rounded-[22px] bg-white px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400"
-                      placeholder="Seu nome"
-                    />
-                  </label>
+                    <div className="mt-4 grid grid-cols-2 gap-3">
+                      <Link
+                        href={`/fornecedor/${supplierId}`}
+                        className="flex items-center justify-center gap-2 rounded-[20px] bg-[#fbf7f1] py-3 text-center text-sm font-extrabold text-[#151515] ring-1 ring-[#f1e7cf]"
+                      >
+                        <Camera size={17} className="text-[#d99200]" />
+                        Ver vitrine
+                      </Link>
 
-                  <label className="block">
-                    <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
-                      <MessageCircle size={17} className="text-[#d99200]" />
-                      WhatsApp
-                    </span>
-                    <input
-                      inputMode="numeric"
-                      maxLength={15}
-                      value={customerWhatsapp}
-                      onChange={(event) =>
-                        setCustomerWhatsapp(formatWhatsapp(event.target.value))
-                      }
-                      className="w-full rounded-[22px] bg-white px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400"
-                      placeholder="(73) 99999-9999"
-                    />
-                    <p className="mt-2 text-xs text-gray-500">
-                      Informe o DDD + número. Ex: (73) 99999-9999
-                    </p>
-                  </label>
+                      <Link
+                        href={`/solicitar-orcamento?fornecedor=${supplierId}`}
+                        className="flex items-center justify-center gap-2 rounded-[20px] bg-[#e3a925] py-3 text-center text-sm font-extrabold text-white shadow-lg"
+                      >
+                        <MessageCircle size={17} />
+                        Orçamento
+                      </Link>
+                    </div>
 
-                  <label className="block">
-                    <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
-                      <PartyPopper size={17} className="text-[#d99200]" />
-                      Tipo de evento
-                    </span>
-                    <select
-                      value={eventType}
-                      onChange={(event) => setEventType(event.target.value)}
-                      className="w-full rounded-[22px] bg-white px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf]"
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveSupplier(supplierId)}
+                      disabled={removingId === supplierId}
+                      className="mt-3 flex w-full items-center justify-center gap-2 rounded-[20px] bg-white py-3 text-center text-sm font-extrabold text-red-700 ring-1 ring-red-100 disabled:opacity-60"
                     >
-                      <option>Casamento</option>
-                      <option>Aniversário</option>
-                      <option>Debutante</option>
-                      <option>Evento corporativo</option>
-                      <option>Formatura</option>
-                      <option>Batizado</option>
-                      <option>Chá revelação</option>
-                      <option>Outro</option>
-                    </select>
-                  </label>
+                      <Trash2 size={17} />
+                      {removingId === supplierId
+                        ? 'Removendo...'
+                        : 'Remover do Meu Evento'}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
 
-                  <label className="block">
-                    <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
-                      <CalendarDays size={17} className="text-[#d99200]" />
-                      Data do evento
-                    </span>
-                    <input
-                      type="date"
-                      value={eventDate}
-                      onChange={(event) => setEventDate(event.target.value)}
-                      className="w-full rounded-[22px] bg-white px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf]"
-                    />
-                  </label>
+          {savedSuppliers.length > 0 && (
+            <div className="mt-6 space-y-3">
+              <Link
+                href="/meu-evento/solicitar-todos"
+                className="flex w-full items-center justify-center gap-2 rounded-[24px] bg-black py-4 text-center font-extrabold text-white shadow-lg"
+              >
+                <MessageCircle size={21} />
+                Solicitar orçamento para todos
+              </Link>
 
-                  <label className="block">
-                    <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
-                      <MapPin size={17} className="text-[#d99200]" />
-                      Cidade do evento
-                    </span>
-                    <input
-                      value={eventCity}
-                      onChange={(event) => setEventCity(event.target.value)}
-                      className="w-full rounded-[22px] bg-white px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400"
-                      placeholder="Ex: Eunápolis"
-                    />
-                  </label>
+              <Link
+                href="/orcamentos"
+                className="block rounded-[24px] bg-white py-4 text-center font-extrabold text-[#151515] shadow-sm ring-1 ring-[#f1e7cf]"
+              >
+                Ver todos os orçamentos
+              </Link>
+            </div>
+          )}
+        </section>
 
-                  <label className="block">
-                    <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
-                      <Building2 size={17} className="text-[#d99200]" />
-                      Espaço do evento
-                    </span>
-                    <input
-                      value={eventSpace}
-                      onChange={(event) => setEventSpace(event.target.value)}
-                      className="w-full rounded-[22px] bg-white px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400"
-                      placeholder="Ex: Espaço Villa Real, clube, fazenda..."
-                    />
-                  </label>
-
-                  <label className="block">
-                    <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
-                      <Users size={17} className="text-[#d99200]" />
-                      Quantidade de convidados
-                    </span>
-                    <input
-                      type="number"
-                      min="1"
-                      value={guestsCount}
-                      onChange={(event) => setGuestsCount(event.target.value)}
-                      className="w-full rounded-[22px] bg-white px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400"
-                      placeholder="Ex: 150"
-                    />
-                  </label>
-
-                  <label className="block">
-                    <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
-                      <MessageCircle size={17} className="text-[#d99200]" />
-                      Mensagem para os fornecedores
-                    </span>
-                    <textarea
-                      value={notes}
-                      onChange={(event) => setNotes(event.target.value)}
-                      className="min-h-[130px] w-full resize-none rounded-[22px] bg-white px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400"
-                      placeholder="Conte um pouco sobre seu evento. Esta mensagem será enviada para todos os fornecedores salvos."
-                    />
-                  </label>
-
-                  {errorMessage && (
-                    <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
-                      {errorMessage}
-                    </div>
-                  )}
-
-                  {successMessage && (
-                    <div className="rounded-2xl bg-green-50 px-4 py-3 text-sm font-bold text-green-700">
-                      {successMessage}
-                    </div>
-                  )}
-
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="mt-7 flex w-full items-center justify-center gap-2 rounded-[24px] bg-black py-4 text-center font-extrabold text-white shadow-lg disabled:opacity-60"
-                  >
-                    <Send size={21} />
-                    {loading
-                      ? 'Enviando...'
-                      : `Enviar para ${savedSuppliers.length} fornecedor(es)`}
-                  </button>
-                </form>
-
-                <p className="mt-3 text-center text-xs leading-5 text-gray-500">
-                  Cada fornecedor receberá uma solicitação individual no painel dele.
-                </p>
-              </section>
-            )}
-          </>
-        )}
+        <Nav />
       </div>
     </main>
   );
