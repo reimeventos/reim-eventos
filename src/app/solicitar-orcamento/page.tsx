@@ -39,6 +39,24 @@ function isSpaceCategory(text: string) {
   );
 }
 
+function formatWhatsapp(value: string) {
+  const digits = value.replace(/\D/g, '').slice(0, 11);
+
+  if (digits.length <= 2) {
+    return digits;
+  }
+
+  if (digits.length <= 7) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  }
+
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+}
+
+function countWhatsappDigits(value: string) {
+  return value.replace(/\D/g, '').length;
+}
+
 function SolicitarOrcamentoContent() {
   const searchParams = useSearchParams();
   const supplierId = searchParams.get('fornecedor') || '';
@@ -199,6 +217,11 @@ function SolicitarOrcamentoContent() {
       return;
     }
 
+    if (countWhatsappDigits(customerWhatsapp) < 10) {
+      setErrorMessage('Informe um WhatsApp válido com DDD.');
+      return;
+    }
+
     try {
       setLoading(true);
 
@@ -220,7 +243,7 @@ function SolicitarOrcamentoContent() {
       });
 
       setSuccessMessage(
-        'Solicitação enviada com sucesso! O fornecedor poderá responder com um orçamento dentro do app.'
+        'Solicitação enviada com sucesso! Acompanhe a resposta em Meus Orçamentos.'
       );
 
       setCustomerName('');
@@ -432,11 +455,18 @@ function SolicitarOrcamentoContent() {
                   WhatsApp
                 </span>
                 <input
+                  inputMode="numeric"
+                  maxLength={15}
                   value={customerWhatsapp}
-                  onChange={(event) => setCustomerWhatsapp(event.target.value)}
+                  onChange={(event) =>
+                    setCustomerWhatsapp(formatWhatsapp(event.target.value))
+                  }
                   className="w-full rounded-[22px] bg-white px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400"
                   placeholder="(73) 99999-9999"
                 />
+                <p className="mt-2 text-xs text-gray-500">
+                  Informe o DDD + número. Ex: (73) 99999-9999
+                </p>
               </label>
 
               <label className="block">
@@ -546,6 +576,7 @@ function SolicitarOrcamentoContent() {
                 </span>
                 <input
                   type="number"
+                  min="1"
                   value={guestsCount}
                   onChange={(event) => setGuestsCount(event.target.value)}
                   className="w-full rounded-[22px] bg-white px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400"
