@@ -4,11 +4,9 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   CalendarDays,
-  CheckCircle2,
   Clock,
   Heart,
   MapPin,
-  Plus,
   Share2,
   ShieldCheck,
   Trash2,
@@ -41,16 +39,10 @@ function getCategoryName(supplier: any) {
 
 function getCoverImage(supplier: any) {
   const media = supplier?.media || [];
-
   const cover = media.find((item: any) => item.is_cover);
 
-  if (cover?.file_url) {
-    return cover.file_url;
-  }
-
-  if (media?.[0]?.file_url) {
-    return media[0].file_url;
-  }
+  if (cover?.file_url) return cover.file_url;
+  if (media?.[0]?.file_url) return media[0].file_url;
 
   return 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?q=80&w=1000&auto=format&fit=crop';
 }
@@ -75,9 +67,7 @@ function formatRating(value: any) {
 
   const numberValue = Number(value);
 
-  if (Number.isNaN(numberValue)) {
-    return String(value);
-  }
+  if (Number.isNaN(numberValue)) return String(value);
 
   return numberValue.toFixed(1);
 }
@@ -322,9 +312,7 @@ export default function MeuEventoPage() {
             {savedSuppliers.map((item) => {
               const supplier = getSupplierFromSaved(item);
 
-              if (!supplier) {
-                return null;
-              }
+              if (!supplier) return null;
 
               const supplierId = supplier.id || item.supplier_id;
               const supplierName = supplier.business_name || 'Fornecedor';
@@ -429,10 +417,13 @@ export default function MeuEventoPage() {
 
           {savedSuppliers.length > 0 && (
             <div className="mt-6 space-y-3">
-              <button className="flex w-full items-center justify-center gap-2 rounded-[24px] bg-black py-4 text-center font-extrabold text-white shadow-lg">
+              <Link
+                href="/meu-evento/solicitar-todos"
+                className="flex w-full items-center justify-center gap-2 rounded-[24px] bg-black py-4 text-center font-extrabold text-white shadow-lg"
+              >
                 <MessageCircle size={21} />
                 Solicitar orçamento para todos
-              </button>
+              </Link>
 
               <Link
                 href="/orcamentos"
