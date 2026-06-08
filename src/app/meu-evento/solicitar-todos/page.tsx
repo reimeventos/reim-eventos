@@ -18,6 +18,7 @@ import {
   Users,
 } from 'lucide-react';
 import { createQuoteRequest, listSavedSuppliers } from '@/lib/suppliers';
+import { getMyEvent } from '@/lib/events';
 import { supabase } from '@/lib/supabase';
 
 function getSupplierFromSaved(item: any) {
@@ -41,9 +42,7 @@ function getCategoryName(supplier: any) {
 function formatWhatsapp(value: string) {
   const digits = value.replace(/\D/g, '').slice(0, 11);
 
-  if (digits.length <= 2) {
-    return digits;
-  }
+  if (digits.length <= 2) return digits;
 
   if (digits.length <= 7) {
     return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
@@ -54,6 +53,16 @@ function formatWhatsapp(value: string) {
 
 function countWhatsappDigits(value: string) {
   return value.replace(/\D/g, '').length;
+}
+
+function formatDateForInput(date?: string) {
+  if (!date) return '';
+
+  if (date.includes('T')) {
+    return date.split('T')[0];
+  }
+
+  return date;
 }
 
 export default function SolicitarTodosPage() {
@@ -78,43 +87,55 @@ export default function SolicitarTodosPage() {
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
-    async function loadUser() {
+    async function loadInitialData() {
       try {
         setLoadingUser(true);
+        setLoadingSuppliers(true);
 
         const { data } = await supabase.auth.getUser();
         const currentUser = data.user || null;
 
         setUser(currentUser);
         setUserEmail(currentUser?.email || '');
+
+        if (currentUser) {
+          const [eventData, suppliersData] = await Promise.all([
+            getMyEvent().catch(() => null),
+            listSavedSuppliers(),
+          ]);
+
+          setSavedSuppliers(suppliersData || []);
+
+          if (eventData) {
+            setEventType(eventData.event_type || 'Casamento');
+            setEventDate(formatDateForInput(eventData.event_date));
+            setEventCity(eventData.event_city || eventData.city || 'Eunápolis');
+            setEventSpace(eventData.event_space || '');
+
+            const guests =
+              eventData.guests_count || eventData.guest_count || '';
+
+            setGuestsCount(guests ? String(guests) : '');
+
+            if (eventData.notes) {
+              setNotes(eventData.notes);
+            }
+          }
+        } else {
+          setSavedSuppliers([]);
+        }
       } catch (error) {
-        console.error('Erro ao verificar login:', error);
+        console.error('Erro ao carregar dados:', error);
         setUser(null);
         setUserEmail('');
-      } finally {
-        setLoadingUser(false);
-      }
-    }
-
-    loadUser();
-  }, []);
-
-  useEffect(() => {
-    async function loadSavedSuppliers() {
-      try {
-        setLoadingSuppliers(true);
-
-        const data = await listSavedSuppliers();
-        setSavedSuppliers(data || []);
-      } catch (error) {
-        console.error('Erro ao carregar fornecedores salvos:', error);
         setSavedSuppliers([]);
       } finally {
+        setLoadingUser(false);
         setLoadingSuppliers(false);
       }
     }
 
-    loadSavedSuppliers();
+    loadInitialData();
   }, []);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -161,9 +182,7 @@ export default function SolicitarTodosPage() {
       for (const item of savedSuppliers) {
         const supplier = getSupplierFromSaved(item);
 
-        if (!supplier?.id) {
-          continue;
-        }
+        if (!supplier?.id) continue;
 
         const categoryName = getCategoryName(supplier);
 
@@ -200,12 +219,6 @@ export default function SolicitarTodosPage() {
 
       setCustomerName('');
       setCustomerWhatsapp('');
-      setEventType('Casamento');
-      setEventDate('');
-      setEventCity('Eunápolis');
-      setEventSpace('');
-      setGuestsCount('');
-      setNotes('');
     } catch (error: any) {
       console.error('Erro ao solicitar orçamento para todos:', error);
 
@@ -334,9 +347,7 @@ export default function SolicitarTodosPage() {
                   {savedSuppliers.map((item) => {
                     const supplier = getSupplierFromSaved(item);
 
-                    if (!supplier) {
-                      return null;
-                    }
+                    if (!supplier) return null;
 
                     const categoryName = getCategoryName(supplier);
 
@@ -480,7 +491,7 @@ export default function SolicitarTodosPage() {
                       value={eventSpace}
                       onChange={(event) => setEventSpace(event.target.value)}
                       className="w-full rounded-[22px] bg-white px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400"
-                      placeholder="Ex: Espaço Villa Real, clube, fazenda..."
+                      placeholder="Ex: Campo Verde"
                     />
                   </label>
 
