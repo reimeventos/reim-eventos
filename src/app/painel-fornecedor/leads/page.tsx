@@ -20,6 +20,7 @@ import {
   RefreshCcw,
   AlertCircle,
   Bell,
+  Store,
 } from 'lucide-react';
 
 export default function LeadsFornecedorPage() {
@@ -98,6 +99,26 @@ export default function LeadsFornecedorPage() {
       normalized.includes('salão') ||
       normalized.includes('salao')
     );
+  }
+
+  function getSupplierName(lead: any) {
+    if (Array.isArray(lead.suppliers)) {
+      return lead.suppliers[0]?.business_name || 'Fornecedor não informado';
+    }
+
+    return lead.suppliers?.business_name || 'Fornecedor não informado';
+  }
+
+  function getSupplierCategory(lead: any) {
+    const supplier = Array.isArray(lead.suppliers)
+      ? lead.suppliers[0]
+      : lead.suppliers;
+
+    if (Array.isArray(supplier?.categories)) {
+      return supplier.categories[0]?.name || '';
+    }
+
+    return supplier?.categories?.name || '';
   }
 
   const newCount = leads.filter(
@@ -245,11 +266,14 @@ export default function LeadsFornecedorPage() {
 
           <div className="space-y-4">
             {leads.map((lead) => {
+              const supplierName = getSupplierName(lead);
+              const supplierCategory = getSupplierCategory(lead);
+
               const clientName = lead.customer_name || 'Cliente não informado';
               const phone = lead.customer_whatsapp || 'WhatsApp não informado';
               const eventType = lead.event_type || 'Evento não informado';
               const serviceNeeded =
-                lead.service_needed || 'Serviço não informado';
+                lead.service_needed || supplierCategory || 'Serviço não informado';
               const city = lead.event_city || 'Cidade não informada';
               const eventDate = formatDate(lead.event_date);
               const eventSpace = lead.event_space || 'Não informado';
@@ -315,6 +339,23 @@ export default function LeadsFornecedorPage() {
                         {statusLabel(status)}
                       </span>
                     </div>
+                  </div>
+
+                  <div className="mt-4 rounded-2xl bg-[#151515] p-4 text-white">
+                    <p className="flex items-center gap-2 text-xs font-extrabold text-[#f7d67b]">
+                      <Store size={15} />
+                      Fornecedor destino
+                    </p>
+
+                    <p className="mt-2 text-base font-extrabold">
+                      {supplierName}
+                    </p>
+
+                    {supplierCategory && (
+                      <p className="mt-1 text-xs font-bold text-white/60">
+                        {supplierCategory}
+                      </p>
+                    )}
                   </div>
 
                   {hasAdjustment && (
