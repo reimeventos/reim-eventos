@@ -28,9 +28,9 @@ export async function updateMySupplierProfile(payload: {
 
   const hasMinimumProfile = Boolean(
     payload.business_name &&
-    payload.city &&
-    payload.whatsapp &&
-    payload.category_id
+      payload.city &&
+      payload.whatsapp &&
+      payload.category_id
   );
 
   const { data, error } = await supabase
@@ -101,6 +101,119 @@ export async function uploadSupplierPhoto(file: File, isCover = false) {
   if (error) throw error;
   return data;
 }
+
+/* FAVORITOS / FORNECEDORES SALVOS */
+
+export async function saveSupplier(supplierId: string) {
+  const user = (await supabase.auth.getUser()).data.user;
+
+  if (!user) {
+    throw new Error('Para salvar fornecedor, faça login como cliente.');
+  }
+
+  const { data, error } = await supabase
+    .from('saved_suppliers')
+    .upsert(
+      {
+        customer_id: user.id,
+        supplier_id: supplierId,
+      },
+      {
+        onConflict: 'customer_id,supplier_id',
+      }
+    )
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Erro ao salvar fornecedor:', error);
+    throw error;
+  }
+
+  return data;
+}
+
+export async function unsaveSupplier(supplierId: string) {
+  const user = (await supabase.auth.getUser()).data.user;
+
+  if (!user) {
+    throw new Error('Login necessário.');
+  }
+
+  const { error } = await supabase
+    .from('saved_suppliers')
+    .delete()
+    .eq('customer_id', user.id)
+    .eq('supplier_id', supplierId);
+
+  if (error) {
+    console.error('Erro ao remover fornecedor salvo:', error);
+    throw error;
+  }
+
+  return true;
+}
+
+export async function isSupplierSaved(supplierId: string) {
+  const user = (await supabase.auth.getUser()).data.user;
+
+  if (!user) {
+    return false;
+  }
+
+  const { data, error } = await supabase
+    .from('saved_suppliers')
+    .select('id')
+    .eq('customer_id', user.id)
+    .eq('supplier_id', supplierId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Erro ao verificar fornecedor salvo:', error);
+    return false;
+  }
+
+  return Boolean(data);
+}
+
+export async function listSavedSuppliers() {
+  const user = (await supabase.auth.getUser()).data.user;
+
+  if (!user) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from('saved_suppliers')
+    .select(`
+      id,
+      created_at,
+      supplier_id,
+      suppliers(
+        id,
+        business_name,
+        description,
+        city,
+        whatsapp,
+        average_price,
+        rating_average,
+        is_featured,
+        categories(name, slug),
+        media(file_url, is_cover)
+      )
+    `)
+    .eq('customer_id', user.id)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Erro ao listar fornecedores salvos:', error);
+    throw error;
+  }
+
+  return data ?? [];
+}
+
+/* LEADS / ORÇAMENTOS */
 
 export async function getSupplierLeads() {
   const supplier = await getMySupplierProfile();
@@ -203,6 +316,7 @@ export async function createQuoteRequest(data: {
         guests_count: data.guests_count || null,
         service_needed: data.service_needed || null,
         notes: data.notes || null,
+        status: 'novo',
       },
     ]);
 
