@@ -25,18 +25,28 @@ import {
 export default function LeadsFornecedorPage() {
   const [leads, setLeads] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  async function loadLeads() {
+    try {
+      setLoading(true);
+      setErrorMessage('');
+
+      const data = await getSupplierLeads();
+      setLeads(data || []);
+    } catch (error: any) {
+      console.error('Erro ao carregar leads:', error);
+      setErrorMessage(
+        error?.message ||
+          'Não foi possível carregar os leads. Verifique se você está logado como fornecedor.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    getSupplierLeads()
-      .then((data) => {
-        setLeads(data || []);
-      })
-      .catch((error) => {
-        console.error('Erro ao carregar leads:', error);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
+    loadLeads();
   }, []);
 
   function formatDate(date?: string) {
@@ -52,12 +62,14 @@ export default function LeadsFornecedorPage() {
   }
 
   function statusLabel(status: string) {
+    if (status === 'novo') return 'Novo';
     if (status === 'aguardando_resposta') return 'Novo';
     if (status === 'respondido') return 'Respondido';
     if (status === 'ajuste_solicitado') return 'Ajuste solicitado';
     if (status === 'aceito') return 'Aceito';
     if (status === 'fechado') return 'Fechado';
-    return status;
+
+    return status || 'Novo';
   }
 
   function statusClass(status: string) {
@@ -75,6 +87,22 @@ export default function LeadsFornecedorPage() {
 
     return 'bg-[#fff7e8] text-[#b97900]';
   }
+
+  function isSpaceService(service: string) {
+    const normalized = String(service || '').toLowerCase();
+
+    return (
+      normalized.includes('espaço') ||
+      normalized.includes('espaco') ||
+      normalized.includes('local') ||
+      normalized.includes('salão') ||
+      normalized.includes('salao')
+    );
+  }
+
+  const newCount = leads.filter(
+    (lead) => lead.status === 'novo' || lead.status === 'aguardando_resposta'
+  ).length;
 
   const adjustmentCount = leads.filter(
     (lead) => lead.status === 'ajuste_solicitado'
@@ -125,10 +153,10 @@ export default function LeadsFornecedorPage() {
         <section className="grid grid-cols-3 gap-3 px-6 pt-6">
           <div className="rounded-[22px] bg-white p-4 text-center shadow-sm ring-1 ring-[#f1e7cf]">
             <p className="text-2xl font-extrabold text-[#d99200]">
-              {leads.length}
+              {newCount}
             </p>
             <p className="mt-1 text-[11px] font-bold text-gray-600">
-              Recebidos
+              Novos
             </p>
           </div>
 
@@ -176,10 +204,20 @@ export default function LeadsFornecedorPage() {
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-extrabold">Solicitações</h2>
 
-            <span className="rounded-full bg-[#fff7e8] px-3 py-1 text-xs font-extrabold text-[#b97900]">
+            <button
+              type="button"
+              onClick={loadLeads}
+              className="rounded-full bg-[#fff7e8] px-3 py-1 text-xs font-extrabold text-[#b97900]"
+            >
               {loading ? 'Carregando...' : `${leads.length} lead(s)`}
-            </span>
+            </button>
           </div>
+
+          {errorMessage && (
+            <div className="mb-4 rounded-[22px] bg-red-50 p-4 text-sm font-bold leading-5 text-red-700 ring-1 ring-red-100">
+              {errorMessage}
+            </div>
+          )}
 
           {loading && (
             <div className="rounded-[28px] bg-white p-6 text-center shadow-sm ring-1 ring-[#f1e7cf]">
@@ -189,7 +227,7 @@ export default function LeadsFornecedorPage() {
             </div>
           )}
 
-          {!loading && leads.length === 0 && (
+          {!loading && !errorMessage && leads.length === 0 && (
             <div className="rounded-[28px] bg-white p-6 text-center shadow-sm ring-1 ring-[#f1e7cf]">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#fff7e8] text-[#d99200]">
                 <MessageCircle size={32} />
@@ -210,22 +248,21 @@ export default function LeadsFornecedorPage() {
               const clientName = lead.customer_name || 'Cliente não informado';
               const phone = lead.customer_whatsapp || 'WhatsApp não informado';
               const eventType = lead.event_type || 'Evento não informado';
-              const serviceNeeded = lead.service_needed || 'Serviço não informado';
+              const serviceNeeded =
+                lead.service_needed || 'Serviço não informado';
               const city = lead.event_city || 'Cidade não informada';
               const eventDate = formatDate(lead.event_date);
               const eventSpace = lead.event_space || 'Não informado';
               const guests = lead.guests_count || 'Não informado';
               const notes = lead.notes || 'Cliente não informou mensagem.';
-              const status = lead.status || 'aguardando_resposta';
+              const status = lead.status || 'novo';
 
               const responses = lead.quote_responses || [];
               const latestResponse =
                 responses.length > 0 ? responses[responses.length - 1] : null;
 
               const adjustmentNotes =
-                latestResponse?.adjustment_notes ||
-                lead.adjustment_notes ||
-                '';
+                latestResponse?.adjustment_notes || lead.adjustment_notes || '';
 
               const hasAdjustment = status === 'ajuste_solicitado';
 
@@ -239,17 +276,14 @@ export default function LeadsFornecedorPage() {
 
               const hasUnreadMessages = unreadMessages > 0;
 
+              const cardClass = hasAdjustment
+                ? 'rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.10)] ring-2 ring-yellow-300'
+                : hasUnreadMessages
+                  ? 'rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.12)] ring-2 ring-[#e3a925]'
+                  : 'rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]';
+
               return (
-                <div
-                  key={lead.id}
-                  className={
-                    hasAdjustment
-                      ? 'rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.10)] ring-2 ring-yellow-300'
-                      : hasUnreadMessages
-                        ? 'rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.12)] ring-2 ring-[#e3a925]'
-                        : 'rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)]'
-                  }
-                >
+                <div key={lead.id} className={cardClass}>
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h3 className="text-lg font-extrabold">{eventType}</h3>
@@ -273,7 +307,11 @@ export default function LeadsFornecedorPage() {
                       <span
                         className={`flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-extrabold ${statusClass(status)}`}
                       >
-                        {hasAdjustment ? <AlertCircle size={13} /> : <Clock size={13} />}
+                        {hasAdjustment ? (
+                          <AlertCircle size={13} />
+                        ) : (
+                          <Clock size={13} />
+                        )}
                         {statusLabel(status)}
                       </span>
                     </div>
@@ -325,7 +363,9 @@ export default function LeadsFornecedorPage() {
                         <Phone size={14} className="text-[#d99200]" />
                         WhatsApp
                       </p>
-                      <p className="mt-1 text-sm font-extrabold">{phone}</p>
+                      <p className="mt-1 break-words text-sm font-extrabold">
+                        {phone}
+                      </p>
                     </div>
 
                     <div className="rounded-2xl bg-[#fbf7f1] p-3">
@@ -358,13 +398,11 @@ export default function LeadsFornecedorPage() {
                   <div className="mt-3 rounded-2xl bg-[#fbf7f1] p-3">
                     <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
                       <Building2 size={14} className="text-[#d99200]" />
-                      {serviceNeeded === 'Espaço de festa'
+                      {isSpaceService(serviceNeeded)
                         ? 'Preferência de estrutura'
                         : 'Espaço do evento'}
                     </p>
-                    <p className="mt-1 text-sm font-extrabold">
-                      {eventSpace}
-                    </p>
+                    <p className="mt-1 text-sm font-extrabold">{eventSpace}</p>
                   </div>
 
                   <div className="mt-3 rounded-2xl bg-[#fbf7f1] p-3">
@@ -372,9 +410,7 @@ export default function LeadsFornecedorPage() {
                       <PartyPopper size={14} className="text-[#d99200]" />
                       Tipo de evento
                     </p>
-                    <p className="mt-1 text-sm font-extrabold">
-                      {eventType}
-                    </p>
+                    <p className="mt-1 text-sm font-extrabold">{eventType}</p>
                   </div>
 
                   <div className="mt-4">
@@ -398,7 +434,9 @@ export default function LeadsFornecedorPage() {
                       }
                     >
                       <FileText size={21} />
-                      {hasAdjustment ? 'Revisar orçamento' : 'Responder orçamento'}
+                      {hasAdjustment
+                        ? 'Revisar orçamento'
+                        : 'Responder orçamento'}
                     </Link>
 
                     <div className="grid grid-cols-2 gap-3">
