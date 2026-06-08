@@ -86,6 +86,42 @@ export async function removeEventCollaborator(collaboratorId: string) {
   return true;
 }
 
+export async function listMyCollaborationInvites() {
+  const user = (await supabase.auth.getUser()).data.user;
+
+  if (!user?.email) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from('event_collaborators')
+    .select(`
+      *,
+      events(
+        id,
+        event_name,
+        title,
+        event_type,
+        couple_name,
+        event_date,
+        city,
+        event_city,
+        guest_count,
+        guests_count,
+        event_space
+      )
+    `)
+    .ilike('collaborator_email', user.email)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Erro ao listar convites:', error);
+    throw error;
+  }
+
+  return data ?? [];
+}
+
 export async function acceptEventCollaboration(collaboratorId: string) {
   const { data, error } = await supabase
     .from('event_collaborators')
