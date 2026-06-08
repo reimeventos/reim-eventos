@@ -15,9 +15,11 @@ import {
   Camera,
   MessageCircle,
   Star,
+  Pencil,
 } from 'lucide-react';
 import { Nav } from '@/components/Nav';
 import { listSavedSuppliers, unsaveSupplier } from '@/lib/suppliers';
+import { getMyEvent } from '@/lib/events';
 
 function getSupplierFromSaved(item: any) {
   if (Array.isArray(item.suppliers)) {
@@ -72,6 +74,41 @@ function formatRating(value: any) {
   return numberValue.toFixed(1);
 }
 
+function formatDate(date?: string) {
+  if (!date) return 'Data não informada';
+
+  const [year, month, day] = date.split('-');
+
+  if (!year || !month || !day) return date;
+
+  return `${day}/${month}/${year}`;
+}
+
+function getEventTitle(event: any) {
+  return (
+    event?.couple_name ||
+    event?.event_name ||
+    event?.title ||
+    'Meu Evento'
+  );
+}
+
+function getEventDate(event: any) {
+  return event?.event_date || '';
+}
+
+function getEventCity(event: any) {
+  return event?.event_city || event?.city || 'Eunápolis';
+}
+
+function getGuestsCount(event: any) {
+  return event?.guests_count || event?.guest_count || null;
+}
+
+function getEventSpace(event: any) {
+  return event?.event_space || '';
+}
+
 function StatusBadge() {
   return (
     <span className="flex items-center gap-1 rounded-full bg-[#fff7e8] px-3 py-1 text-[11px] font-extrabold text-[#b97900]">
@@ -82,22 +119,29 @@ function StatusBadge() {
 }
 
 export default function MeuEventoPage() {
+  const [eventData, setEventData] = useState<any>(null);
   const [savedSuppliers, setSavedSuppliers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [removingId, setRemovingId] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
-  async function loadSavedSuppliers() {
+  async function loadPageData() {
     try {
       setLoading(true);
       setErrorMessage('');
 
-      const data = await listSavedSuppliers();
-      setSavedSuppliers(data || []);
+      const [eventResult, suppliersResult] = await Promise.all([
+        getMyEvent().catch(() => null),
+        listSavedSuppliers(),
+      ]);
+
+      setEventData(eventResult);
+      setSavedSuppliers(suppliersResult || []);
     } catch (error: any) {
-      console.error('Erro ao carregar fornecedores salvos:', error);
+      console.error('Erro ao carregar Meu Evento:', error);
       setErrorMessage(
-        error?.message || 'Não foi possível carregar os fornecedores salvos.'
+        error?.message ||
+          'Não foi possível carregar os dados do Meu Evento.'
       );
     } finally {
       setLoading(false);
@@ -105,14 +149,14 @@ export default function MeuEventoPage() {
   }
 
   useEffect(() => {
-    loadSavedSuppliers();
+    loadPageData();
   }, []);
 
   async function handleRemoveSupplier(supplierId: string) {
     try {
       setRemovingId(supplierId);
       await unsaveSupplier(supplierId);
-      await loadSavedSuppliers();
+      await loadPageData();
     } catch (error: any) {
       console.error('Erro ao remover fornecedor:', error);
       setErrorMessage(
@@ -126,6 +170,12 @@ export default function MeuEventoPage() {
 
   const totalSaved = savedSuppliers.length;
   const progress = totalSaved > 0 ? Math.min(100, totalSaved * 20) : 0;
+
+  const eventTitle = getEventTitle(eventData);
+  const eventDate = getEventDate(eventData);
+  const eventCity = getEventCity(eventData);
+  const guestsCount = getGuestsCount(eventData);
+  const eventSpace = getEventSpace(eventData);
 
   return (
     <main className="min-h-screen bg-black text-[#151515]">
@@ -151,12 +201,12 @@ export default function MeuEventoPage() {
                 <Heart size={31} />
               </div>
 
-              <div>
+              <div className="flex-1">
                 <h1 className="font-serif text-[34px] leading-tight">
                   Meu Evento
                 </h1>
                 <p className="mt-1 text-sm text-white/70">
-                  Organize fornecedores, orçamentos e favoritos
+                  {loading ? 'Carregando evento...' : eventTitle}
                 </p>
               </div>
             </div>
@@ -167,7 +217,9 @@ export default function MeuEventoPage() {
                   <CalendarDays size={14} className="text-[#e3a925]" />
                   Data
                 </p>
-                <p className="mt-1 text-sm font-extrabold">22/06/2026</p>
+                <p className="mt-1 text-sm font-extrabold">
+                  {formatDate(eventDate)}
+                </p>
               </div>
 
               <div className="rounded-2xl bg-white/10 p-3">
@@ -175,7 +227,29 @@ export default function MeuEventoPage() {
                   <MapPin size={14} className="text-[#e3a925]" />
                   Cidade
                 </p>
-                <p className="mt-1 text-sm font-extrabold">Eunápolis</p>
+                <p className="mt-1 text-sm font-extrabold">
+                  {eventCity}
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-white/10 p-3">
+                <p className="flex items-center gap-2 text-xs font-bold text-white/60">
+                  <Users size={14} className="text-[#e3a925]" />
+                  Convidados
+                </p>
+                <p className="mt-1 text-sm font-extrabold">
+                  {guestsCount ? guestsCount : 'Não informado'}
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-white/10 p-3">
+                <p className="flex items-center gap-2 text-xs font-bold text-white/60">
+                  <MapPin size={14} className="text-[#e3a925]" />
+                  Espaço
+                </p>
+                <p className="mt-1 line-clamp-1 text-sm font-extrabold">
+                  {eventSpace || 'Não informado'}
+                </p>
               </div>
             </div>
 
@@ -192,6 +266,14 @@ export default function MeuEventoPage() {
                 />
               </div>
             </div>
+
+            <Link
+              href="/meu-evento/editar"
+              className="mt-5 flex items-center justify-center gap-2 rounded-[22px] bg-white/10 py-3 text-sm font-extrabold text-white ring-1 ring-white/10"
+            >
+              <Pencil size={17} className="text-[#e3a925]" />
+              Editar dados do evento
+            </Link>
           </div>
         </section>
 
@@ -245,7 +327,9 @@ export default function MeuEventoPage() {
                 <ShieldCheck size={18} className="text-[#d99200]" />
                 <p className="text-sm font-extrabold">Cerimonialista</p>
               </div>
-              <p className="mt-2 text-xs font-bold text-gray-500">Editora</p>
+              <p className="mt-2 text-xs font-bold text-gray-500">
+                Editora
+              </p>
             </div>
           </div>
         </section>
@@ -276,7 +360,7 @@ export default function MeuEventoPage() {
           {loading && (
             <div className="rounded-[28px] bg-white p-6 text-center shadow-sm ring-1 ring-[#f1e7cf]">
               <p className="text-sm font-bold text-gray-500">
-                Carregando fornecedores salvos...
+                Carregando dados do evento...
               </p>
             </div>
           )}
@@ -374,7 +458,10 @@ export default function MeuEventoPage() {
                         </p>
                       </div>
 
-                      <StatusBadge />
+                      <span className="flex items-center gap-1 rounded-full bg-[#fff7e8] px-3 py-1 text-[11px] font-extrabold text-[#b97900]">
+                        <Clock size={13} />
+                        Salvo
+                      </span>
                     </div>
 
                     <div className="mt-4 grid grid-cols-2 gap-3">
