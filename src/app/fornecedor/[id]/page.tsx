@@ -5,9 +5,15 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { getSupplier } from '@/lib/marketplace';
 import {
+  isSupplierSaved,
+  saveSupplier,
+  unsaveSupplier,
+} from '@/lib/suppliers';
+import {
   ArrowLeft,
   CalendarDays,
   Camera,
+  CheckCircle2,
   Heart,
   Image as ImageIcon,
   MapPin,
@@ -145,6 +151,10 @@ export default function FornecedorPage() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
 
+  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState('');
+
   useEffect(() => {
     async function loadSupplier() {
       try {
@@ -164,6 +174,9 @@ export default function FornecedorPage() {
         }
 
         setSupplier(data);
+
+        const alreadySaved = await isSupplierSaved(supplierId);
+        setSaved(alreadySaved);
       } catch (error) {
         console.error('Erro ao carregar fornecedor:', error);
         setErrorMessage('Erro ao carregar fornecedor.');
@@ -174,6 +187,36 @@ export default function FornecedorPage() {
 
     loadSupplier();
   }, [supplierId]);
+
+  async function handleSaveSupplier() {
+    try {
+      setSaving(true);
+      setSaveMessage('');
+
+      if (!supplierId) {
+        setSaveMessage('Fornecedor não identificado.');
+        return;
+      }
+
+      if (saved) {
+        await unsaveSupplier(supplierId);
+        setSaved(false);
+        setSaveMessage('Fornecedor removido do Meu Evento.');
+      } else {
+        await saveSupplier(supplierId);
+        setSaved(true);
+        setSaveMessage('Fornecedor salvo no Meu Evento.');
+      }
+    } catch (error: any) {
+      console.error('Erro ao salvar fornecedor:', error);
+      setSaveMessage(
+        error?.message ||
+          'Para salvar fornecedor, faça login como cliente/noiva.'
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -262,8 +305,20 @@ export default function FornecedorPage() {
                 <Share2 size={22} />
               </button>
 
-              <button className="flex h-12 w-12 items-center justify-center rounded-full bg-black/65 text-white shadow-xl">
-                <Heart size={23} />
+              <button
+                type="button"
+                onClick={handleSaveSupplier}
+                disabled={saving}
+                className={`flex h-12 w-12 items-center justify-center rounded-full shadow-xl ${
+                  saved
+                    ? 'bg-[#e3a925] text-white'
+                    : 'bg-black/65 text-white'
+                } disabled:opacity-60`}
+              >
+                <Heart
+                  size={23}
+                  fill={saved ? 'white' : 'none'}
+                />
               </button>
             </div>
           </div>
@@ -312,6 +367,27 @@ export default function FornecedorPage() {
               </div>
             </div>
           </div>
+
+          {saveMessage && (
+            <div
+              className={`mt-4 rounded-2xl px-4 py-3 text-sm font-bold ${
+                saved
+                  ? 'bg-green-50 text-green-700'
+                  : saveMessage.includes('removido')
+                    ? 'bg-[#fff7e8] text-[#b97900]'
+                    : 'bg-red-50 text-red-700'
+              }`}
+            >
+              {saveMessage}
+            </div>
+          )}
+
+          {saved && (
+            <div className="mt-4 flex items-center gap-2 rounded-2xl bg-green-50 px-4 py-3 text-sm font-bold text-green-700">
+              <CheckCircle2 size={18} />
+              Este fornecedor está salvo no seu Meu Evento.
+            </div>
+          )}
 
           {/* DESCRIÇÃO */}
           <div className="mt-5">
@@ -371,13 +447,28 @@ export default function FornecedorPage() {
               Solicitar orçamento
             </Link>
 
-            <Link
-              href="/meu-evento"
-              className="flex items-center justify-center gap-2 rounded-[22px] bg-black py-4 text-center font-extrabold text-white shadow-lg"
+            <button
+              type="button"
+              onClick={handleSaveSupplier}
+              disabled={saving}
+              className={`flex w-full items-center justify-center gap-2 rounded-[22px] py-4 text-center font-extrabold shadow-lg disabled:opacity-60 ${
+                saved
+                  ? 'bg-green-600 text-white'
+                  : 'bg-black text-white'
+              }`}
             >
-              <CalendarDays size={22} />
-              Salvar no Meu Evento
-            </Link>
+              {saved ? (
+                <>
+                  <CheckCircle2 size={22} />
+                  Salvo no Meu Evento
+                </>
+              ) : (
+                <>
+                  <CalendarDays size={22} />
+                  Salvar no Meu Evento
+                </>
+              )}
+            </button>
 
             <a
               href={whatsappLink}
