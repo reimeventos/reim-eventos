@@ -97,8 +97,7 @@ export default function MeuEventoPage() {
     } catch (error: any) {
       console.error('Erro ao carregar fornecedores salvos:', error);
       setErrorMessage(
-        error?.message ||
-          'Não foi possível carregar os fornecedores salvos.'
+        error?.message || 'Não foi possível carregar os fornecedores salvos.'
       );
     } finally {
       setLoading(false);
@@ -246,9 +245,7 @@ export default function MeuEventoPage() {
                 <ShieldCheck size={18} className="text-[#d99200]" />
                 <p className="text-sm font-extrabold">Cerimonialista</p>
               </div>
-              <p className="mt-2 text-xs font-bold text-gray-500">
-                Editora
-              </p>
+              <p className="mt-2 text-xs font-bold text-gray-500">Editora</p>
             </div>
           </div>
         </section>
@@ -417,13 +414,13 @@ export default function MeuEventoPage() {
 
           {savedSuppliers.length > 0 && (
             <div className="mt-6 space-y-3">
-              <Link
+              <a
                 href="/meu-evento/solicitar-todos"
                 className="flex w-full items-center justify-center gap-2 rounded-[24px] bg-black py-4 text-center font-extrabold text-white shadow-lg"
               >
                 <MessageCircle size={21} />
                 Solicitar orçamento para todos
-              </Link>
+              </a>
 
               <Link
                 href="/orcamentos"
