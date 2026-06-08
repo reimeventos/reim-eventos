@@ -10,6 +10,7 @@ import {
   Camera,
   Lock,
   LogIn,
+  LogOut,
   MapPin,
   MessageCircle,
   PartyPopper,
@@ -46,6 +47,8 @@ function SolicitarOrcamentoContent() {
   const [loadingSupplier, setLoadingSupplier] = useState(true);
 
   const [user, setUser] = useState<any>(null);
+  const [userEmail, setUserEmail] = useState('');
+  const [userRole, setUserRole] = useState('');
   const [loadingUser, setLoadingUser] = useState(true);
 
   const [customerName, setCustomerName] = useState('');
@@ -60,6 +63,7 @@ function SolicitarOrcamentoContent() {
   const [notes, setNotes] = useState('');
 
   const [loading, setLoading] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -76,17 +80,38 @@ function SolicitarOrcamentoContent() {
   const loginHref = `/login?redirect=${encodeURIComponent(currentPath)}`;
   const cadastroHref = `/cadastro?redirect=${encodeURIComponent(currentPath)}`;
 
+  const isSupplierAccount =
+    userRole === 'fornecedor' ||
+    userRole === 'supplier' ||
+    userEmail === 'fornecedor@reimeventos.com';
+
   useEffect(() => {
     async function loadUser() {
       try {
         setLoadingUser(true);
 
         const { data } = await supabase.auth.getUser();
+        const currentUser = data.user || null;
 
-        setUser(data.user || null);
+        setUser(currentUser);
+        setUserEmail(currentUser?.email || '');
+
+        if (currentUser?.id) {
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('role, full_name')
+            .eq('id', currentUser.id)
+            .maybeSingle();
+
+          setUserRole(profileData?.role || '');
+        } else {
+          setUserRole('');
+        }
       } catch (error) {
         console.error('Erro ao verificar login:', error);
         setUser(null);
+        setUserEmail('');
+        setUserRole('');
       } finally {
         setLoadingUser(false);
       }
@@ -122,6 +147,23 @@ function SolicitarOrcamentoContent() {
     loadSupplier();
   }, [supplierId]);
 
+  async function handleSignOut() {
+    try {
+      setSigningOut(true);
+      await supabase.auth.signOut();
+      setUser(null);
+      setUserEmail('');
+      setUserRole('');
+      setErrorMessage('');
+      setSuccessMessage('');
+    } catch (error) {
+      console.error('Erro ao sair da conta:', error);
+      setErrorMessage('Não foi possível sair da conta. Tente novamente.');
+    } finally {
+      setSigningOut(false);
+    }
+  }
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -130,6 +172,13 @@ function SolicitarOrcamentoContent() {
 
     if (!user) {
       setErrorMessage('Para solicitar orçamento, faça login ou crie sua conta.');
+      return;
+    }
+
+    if (isSupplierAccount) {
+      setErrorMessage(
+        'Você está logado como fornecedor. Para solicitar orçamento, entre com uma conta de cliente/noiva.'
+      );
       return;
     }
 
@@ -184,9 +233,13 @@ function SolicitarOrcamentoContent() {
       setGuestsCount('');
       setServiceNeeded(supplierCategory);
       setNotes('');
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      setErrorMessage('Não foi possível enviar a solicitação. Tente novamente.');
+
+      setErrorMessage(
+        error?.message ||
+          'Não foi possível enviar a solicitação. Tente novamente.'
+      );
     } finally {
       setLoading(false);
     }
@@ -246,6 +299,17 @@ function SolicitarOrcamentoContent() {
           </div>
         </section>
 
+        {loadingUser && (
+          <section className="px-6 pt-6">
+            <div className="rounded-[28px] bg-white p-6 text-center shadow-sm ring-1 ring-[#f1e7cf]">
+              <Lock size={36} className="mx-auto text-[#d99200]" />
+              <p className="mt-3 text-sm font-bold text-gray-600">
+                Verificando sua conta...
+              </p>
+            </div>
+          </section>
+        )}
+
         {!loadingUser && !user && (
           <section className="px-6 pt-6">
             <div className="rounded-[28px] bg-white p-6 text-center shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]">
@@ -291,9 +355,64 @@ function SolicitarOrcamentoContent() {
           </section>
         )}
 
-        {!loadingUser && user && (
+        {!loadingUser && user && isSupplierAccount && (
+          <section className="px-6 pt-6">
+            <div className="rounded-[28px] bg-white p-6 text-center shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]">
+                <Lock size={34} />
+              </div>
+
+              <h2 className="mt-5 text-xl font-extrabold">
+                Você está logado como fornecedor
+              </h2>
+
+              <p className="mt-3 text-sm leading-6 text-gray-600">
+                Esta conta está vinculada ao painel do fornecedor. Para solicitar
+                orçamento, saia desta conta e entre como cliente/noiva.
+              </p>
+
+              <p className="mt-3 rounded-2xl bg-[#fbf7f1] px-4 py-3 text-xs font-bold text-gray-500">
+                Conta atual: {userEmail || 'fornecedor'}
+              </p>
+
+              <div className="mt-6 space-y-3">
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  disabled={signingOut}
+                  className="flex w-full items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg disabled:opacity-60"
+                >
+                  <LogOut size={21} />
+                  {signingOut ? 'Saindo...' : 'Sair desta conta'}
+                </button>
+
+                <Link
+                  href={loginHref}
+                  className="flex items-center justify-center gap-2 rounded-[22px] bg-black py-4 text-center font-extrabold text-white shadow-lg"
+                >
+                  <LogIn size={21} />
+                  Entrar como cliente
+                </Link>
+
+                <Link
+                  href={cadastroHref}
+                  className="flex items-center justify-center gap-2 rounded-[22px] bg-white py-4 text-center font-extrabold text-[#151515] ring-1 ring-[#f1e7cf]"
+                >
+                  <UserPlus size={21} />
+                  Criar conta cliente
+                </Link>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {!loadingUser && user && !isSupplierAccount && (
           <section className="px-6 pt-6">
             <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="rounded-[24px] bg-white p-4 text-sm font-bold text-gray-600 ring-1 ring-[#f1e7cf]">
+                Conta logada: {userEmail || 'cliente'}
+              </div>
+
               <label className="block">
                 <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
                   <User size={17} className="text-[#d99200]" />
