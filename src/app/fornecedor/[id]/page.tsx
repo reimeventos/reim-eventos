@@ -7,8 +7,11 @@ import { getSupplier } from '@/lib/marketplace';
 import {
   isSupplierSaved,
   saveSupplier,
+  saveSupplierForCustomer,
   unsaveSupplier,
+  unsaveSupplierForCustomer,
 } from '@/lib/suppliers';
+import { supabase } from '@/lib/supabase';
 import {
   ArrowLeft,
   CalendarDays,
@@ -151,9 +154,14 @@ export default function FornecedorPage() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
 
+  const [targetCustomerId, setTargetCustomerId] = useState('');
+  const [returnUrl, setReturnUrl] = useState('/buscar');
+
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
+
+  const isCerimonialistaMode = Boolean(targetCustomerId);
 
   useEffect(() => {
     async function loadSupplier() {
@@ -166,6 +174,13 @@ export default function FornecedorPage() {
           return;
         }
 
+        const urlParams = new URLSearchParams(window.location.search);
+        const customerIdFromUrl = urlParams.get('cliente') || '';
+        const returnUrlFromUrl = urlParams.get('voltar') || '/buscar';
+
+        setTargetCustomerId(customerIdFromUrl);
+        setReturnUrl(returnUrlFromUrl);
+
         const data = await getSupplier(supplierId);
 
         if (!data) {
@@ -175,8 +190,23 @@ export default function FornecedorPage() {
 
         setSupplier(data);
 
-        const alreadySaved = await isSupplierSaved(supplierId);
-        setSaved(alreadySaved);
+        if (customerIdFromUrl) {
+          const { data: savedData, error: savedError } = await supabase
+            .from('saved_suppliers')
+            .select('id')
+            .eq('customer_id', customerIdFromUrl)
+            .eq('supplier_id', supplierId)
+            .maybeSingle();
+
+          if (savedError) {
+            console.error('Erro ao verificar fornecedor salvo da cliente:', savedError);
+          }
+
+          setSaved(Boolean(savedData));
+        } else {
+          const alreadySaved = await isSupplierSaved(supplierId);
+          setSaved(alreadySaved);
+        }
       } catch (error) {
         console.error('Erro ao carregar fornecedor:', error);
         setErrorMessage('Erro ao carregar fornecedor.');
@@ -198,6 +228,20 @@ export default function FornecedorPage() {
         return;
       }
 
+      if (isCerimonialistaMode) {
+        if (saved) {
+          await unsaveSupplierForCustomer(targetCustomerId, supplierId);
+          setSaved(false);
+          setSaveMessage('Fornecedor removido do evento da cliente.');
+        } else {
+          await saveSupplierForCustomer(targetCustomerId, supplierId);
+          setSaved(true);
+          setSaveMessage('Fornecedor salvo no evento da cliente.');
+        }
+
+        return;
+      }
+
       if (saved) {
         await unsaveSupplier(supplierId);
         setSaved(false);
@@ -211,11 +255,21 @@ export default function FornecedorPage() {
       console.error('Erro ao salvar fornecedor:', error);
       setSaveMessage(
         error?.message ||
-          'Para salvar fornecedor, faça login como cliente/noiva.'
+          'Não foi possível salvar/remover este fornecedor.'
       );
     } finally {
       setSaving(false);
     }
+  }
+
+  function getQuoteLink() {
+    if (isCerimonialistaMode) {
+      return `/solicitar-orcamento?fornecedor=${supplierId}&cliente=${targetCustomerId}&voltar=${encodeURIComponent(
+        returnUrl
+      )}`;
+    }
+
+    return `/solicitar-orcamento?fornecedor=${supplierId}`;
   }
 
   if (loading) {
@@ -254,10 +308,10 @@ export default function FornecedorPage() {
             </p>
 
             <Link
-              href="/buscar"
+              href={returnUrl}
               className="mt-5 block rounded-[22px] bg-[#e3a925] py-3 text-sm font-extrabold text-white"
             >
-              Voltar para busca
+              Voltar
             </Link>
           </div>
         </div>
@@ -294,7 +348,7 @@ export default function FornecedorPage() {
 
           <div className="relative z-10 flex items-center justify-between px-6 pt-7">
             <Link
-              href="/buscar"
+              href={returnUrl}
               className="flex h-12 w-12 items-center justify-center rounded-full bg-black/65 text-white shadow-xl"
             >
               <ArrowLeft size={25} />
@@ -315,10 +369,7 @@ export default function FornecedorPage() {
                     : 'bg-black/65 text-white'
                 } disabled:opacity-60`}
               >
-                <Heart
-                  size={23}
-                  fill={saved ? 'white' : 'none'}
-                />
+                <Heart size={23} fill={saved ? 'white' : 'none'} />
               </button>
             </div>
           </div>
@@ -340,7 +391,7 @@ export default function FornecedorPage() {
         </section>
 
         {/* CONTEÚDO */}
-        <section className="-mt-6 rounded-t-[34px] bg-[#fbf7f1] px-6 pt-7 relative z-20">
+        <section className="relative z-20 -mt-6 rounded-t-[34px] bg-[#fbf7f1] px-6 pt-7">
           {/* INFO */}
           <div className="rounded-[26px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)]">
             <div className="flex items-center justify-between gap-4">
@@ -368,6 +419,12 @@ export default function FornecedorPage() {
             </div>
           </div>
 
+          {isCerimonialistaMode && (
+            <div className="mt-4 rounded-2xl bg-[#151515] px-4 py-3 text-sm font-bold text-white">
+              Modo cerimonialista: alterações serão salvas no evento da cliente.
+            </div>
+          )}
+
           {saveMessage && (
             <div
               className={`mt-4 rounded-2xl px-4 py-3 text-sm font-bold ${
@@ -385,7 +442,9 @@ export default function FornecedorPage() {
           {saved && (
             <div className="mt-4 flex items-center gap-2 rounded-2xl bg-green-50 px-4 py-3 text-sm font-bold text-green-700">
               <CheckCircle2 size={18} />
-              Este fornecedor está salvo no seu Meu Evento.
+              {isCerimonialistaMode
+                ? 'Este fornecedor está salvo no evento da cliente.'
+                : 'Este fornecedor está salvo no seu Meu Evento.'}
             </div>
           )}
 
@@ -440,7 +499,7 @@ export default function FornecedorPage() {
           {/* CTA PRINCIPAL */}
           <div className="mt-7 space-y-3">
             <Link
-              href={`/solicitar-orcamento?fornecedor=${supplier.id}`}
+              href={getQuoteLink()}
               className="flex items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg"
             >
               <MessageCircle size={22} />
@@ -460,12 +519,16 @@ export default function FornecedorPage() {
               {saved ? (
                 <>
                   <CheckCircle2 size={22} />
-                  Salvo no Meu Evento
+                  {isCerimonialistaMode
+                    ? 'Salvo no evento da cliente'
+                    : 'Salvo no Meu Evento'}
                 </>
               ) : (
                 <>
                   <CalendarDays size={22} />
-                  Salvar no Meu Evento
+                  {isCerimonialistaMode
+                    ? 'Salvar no evento da cliente'
+                    : 'Salvar no Meu Evento'}
                 </>
               )}
             </button>
@@ -477,6 +540,13 @@ export default function FornecedorPage() {
               <Phone size={22} className="text-[#d99200]" />
               Chamar no WhatsApp
             </a>
+
+            <Link
+              href={returnUrl}
+              className="block rounded-[22px] bg-white py-4 text-center font-extrabold text-[#151515] shadow-sm ring-1 ring-[#f1e7cf]"
+            >
+              Voltar
+            </Link>
           </div>
         </section>
       </div>
