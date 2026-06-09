@@ -45,12 +45,16 @@ export async function inviteEventCollaborator(input: {
     throw new Error('Informe o e-mail da cerimonialista.');
   }
 
+  const ownerEmail = user.email || '';
+
   const { data, error } = await supabase
     .from('event_collaborators')
     .upsert(
       {
         event_id: event.id,
         owner_id: user.id,
+        owner_email: ownerEmail,
+        owner_name: event.couple_name || event.event_name || event.title || 'Cliente',
         collaborator_email: email,
         collaborator_name: input.collaborator_name?.trim() || null,
         role: input.role || 'cerimonialista',
@@ -108,7 +112,8 @@ export async function listMyCollaborationInvites() {
         event_city,
         guest_count,
         guests_count,
-        event_space
+        event_space,
+        notes
       )
     `)
     .ilike('collaborator_email', user.email)
