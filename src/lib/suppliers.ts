@@ -234,6 +234,56 @@ export async function listSavedSuppliers() {
   return data ?? [];
 }
 
+export async function saveSupplierForCustomer(customerId: string, supplierId: string) {
+  const user = (await supabase.auth.getUser()).data.user;
+
+  if (!user) {
+    throw new Error('Login necessário.');
+  }
+
+  const { data, error } = await supabase
+    .from('saved_suppliers')
+    .upsert(
+      {
+        customer_id: customerId,
+        supplier_id: supplierId,
+      },
+      {
+        onConflict: 'customer_id,supplier_id',
+      }
+    )
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Erro ao salvar fornecedor para cliente:', error);
+    throw error;
+  }
+
+  return data;
+}
+
+export async function unsaveSupplierForCustomer(customerId: string, supplierId: string) {
+  const user = (await supabase.auth.getUser()).data.user;
+
+  if (!user) {
+    throw new Error('Login necessário.');
+  }
+
+  const { error } = await supabase
+    .from('saved_suppliers')
+    .delete()
+    .eq('customer_id', customerId)
+    .eq('supplier_id', supplierId);
+
+  if (error) {
+    console.error('Erro ao remover fornecedor do evento da cliente:', error);
+    throw error;
+  }
+
+  return true;
+}
+
 /* LEADS / ORÇAMENTOS */
 
 export async function getSupplierLeads() {
