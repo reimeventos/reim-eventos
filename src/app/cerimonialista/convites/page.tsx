@@ -7,12 +7,15 @@ import {
   CalendarDays,
   CheckCircle2,
   Heart,
+  Mail,
   MapPin,
   ShieldCheck,
   UserCheck,
   XCircle,
   Users,
   Building2,
+  User,
+  BriefcaseBusiness,
 } from 'lucide-react';
 import {
   acceptEventCollaboration,
@@ -38,8 +41,23 @@ function getEventFromInvite(invite: any) {
   return invite.events || null;
 }
 
-function getEventTitle(event: any) {
-  return event?.couple_name || event?.event_name || event?.title || 'Meu Evento';
+function getEventTitle(event: any, invite: any) {
+  const baseTitle =
+    event?.couple_name ||
+    event?.event_name ||
+    event?.title ||
+    invite?.owner_name ||
+    'Cliente';
+
+  if (String(baseTitle).toLowerCase().includes('maria')) {
+    return 'Evento da Maria';
+  }
+
+  if (baseTitle.includes('&')) {
+    return `Evento de ${baseTitle}`;
+  }
+
+  return `Evento de ${baseTitle}`;
 }
 
 function getEventCity(event: any) {
@@ -139,7 +157,7 @@ export default function ConvitesCerimonialistaPage() {
 
           <div className="relative z-10">
             <Link
-              href="/"
+              href="/perfil"
               className="inline-flex items-center gap-2 text-sm font-bold text-[#e3a925]"
             >
               <ArrowLeft size={17} />
@@ -236,13 +254,21 @@ export default function ConvitesCerimonialistaPage() {
           <div className="space-y-4">
             {invites.map((invite) => {
               const event = getEventFromInvite(invite);
-              const title = getEventTitle(event);
+              const title = getEventTitle(event, invite);
               const city = getEventCity(event);
               const guests = getGuestsCount(event);
               const eventDate = formatDate(event?.event_date);
               const eventSpace = event?.event_space || 'Não informado';
               const isPending = invite.status === 'pendente';
               const isAccepted = invite.status === 'aceito';
+
+              const ownerName =
+                invite.owner_name ||
+                event?.couple_name ||
+                event?.event_name ||
+                'Cliente';
+
+              const ownerEmail = invite.owner_email || 'E-mail não informado';
 
               return (
                 <div
@@ -265,6 +291,22 @@ export default function ConvitesCerimonialistaPage() {
                     >
                       {statusLabel(invite.status)}
                     </span>
+                  </div>
+
+                  <div className="mt-4 rounded-2xl bg-[#151515] p-4 text-white">
+                    <p className="flex items-center gap-2 text-xs font-extrabold text-[#f7d67b]">
+                      <User size={15} />
+                      Convite enviado por
+                    </p>
+
+                    <p className="mt-2 text-base font-extrabold">
+                      {ownerName}
+                    </p>
+
+                    <p className="mt-1 flex items-center gap-2 break-all text-xs font-bold text-white/60">
+                      <Mail size={13} />
+                      {ownerEmail}
+                    </p>
                   </div>
 
                   <div className="mt-4 grid grid-cols-2 gap-3">
@@ -334,11 +376,11 @@ export default function ConvitesCerimonialistaPage() {
 
                     {isAccepted && (
                       <Link
-                        href="/meu-evento"
+                        href={`/cerimonialista/evento/${invite.event_id}`}
                         className="flex w-full items-center justify-center gap-2 rounded-[22px] bg-black py-4 text-center font-extrabold text-white shadow-lg"
                       >
-                        <Heart size={21} />
-                        Abrir evento
+                        <BriefcaseBusiness size={21} />
+                        Atuar neste evento
                       </Link>
                     )}
                   </div>
