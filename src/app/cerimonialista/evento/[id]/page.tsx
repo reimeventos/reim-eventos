@@ -142,9 +142,7 @@ export default function CerimonialistaEventoPage() {
         .ilike('collaborator_email', user.email)
         .maybeSingle();
 
-      if (inviteError) {
-        throw inviteError;
-      }
+      if (inviteError) throw inviteError;
 
       if (!invite) {
         setErrorMessage('Este evento não foi compartilhado com esta conta.');
@@ -165,9 +163,7 @@ export default function CerimonialistaEventoPage() {
         .eq('id', eventId)
         .maybeSingle();
 
-      if (eventError) {
-        throw eventError;
-      }
+      if (eventError) throw eventError;
 
       if (!event) {
         setErrorMessage('Evento não encontrado.');
@@ -201,15 +197,13 @@ export default function CerimonialistaEventoPage() {
           .eq('customer_id', ownerId)
           .order('created_at', { ascending: false });
 
-        if (!savedError) {
-          setSavedSuppliers(saved || []);
-        }
+        if (savedError) throw savedError;
+
+        setSavedSuppliers(saved || []);
       }
     } catch (error: any) {
       console.error('Erro ao carregar evento da cerimonialista:', error);
-      setErrorMessage(
-        error?.message || 'Não foi possível carregar este evento.'
-      );
+      setErrorMessage(error?.message || 'Não foi possível carregar este evento.');
     } finally {
       setLoading(false);
     }
@@ -224,7 +218,9 @@ export default function CerimonialistaEventoPage() {
   const eventDate = formatDate(eventData?.event_date);
   const guests = getGuestsCount(eventData);
   const eventSpace = eventData?.event_space || 'Não informado';
-  const eventType = eventData?.event_type || 'Evento';
+  const ownerId = getOwnerId(eventData);
+  const returnUrl = `/cerimonialista/evento/${eventId}`;
+
   const ownerName =
     inviteData?.owner_name ||
     eventData?.couple_name ||
@@ -317,25 +313,19 @@ export default function CerimonialistaEventoPage() {
               <div className="mt-5 grid grid-cols-2 gap-3">
                 <div className="rounded-[22px] bg-white p-4 shadow-sm ring-1 ring-[#f1e7cf]">
                   <CalendarDays size={22} className="text-[#d99200]" />
-                  <p className="mt-2 text-xs font-bold text-gray-500">
-                    Data
-                  </p>
+                  <p className="mt-2 text-xs font-bold text-gray-500">Data</p>
                   <p className="mt-1 text-sm font-extrabold">{eventDate}</p>
                 </div>
 
                 <div className="rounded-[22px] bg-white p-4 shadow-sm ring-1 ring-[#f1e7cf]">
                   <MapPin size={22} className="text-[#d99200]" />
-                  <p className="mt-2 text-xs font-bold text-gray-500">
-                    Cidade
-                  </p>
+                  <p className="mt-2 text-xs font-bold text-gray-500">Cidade</p>
                   <p className="mt-1 text-sm font-extrabold">{city}</p>
                 </div>
 
                 <div className="rounded-[22px] bg-white p-4 shadow-sm ring-1 ring-[#f1e7cf]">
                   <Users size={22} className="text-[#d99200]" />
-                  <p className="mt-2 text-xs font-bold text-gray-500">
-                    Convidados
-                  </p>
+                  <p className="mt-2 text-xs font-bold text-gray-500">Convidados</p>
                   <p className="mt-1 text-sm font-extrabold">
                     {guests || 'Não informado'}
                   </p>
@@ -343,9 +333,7 @@ export default function CerimonialistaEventoPage() {
 
                 <div className="rounded-[22px] bg-white p-4 shadow-sm ring-1 ring-[#f1e7cf]">
                   <Building2 size={22} className="text-[#d99200]" />
-                  <p className="mt-2 text-xs font-bold text-gray-500">
-                    Espaço
-                  </p>
+                  <p className="mt-2 text-xs font-bold text-gray-500">Espaço</p>
                   <p className="mt-1 line-clamp-1 text-sm font-extrabold">
                     {eventSpace}
                   </p>
@@ -358,17 +346,17 @@ export default function CerimonialistaEventoPage() {
                 </h2>
 
                 <p className="mt-2 text-sm leading-5 text-white/70">
-                  Você poderá ajudar a cliente adicionando fornecedores e acompanhando os orçamentos deste evento.
+                  Ajude a cliente adicionando fornecedores e acompanhando os orçamentos deste evento.
                 </p>
 
                 <div className="mt-5 space-y-3">
-                  <Link
-                    href="/buscar"
+                  <a
+                    href={`/buscar?cliente=${ownerId}&voltar=${encodeURIComponent(returnUrl)}`}
                     className="flex items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg"
                   >
                     <Search size={21} />
                     Buscar fornecedores
-                  </Link>
+                  </a>
 
                   <Link
                     href="/orcamentos"
@@ -468,21 +456,21 @@ export default function CerimonialistaEventoPage() {
                           </p>
 
                           <div className="mt-4 grid grid-cols-2 gap-3">
-                            <Link
-                              href={`/fornecedor/${supplierId}`}
+                            <a
+                              href={`/fornecedor/${supplierId}?cliente=${ownerId}&voltar=${encodeURIComponent(returnUrl)}`}
                               className="flex items-center justify-center gap-2 rounded-[20px] bg-[#fbf7f1] py-3 text-center text-sm font-extrabold text-[#151515] ring-1 ring-[#f1e7cf]"
                             >
                               <Camera size={17} className="text-[#d99200]" />
                               Ver vitrine
-                            </Link>
+                            </a>
 
-                            <Link
-                              href={`/solicitar-orcamento?fornecedor=${supplierId}`}
+                            <a
+                              href={`/solicitar-orcamento?fornecedor=${supplierId}&cliente=${ownerId}&voltar=${encodeURIComponent(returnUrl)}`}
                               className="flex items-center justify-center gap-2 rounded-[20px] bg-[#e3a925] py-3 text-center text-sm font-extrabold text-white shadow-lg"
                             >
                               <MessageCircle size={17} />
                               Orçamento
-                            </Link>
+                            </a>
                           </div>
                         </div>
                       </div>
