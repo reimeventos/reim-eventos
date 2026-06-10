@@ -20,6 +20,7 @@ import {
 import { Nav } from '@/components/Nav';
 import { listSavedSuppliers, unsaveSupplier } from '@/lib/suppliers';
 import { getMyEvent } from '@/lib/events';
+import { listEventCollaborators } from '@/lib/collaborators';
 
 function getSupplierFromSaved(item: any) {
   if (Array.isArray(item.suppliers)) {
@@ -104,9 +105,25 @@ function getEventSpace(event: any) {
   return event?.event_space || '';
 }
 
+function getCollaboratorDisplayName(item: any) {
+  return (
+    item?.collaborator_name ||
+    item?.owner_name ||
+    item?.collaborator_email ||
+    'Cerimonialista'
+  );
+}
+
+function getCollaboratorStatusLabel(status: string) {
+  if (status === 'aceito') return 'Editora';
+  if (status === 'recusado') return 'Recusado';
+  return 'Pendente';
+}
+
 export default function MeuEventoPage() {
   const [eventData, setEventData] = useState<any>(null);
   const [savedSuppliers, setSavedSuppliers] = useState<any[]>([]);
+  const [collaborators, setCollaborators] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [removingId, setRemovingId] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -116,13 +133,15 @@ export default function MeuEventoPage() {
       setLoading(true);
       setErrorMessage('');
 
-      const [eventResult, suppliersResult] = await Promise.all([
+      const [eventResult, suppliersResult, collaboratorsResult] = await Promise.all([
         getMyEvent().catch(() => null),
         listSavedSuppliers(),
+        listEventCollaborators().catch(() => []),
       ]);
 
       setEventData(eventResult);
       setSavedSuppliers(suppliersResult || []);
+      setCollaborators(collaboratorsResult || []);
     } catch (error: any) {
       console.error('Erro ao carregar Meu Evento:', error);
       setErrorMessage(
@@ -161,6 +180,8 @@ export default function MeuEventoPage() {
   const eventCity = getEventCity(eventData);
   const guestsCount = getGuestsCount(eventData);
   const eventSpace = getEventSpace(eventData);
+
+  const peopleCount = 1 + collaborators.length;
 
   return (
     <main className="min-h-screen bg-black text-[#151515]">
@@ -294,7 +315,9 @@ export default function MeuEventoPage() {
         <section className="px-6 pt-6">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-lg font-extrabold">Colaboradores</h2>
-            <span className="text-xs font-bold text-gray-500">2 pessoas</span>
+            <span className="text-xs font-bold text-gray-500">
+              {peopleCount} pessoa(s)
+            </span>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -308,15 +331,34 @@ export default function MeuEventoPage() {
               </p>
             </div>
 
-            <div className="rounded-[22px] bg-white p-4 shadow-sm ring-1 ring-[#f1e7cf]">
-              <div className="flex items-center gap-2">
-                <ShieldCheck size={18} className="text-[#d99200]" />
-                <p className="text-sm font-extrabold">Cerimonialista</p>
+            {collaborators.length === 0 && (
+              <div className="rounded-[22px] bg-white p-4 shadow-sm ring-1 ring-[#f1e7cf]">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck size={18} className="text-[#d99200]" />
+                  <p className="text-sm font-extrabold">Cerimonialista</p>
+                </div>
+                <p className="mt-2 text-xs font-bold text-gray-500">
+                  Não convidada
+                </p>
               </div>
-              <p className="mt-2 text-xs font-bold text-gray-500">
-                Editora
-              </p>
-            </div>
+            )}
+
+            {collaborators.map((item) => (
+              <div
+                key={item.id}
+                className="rounded-[22px] bg-white p-4 shadow-sm ring-1 ring-[#f1e7cf]"
+              >
+                <div className="flex items-center gap-2">
+                  <ShieldCheck size={18} className="text-[#d99200]" />
+                  <p className="line-clamp-1 text-sm font-extrabold">
+                    {getCollaboratorDisplayName(item)}
+                  </p>
+                </div>
+                <p className="mt-2 text-xs font-bold text-gray-500">
+                  {getCollaboratorStatusLabel(item.status)}
+                </p>
+              </div>
+            ))}
           </div>
         </section>
 
