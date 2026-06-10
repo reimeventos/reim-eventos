@@ -15,7 +15,6 @@ import {
   Users,
   Building2,
   User,
-  BriefcaseBusiness,
 } from 'lucide-react';
 import {
   acceptEventCollaboration,
@@ -41,6 +40,14 @@ function getEventFromInvite(invite: any) {
   return invite.events || null;
 }
 
+function getSupplierFromInvite(invite: any) {
+  if (Array.isArray(invite.suppliers)) {
+    return invite.suppliers[0] || null;
+  }
+
+  return invite.suppliers || null;
+}
+
 function getEventTitle(event: any, invite: any) {
   const baseTitle =
     event?.couple_name ||
@@ -53,7 +60,7 @@ function getEventTitle(event: any, invite: any) {
     return 'Evento da Maria';
   }
 
-  if (baseTitle.includes('&')) {
+  if (String(baseTitle).includes('&')) {
     return `Evento de ${baseTitle}`;
   }
 
@@ -248,12 +255,21 @@ export default function ConvitesCerimonialistaPage() {
               <p className="mt-2 text-sm leading-5 text-gray-500">
                 Quando uma cliente compartilhar um evento com seu e-mail, o convite aparecerá aqui.
               </p>
+
+              <Link
+                href="/cerimonialista/criar-perfil"
+                className="mt-5 block rounded-[22px] bg-[#e3a925] py-3 text-center text-sm font-extrabold text-white shadow-lg"
+              >
+                Criar perfil profissional
+              </Link>
             </div>
           )}
 
           <div className="space-y-4">
             {invites.map((invite) => {
               const event = getEventFromInvite(invite);
+              const supplier = getSupplierFromInvite(invite);
+
               const title = getEventTitle(event, invite);
               const city = getEventCity(event);
               const guests = getGuestsCount(event);
@@ -261,6 +277,10 @@ export default function ConvitesCerimonialistaPage() {
               const eventSpace = event?.event_space || 'Não informado';
               const isPending = invite.status === 'pendente';
               const isAccepted = invite.status === 'aceito';
+
+              const hasProfessionalProfile = Boolean(
+                invite.supplier_id || supplier?.id
+              );
 
               const ownerName =
                 invite.owner_name ||
@@ -375,13 +395,31 @@ export default function ConvitesCerimonialistaPage() {
                     )}
 
                     {isAccepted && (
-                      <Link
-                        href={`/cerimonialista/evento/${invite.event_id}`}
-                        className="flex w-full items-center justify-center gap-2 rounded-[22px] bg-black py-4 text-center font-extrabold text-white shadow-lg"
-                      >
-                        <BriefcaseBusiness size={21} />
-                        Atuando neste evento
-                      </Link>
+                      <>
+                        <Link
+                          href={`/cerimonialista/evento/${invite.event_id}`}
+                          className="flex w-full items-center justify-center gap-2 rounded-[22px] bg-black py-4 text-center font-extrabold text-white shadow-lg"
+                        >
+                          <ShieldCheck size={21} />
+                          Atuando neste evento
+                        </Link>
+
+                        {hasProfessionalProfile ? (
+                          <Link
+                            href={`/fornecedor/${invite.supplier_id || supplier?.id}`}
+                            className="block rounded-[22px] bg-white py-4 text-center font-extrabold text-[#151515] shadow-sm ring-1 ring-[#f1e7cf]"
+                          >
+                            Ver minha vitrine profissional
+                          </Link>
+                        ) : (
+                          <Link
+                            href="/cerimonialista/criar-perfil"
+                            className="block rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg"
+                          >
+                            Criar perfil profissional
+                          </Link>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
