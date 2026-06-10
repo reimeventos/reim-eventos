@@ -268,8 +268,10 @@ export default function ConvitesCerimonialistaPage() {
               const guests = getGuestsCount(event);
               const eventDate = formatDate(event?.event_date);
               const eventSpace = event?.event_space || 'Não informado';
+
               const isPending = invite.status === 'pendente';
               const isAccepted = invite.status === 'aceito';
+              const isDeclined = invite.status === 'recusado';
 
               const hasProfessionalProfile = Boolean(
                 invite.supplier_id || supplier?.id
@@ -389,6 +391,25 @@ export default function ConvitesCerimonialistaPage() {
                       </>
                     )}
 
+                    {isAccepted && !hasProfessionalProfile && (
+                      <div className="rounded-[24px] bg-[#fff7e8] p-4 ring-1 ring-[#f1e7cf]">
+                        <p className="text-sm font-extrabold text-[#151515]">
+                          Convite aceito
+                        </p>
+
+                        <p className="mt-2 text-xs leading-5 text-gray-600">
+                          Para atuar neste evento, crie primeiro seu perfil profissional de cerimonialista.
+                        </p>
+
+                        <Link
+                          href={`/cerimonialista/criar-perfil?redirect=/cerimonialista/evento/${invite.event_id}`}
+                          className="mt-4 block rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg"
+                        >
+                          Criar perfil profissional
+                        </Link>
+                      </div>
+                    )}
+
                     {isAccepted && hasProfessionalProfile && (
                       <>
                         <Link
@@ -408,22 +429,9 @@ export default function ConvitesCerimonialistaPage() {
                       </>
                     )}
 
-                    {isAccepted && !hasProfessionalProfile && (
-                      <div className="rounded-[24px] bg-[#fff7e8] p-4 ring-1 ring-[#f1e7cf]">
-                        <p className="text-sm font-extrabold text-[#151515]">
-                          Complete seu cadastro profissional
-                        </p>
-
-                        <p className="mt-2 text-xs leading-5 text-gray-600">
-                          Para atuar no evento da cliente, crie primeiro sua vitrine como cerimonialista no REIM.
-                        </p>
-
-                        <Link
-                          href={`/cerimonialista/criar-perfil?redirect=/cerimonialista/evento/${invite.event_id}`}
-                          className="mt-4 block rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg"
-                        >
-                          Criar perfil profissional
-                        </Link>
+                    {isDeclined && (
+                      <div className="rounded-[22px] bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+                        Você recusou este convite.
                       </div>
                     )}
                   </div>
