@@ -380,7 +380,7 @@ export default function ConvitesCerimonialistaPage() {
                         className="flex w-full items-center justify-center gap-2 rounded-[22px] bg-black py-4 text-center font-extrabold text-white shadow-lg"
                       >
                         <BriefcaseBusiness size={21} />
-                        Atuar neste evento
+                        Atuando neste evento
                       </Link>
                     )}
                   </div>
