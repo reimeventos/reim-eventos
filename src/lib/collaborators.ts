@@ -10,7 +10,15 @@ export async function listEventCollaborators() {
 
   const { data, error } = await supabase
     .from('event_collaborators')
-    .select('*')
+    .select(`
+      *,
+      suppliers(
+        id,
+        business_name,
+        categories(name),
+        media(file_url, is_cover)
+      )
+    `)
     .eq('event_id', event.id)
     .order('created_at', { ascending: false });
 
@@ -47,6 +55,25 @@ export async function inviteEventCollaborator(input: {
 
   const ownerEmail = user.email || '';
 
+  let supplierId: string | null = null;
+
+  const { data: userByEmail } = await supabase
+    .from('profiles')
+    .select('id,email')
+    .ilike('email', email)
+    .maybeSingle();
+
+  if (userByEmail?.id) {
+    const { data: supplierData } = await supabase
+      .from('suppliers')
+      .select('id')
+      .eq('owner_id', userByEmail.id)
+      .limit(1)
+      .maybeSingle();
+
+    supplierId = supplierData?.id || null;
+  }
+
   const { data, error } = await supabase
     .from('event_collaborators')
     .upsert(
@@ -55,6 +82,7 @@ export async function inviteEventCollaborator(input: {
         owner_id: user.id,
         owner_email: ownerEmail,
         owner_name: event.couple_name || event.event_name || event.title || 'Cliente',
+        supplier_id: supplierId,
         collaborator_email: email,
         collaborator_name: input.collaborator_name?.trim() || null,
         role: input.role || 'cerimonialista',
@@ -114,6 +142,12 @@ export async function listMyCollaborationInvites() {
         guests_count,
         event_space,
         notes
+      ),
+      suppliers(
+        id,
+        business_name,
+        categories(name),
+        media(file_url, is_cover)
       )
     `)
     .ilike('collaborator_email', user.email)
