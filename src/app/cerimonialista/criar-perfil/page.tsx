@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import {
   ArrowLeft,
-  BriefcaseBusiness,
   CheckCircle2,
   Heart,
   Instagram,
@@ -53,7 +52,9 @@ export default function CriarPerfilCerimonialistaPage() {
 
       const { data: authData, error: authError } = await supabase.auth.getUser();
 
-      if (authError) throw authError;
+      if (authError) {
+        throw authError;
+      }
 
       const user = authData.user;
 
@@ -71,7 +72,9 @@ export default function CriarPerfilCerimonialistaPage() {
         .eq('slug', 'cerimonialista')
         .maybeSingle();
 
-      if (categoryError) throw categoryError;
+      if (categoryError) {
+        throw categoryError;
+      }
 
       if (!categoryData?.id) {
         setErrorMessage('Categoria Cerimonialista não encontrada.');
@@ -87,7 +90,9 @@ export default function CriarPerfilCerimonialistaPage() {
         .limit(1)
         .maybeSingle();
 
-      if (supplierError) throw supplierError;
+      if (supplierError) {
+        throw supplierError;
+      }
 
       if (supplierData) {
         setSupplierId(supplierData.id || '');
@@ -171,7 +176,9 @@ export default function CriarPerfilCerimonialistaPage() {
           .select()
           .single();
 
-        if (error) throw error;
+        if (error) {
+          throw error;
+        }
 
         finalSupplierId = data.id;
       } else {
@@ -181,7 +188,9 @@ export default function CriarPerfilCerimonialistaPage() {
           .select()
           .single();
 
-        if (error) throw error;
+        if (error) {
+          throw error;
+        }
 
         finalSupplierId = data.id;
         setSupplierId(data.id);
@@ -255,7 +264,7 @@ export default function CriarPerfilCerimonialistaPage() {
               <div className="mb-5 rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]">
                 <div className="flex items-start gap-4">
                   <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]">
-                    <BriefcaseBusiness size={30} />
+                    <ShieldCheck size={30} />
                   </div>
 
                   <div className="flex-1">
@@ -339,7 +348,7 @@ export default function CriarPerfilCerimonialistaPage() {
 
                 <label className="block">
                   <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
-                    <BriefcaseBusiness size={17} className="text-[#d99200]" />
+                    <ShieldCheck size={17} className="text-[#d99200]" />
                     Valor inicial
                   </span>
 
