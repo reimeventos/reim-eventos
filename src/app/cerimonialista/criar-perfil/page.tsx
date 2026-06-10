@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   Heart,
   Instagram,
-  Link as LinkIcon,
   MapPin,
   MessageCircle,
   Save,
@@ -22,15 +21,15 @@ export default function CriarPerfilCerimonialistaPage() {
   const [saving, setSaving] = useState(false);
 
   const [userEmail, setUserEmail] = useState('');
-  const [existingSupplierId, setExistingSupplierId] = useState('');
+  const [userId, setUserId] = useState('');
   const [categoryId, setCategoryId] = useState('');
+  const [supplierId, setSupplierId] = useState('');
 
   const [businessName, setBusinessName] = useState('');
   const [description, setDescription] = useState('');
   const [city, setCity] = useState('Eunápolis');
   const [whatsapp, setWhatsapp] = useState('');
   const [instagram, setInstagram] = useState('');
-  const [website, setWebsite] = useState('');
   const [averagePrice, setAveragePrice] = useState('');
 
   const [successMessage, setSuccessMessage] = useState('');
@@ -48,71 +47,74 @@ export default function CriarPerfilCerimonialistaPage() {
     return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
   }
 
-  useEffect(() => {
-    async function loadData() {
-      try {
-        setLoading(true);
-        setErrorMessage('');
+  async function loadPageData() {
+    try {
+      setLoading(true);
+      setErrorMessage('');
 
-        const { data: userData } = await supabase.auth.getUser();
-        const user = userData.user;
+      const { data: authData, error: authError } = await supabase.auth.getUser();
 
-        if (!user) {
-          setErrorMessage('Faça login como cerimonialista para criar seu perfil.');
-          return;
-        }
-
-        setUserEmail(user.email || '');
-
-        const { data: categoryData, error: categoryError } = await supabase
-          .from('categories')
-          .select('id')
-          .eq('slug', 'cerimonialista')
-          .maybeSingle();
-
-        if (categoryError) {
-          throw categoryError;
-        }
-
-        if (!categoryData?.id) {
-          setErrorMessage('Categoria Cerimonialista não encontrada.');
-          return;
-        }
-
-        setCategoryId(categoryData.id);
-
-        const { data: supplierData, error: supplierError } = await supabase
-          .from('suppliers')
-          .select('*')
-          .eq('owner_id', user.id)
-          .limit(1)
-          .maybeSingle();
-
-        if (supplierError) {
-          throw supplierError;
-        }
-
-        if (supplierData) {
-          setExistingSupplierId(supplierData.id);
-          setBusinessName(supplierData.business_name || '');
-          setDescription(supplierData.description || '');
-          setCity(supplierData.city || 'Eunápolis');
-          setWhatsapp(supplierData.whatsapp || '');
-          setInstagram(supplierData.instagram || '');
-          setWebsite(supplierData.website || '');
-          setAveragePrice(supplierData.average_price || '');
-        }
-      } catch (error: any) {
-        console.error('Erro ao carregar perfil profissional:', error);
-        setErrorMessage(
-          error?.message || 'Não foi possível carregar os dados do perfil.'
-        );
-      } finally {
-        setLoading(false);
+      if (authError) {
+        throw authError;
       }
-    }
 
-    loadData();
+      const user = authData.user;
+
+      if (!user) {
+        setErrorMessage('Faça login como cerimonialista para criar seu perfil.');
+        return;
+      }
+
+      setUserId(user.id);
+      setUserEmail(user.email || '');
+
+      const { data: categoryData, error: categoryError } = await supabase
+        .from('categories')
+        .select('id')
+        .eq('slug', 'cerimonialista')
+        .maybeSingle();
+
+      if (categoryError) {
+        throw categoryError;
+      }
+
+      if (!categoryData?.id) {
+        setErrorMessage('Categoria Cerimonialista não encontrada.');
+        return;
+      }
+
+      setCategoryId(categoryData.id);
+
+      const { data: supplierData, error: supplierError } = await supabase
+        .from('suppliers')
+        .select('*')
+        .eq('owner_id', user.id)
+        .limit(1)
+        .maybeSingle();
+
+      if (supplierError) {
+        throw supplierError;
+      }
+
+      if (supplierData) {
+        setSupplierId(supplierData.id || '');
+        setBusinessName(supplierData.business_name || '');
+        setDescription(supplierData.description || '');
+        setCity(supplierData.city || 'Eunápolis');
+        setWhatsapp(supplierData.whatsapp || '');
+        setInstagram(supplierData.instagram || '');
+        setAveragePrice(supplierData.average_price || '');
+      }
+    } catch (error: any) {
+      console.error('Erro ao carregar perfil:', error);
+      setErrorMessage(error?.message || 'Não foi possível carregar o perfil.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadPageData();
   }, []);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -121,18 +123,8 @@ export default function CriarPerfilCerimonialistaPage() {
     setSuccessMessage('');
     setErrorMessage('');
 
-    if (!businessName.trim()) {
-      setErrorMessage('Informe o nome profissional ou nome da empresa.');
-      return;
-    }
-
-    if (!city.trim()) {
-      setErrorMessage('Informe a cidade de atendimento.');
-      return;
-    }
-
-    if (!whatsapp.trim()) {
-      setErrorMessage('Informe o WhatsApp profissional.');
+    if (!userId) {
+      setErrorMessage('Faça login novamente.');
       return;
     }
 
@@ -141,19 +133,26 @@ export default function CriarPerfilCerimonialistaPage() {
       return;
     }
 
+    if (!businessName.trim()) {
+      setErrorMessage('Informe o nome profissional.');
+      return;
+    }
+
+    if (!city.trim()) {
+      setErrorMessage('Informe a cidade.');
+      return;
+    }
+
+    if (!whatsapp.trim()) {
+      setErrorMessage('Informe o WhatsApp.');
+      return;
+    }
+
     try {
       setSaving(true);
 
-      const { data: userData } = await supabase.auth.getUser();
-      const user = userData.user;
-
-      if (!user) {
-        setErrorMessage('Faça login novamente.');
-        return;
-      }
-
       const payload = {
-        owner_id: user.id,
+        owner_id: userId,
         category_id: categoryId,
         business_name: businessName.trim(),
         description:
@@ -162,7 +161,6 @@ export default function CriarPerfilCerimonialistaPage() {
         city: city.trim(),
         whatsapp: whatsapp.trim(),
         instagram: instagram.trim() || null,
-        website: website.trim() || null,
         average_price: averagePrice.trim() || null,
         status: 'ativo',
         is_featured: false,
@@ -170,19 +168,21 @@ export default function CriarPerfilCerimonialistaPage() {
         updated_at: new Date().toISOString(),
       };
 
-      let supplierId = existingSupplierId;
+      let finalSupplierId = supplierId;
 
-      if (existingSupplierId) {
+      if (supplierId) {
         const { data, error } = await supabase
           .from('suppliers')
           .update(payload)
-          .eq('id', existingSupplierId)
+          .eq('id', supplierId)
           .select()
           .single();
 
-        if (error) throw error;
+        if (error) {
+          throw error;
+        }
 
-        supplierId = data.id;
+        finalSupplierId = data.id;
       } else {
         const { data, error } = await supabase
           .from('suppliers')
@@ -190,28 +190,28 @@ export default function CriarPerfilCerimonialistaPage() {
           .select()
           .single();
 
-        if (error) throw error;
+        if (error) {
+          throw error;
+        }
 
-        supplierId = data.id;
-        setExistingSupplierId(data.id);
+        finalSupplierId = data.id;
+        setSupplierId(data.id);
       }
 
-      if (supplierId && user.email) {
+      if (finalSupplierId && userEmail) {
         await supabase
           .from('event_collaborators')
           .update({
-            supplier_id: supplierId,
+            supplier_id: finalSupplierId,
             updated_at: new Date().toISOString(),
           })
-          .ilike('collaborator_email', user.email);
+          .ilike('collaborator_email', userEmail);
       }
 
-      setSuccessMessage('Perfil profissional criado com sucesso!');
+      setSuccessMessage('Perfil profissional salvo com sucesso!');
     } catch (error: any) {
-      console.error('Erro ao salvar perfil profissional:', error);
-      setErrorMessage(
-        error?.message || 'Não foi possível criar o perfil profissional.'
-      );
+      console.error('Erro ao salvar perfil:', error);
+      setErrorMessage(error?.message || 'Não foi possível salvar o perfil.');
     } finally {
       setSaving(false);
     }
@@ -244,7 +244,7 @@ export default function CriarPerfilCerimonialistaPage() {
                 </h1>
 
                 <p className="mt-1 text-sm text-white/70">
-                  Crie sua vitrine de cerimonialista no REIM.
+                  Crie sua vitrine de cerimonialista.
                 </p>
               </div>
             </div>
@@ -275,8 +275,7 @@ export default function CriarPerfilCerimonialistaPage() {
                     </h2>
 
                     <p className="mt-1 text-sm leading-5 text-gray-600">
-                      Após criar seu perfil, clientes poderão ver sua vitrine,
-                      salvar seu serviço e solicitar orçamento.
+                      Após criar seu perfil, clientes poderão ver sua vitrine e solicitar orçamento.
                     </p>
 
                     {userEmail && (
@@ -292,7 +291,7 @@ export default function CriarPerfilCerimonialistaPage() {
                 <label className="block">
                   <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
                     <User size={17} className="text-[#d99200]" />
-                    Nome profissional / empresa
+                    Nome profissional
                   </span>
 
                   <input
@@ -306,7 +305,7 @@ export default function CriarPerfilCerimonialistaPage() {
                 <label className="block">
                   <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
                     <MapPin size={17} className="text-[#d99200]" />
-                    Cidade de atendimento
+                    Cidade
                   </span>
 
                   <input
@@ -320,7 +319,7 @@ export default function CriarPerfilCerimonialistaPage() {
                 <label className="block">
                   <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
                     <MessageCircle size={17} className="text-[#d99200]" />
-                    WhatsApp profissional
+                    WhatsApp
                   </span>
 
                   <input
@@ -351,22 +350,8 @@ export default function CriarPerfilCerimonialistaPage() {
 
                 <label className="block">
                   <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
-                    <LinkIcon size={17} className="text-[#d99200]" />
-                    Site ou link
-                  </span>
-
-                  <input
-                    value={website}
-                    onChange={(event) => setWebsite(event.target.value)}
-                    className="w-full rounded-[22px] bg-white px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400"
-                    placeholder="https://..."
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
                     <BriefcaseBusiness size={17} className="text-[#d99200]" />
-                    Valor médio / inicial
+                    Valor inicial
                   </span>
 
                   <input
@@ -380,14 +365,14 @@ export default function CriarPerfilCerimonialistaPage() {
                 <label className="block">
                   <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
                     <ShieldCheck size={17} className="text-[#d99200]" />
-                    Descrição dos serviços
+                    Descrição
                   </span>
 
                   <textarea
                     value={description}
                     onChange={(event) => setDescription(event.target.value)}
                     className="min-h-[130px] w-full resize-none rounded-[22px] bg-white px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400"
-                    placeholder="Conte sobre sua atuação como cerimonialista, assessoria, organização e acompanhamento de eventos."
+                    placeholder="Conte sobre sua atuação como cerimonialista."
                   />
                 </label>
 
@@ -412,14 +397,14 @@ export default function CriarPerfilCerimonialistaPage() {
                   <Save size={21} />
                   {saving
                     ? 'Salvando...'
-                    : existingSupplierId
+                    : supplierId
                       ? 'Atualizar perfil profissional'
                       : 'Criar perfil profissional'}
                 </button>
 
-                {existingSupplierId && (
+                {supplierId && (
                   <Link
-                    href={`/fornecedor/${existingSupplierId}`}
+                    href={`/fornecedor/${supplierId}`}
                     className="block rounded-[24px] bg-black py-4 text-center font-extrabold text-white shadow-lg"
                   >
                     Ver minha vitrine
