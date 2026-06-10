@@ -7,7 +7,6 @@ import {
   ArrowLeft,
   Bell,
   Building2,
-  CalendarHeart,
   Heart,
   LogIn,
   LogOut,
@@ -18,6 +17,24 @@ import {
 } from 'lucide-react';
 import { Nav } from '@/components/Nav';
 import { supabase } from '@/lib/supabase';
+
+function getTestAccountType(email: string) {
+  const normalized = email.toLowerCase();
+
+  if (normalized.startsWith('cliente@')) {
+    return 'Cliente';
+  }
+
+  if (normalized.startsWith('fornecedor@')) {
+    return 'Fornecedor';
+  }
+
+  if (normalized.startsWith('cerimonialista@')) {
+    return 'Cerimonialista';
+  }
+
+  return '';
+}
 
 export default function PerfilPage() {
   const router = useRouter();
@@ -50,6 +67,9 @@ export default function PerfilPage() {
         return;
       }
 
+      const email = currentUser.email || '';
+      const testType = getTestAccountType(email);
+
       const { data: profileData } = await supabase
         .from('profiles')
         .select('*')
@@ -58,6 +78,22 @@ export default function PerfilPage() {
 
       if (profileData?.full_name) {
         setProfileName(profileData.full_name);
+      }
+
+      if (testType) {
+        setAccountType(testType);
+        return;
+      }
+
+      const { data: collaboratorData } = await supabase
+        .from('event_collaborators')
+        .select('id,status')
+        .ilike('collaborator_email', email)
+        .limit(1);
+
+      if (collaboratorData && collaboratorData.length > 0) {
+        setAccountType('Cerimonialista');
+        return;
       }
 
       const { data: suppliersData } = await supabase
@@ -69,17 +105,6 @@ export default function PerfilPage() {
       if (suppliersData && suppliersData.length > 0) {
         setAccountType('Fornecedor');
         setSupplierName(suppliersData[0]?.business_name || '');
-        return;
-      }
-
-      const { data: collaboratorData } = await supabase
-        .from('event_collaborators')
-        .select('id,status')
-        .ilike('collaborator_email', currentUser.email || '')
-        .limit(1);
-
-      if (collaboratorData && collaboratorData.length > 0) {
-        setAccountType('Cerimonialista');
         return;
       }
 
@@ -126,7 +151,10 @@ export default function PerfilPage() {
           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/80 to-black" />
 
           <div className="relative z-10">
-            <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-[#e3a925]">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 text-sm font-bold text-[#e3a925]"
+            >
               <ArrowLeft size={17} />
               Voltar
             </Link>
