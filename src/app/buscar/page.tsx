@@ -13,6 +13,7 @@ import {
   MapPin,
   Music2,
   Search,
+  ShieldCheck,
   Star,
   Utensils,
   Video,
@@ -72,6 +73,15 @@ function formatPrice(value: any) {
     });
   }
 
+  const numberValue = Number(value);
+
+  if (!Number.isNaN(numberValue)) {
+    return numberValue.toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    });
+  }
+
   return String(value);
 }
 
@@ -94,6 +104,30 @@ export default function BuscarPage() {
   const [loadingSuppliers, setLoadingSuppliers] = useState(true);
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
   const [search, setSearch] = useState('');
+
+  const [targetCustomerId, setTargetCustomerId] = useState('');
+  const [returnUrl, setReturnUrl] = useState('/');
+
+  const isCerimonialistaMode = Boolean(targetCustomerId);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const cliente = params.get('cliente') || '';
+    const voltar = params.get('voltar') || '/';
+
+    setTargetCustomerId(cliente);
+    setReturnUrl(voltar);
+  }, []);
+
+  function getSupplierLink(supplierId: string) {
+    if (isCerimonialistaMode) {
+      return `/fornecedor/${supplierId}?cliente=${targetCustomerId}&voltar=${encodeURIComponent(
+        returnUrl
+      )}`;
+    }
+
+    return `/fornecedor/${supplierId}`;
+  }
 
   async function loadSuppliers(categoryId?: string, searchText?: string) {
     try {
@@ -152,7 +186,10 @@ export default function BuscarPage() {
           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/75 to-black" />
 
           <div className="relative z-10">
-            <Link href="/" className="text-sm font-bold text-[#e3a925]">
+            <Link
+              href={returnUrl}
+              className="text-sm font-bold text-[#e3a925]"
+            >
               ‹ Voltar
             </Link>
 
@@ -163,6 +200,20 @@ export default function BuscarPage() {
             <p className="mt-2 text-sm text-white/70">
               Encontre serviços para seu evento
             </p>
+
+            {isCerimonialistaMode && (
+              <div className="mt-4 flex items-start gap-3 rounded-2xl bg-white/10 p-4 text-white ring-1 ring-white/10">
+                <ShieldCheck size={20} className="mt-0.5 text-[#e3a925]" />
+                <div>
+                  <p className="text-sm font-extrabold">
+                    Modo cerimonialista
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-white/70">
+                    Ao abrir uma vitrine, o fornecedor será salvo no evento da cliente.
+                  </p>
+                </div>
+              </div>
+            )}
 
             <form
               onSubmit={handleSearchSubmit}
@@ -283,7 +334,7 @@ export default function BuscarPage() {
 
               return (
                 <Link
-                  href={`/fornecedor/${supplierId}`}
+                  href={getSupplierLink(supplierId)}
                   key={supplierId}
                   className="block overflow-hidden rounded-[28px] bg-white shadow-[0_10px_25px_rgba(0,0,0,.08)]"
                 >
