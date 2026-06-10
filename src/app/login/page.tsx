@@ -1,14 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Eye, EyeOff, Lock, LogIn, Mail } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 export default function LoginPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -16,10 +15,18 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  const [redirectTo, setRedirectTo] = useState('/perfil');
 
-  const redirectParam = searchParams.get('redirect') || '';
-  const safeRedirect =
-    redirectParam && redirectParam.startsWith('/') ? redirectParam : '/perfil';
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const redirectParam = params.get('redirect') || '';
+
+    if (redirectParam && redirectParam.startsWith('/')) {
+      setRedirectTo(redirectParam);
+    } else {
+      setRedirectTo('/perfil');
+    }
+  }, []);
 
   useEffect(() => {
     async function checkSession() {
@@ -67,7 +74,7 @@ export default function LoginPage() {
         throw error;
       }
 
-      router.replace(safeRedirect);
+      router.replace(redirectTo || '/perfil');
       router.refresh();
     } catch (error: any) {
       console.error('Erro ao fazer login:', error);
