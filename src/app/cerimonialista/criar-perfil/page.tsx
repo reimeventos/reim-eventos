@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import {
   ArrowLeft,
   BriefcaseBusiness,
@@ -54,9 +53,7 @@ export default function CriarPerfilCerimonialistaPage() {
 
       const { data: authData, error: authError } = await supabase.auth.getUser();
 
-      if (authError) {
-        throw authError;
-      }
+      if (authError) throw authError;
 
       const user = authData.user;
 
@@ -74,9 +71,7 @@ export default function CriarPerfilCerimonialistaPage() {
         .eq('slug', 'cerimonialista')
         .maybeSingle();
 
-      if (categoryError) {
-        throw categoryError;
-      }
+      if (categoryError) throw categoryError;
 
       if (!categoryData?.id) {
         setErrorMessage('Categoria Cerimonialista não encontrada.');
@@ -92,9 +87,7 @@ export default function CriarPerfilCerimonialistaPage() {
         .limit(1)
         .maybeSingle();
 
-      if (supplierError) {
-        throw supplierError;
-      }
+      if (supplierError) throw supplierError;
 
       if (supplierData) {
         setSupplierId(supplierData.id || '');
@@ -178,9 +171,7 @@ export default function CriarPerfilCerimonialistaPage() {
           .select()
           .single();
 
-        if (error) {
-          throw error;
-        }
+        if (error) throw error;
 
         finalSupplierId = data.id;
       } else {
@@ -190,9 +181,7 @@ export default function CriarPerfilCerimonialistaPage() {
           .select()
           .single();
 
-        if (error) {
-          throw error;
-        }
+        if (error) throw error;
 
         finalSupplierId = data.id;
         setSupplierId(data.id);
@@ -225,13 +214,13 @@ export default function CriarPerfilCerimonialistaPage() {
           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/80 to-black" />
 
           <div className="relative z-10">
-            <Link
+            <a
               href="/cerimonialista/convites"
               className="inline-flex items-center gap-2 text-sm font-bold text-[#e3a925]"
             >
               <ArrowLeft size={17} />
               Voltar
-            </Link>
+            </a>
 
             <div className="mt-6 flex items-center gap-3">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#e3a925] text-white shadow-lg">
@@ -403,20 +392,20 @@ export default function CriarPerfilCerimonialistaPage() {
                 </button>
 
                 {supplierId && (
-                  <Link
+                  <a
                     href={`/fornecedor/${supplierId}`}
                     className="block rounded-[24px] bg-black py-4 text-center font-extrabold text-white shadow-lg"
                   >
                     Ver minha vitrine
-                  </Link>
+                  </a>
                 )}
 
-                <Link
+                <a
                   href="/cerimonialista/convites"
                   className="block rounded-[24px] bg-white py-4 text-center font-extrabold text-[#151515] shadow-sm ring-1 ring-[#f1e7cf]"
                 >
                   Voltar para convites
-                </Link>
+                </a>
               </form>
             </>
           )}
