@@ -1,17 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import {
-  ArrowLeft,
-  CheckCircle2,
-  Heart,
-  Instagram,
-  MapPin,
-  MessageCircle,
-  Save,
-  ShieldCheck,
-  User,
-} from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 export default function CriarPerfilCerimonialistaPage() {
@@ -36,7 +25,9 @@ export default function CriarPerfilCerimonialistaPage() {
   function formatWhatsapp(value: string) {
     const digits = value.replace(/\D/g, '').slice(0, 11);
 
-    if (digits.length <= 2) return digits;
+    if (digits.length <= 2) {
+      return digits;
+    }
 
     if (digits.length <= 7) {
       return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
@@ -227,24 +218,17 @@ export default function CriarPerfilCerimonialistaPage() {
               href="/cerimonialista/convites"
               className="inline-flex items-center gap-2 text-sm font-bold text-[#e3a925]"
             >
-              <ArrowLeft size={17} />
-              Voltar
+              ← Voltar
             </a>
 
-            <div className="mt-6 flex items-center gap-3">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#e3a925] text-white shadow-lg">
-                <ShieldCheck size={31} />
-              </div>
+            <div className="mt-6">
+              <h1 className="font-serif text-[31px] leading-tight">
+                Perfil profissional
+              </h1>
 
-              <div>
-                <h1 className="font-serif text-[31px] leading-tight">
-                  Perfil profissional
-                </h1>
-
-                <p className="mt-1 text-sm text-white/70">
-                  Crie sua vitrine de cerimonialista.
-                </p>
-              </div>
+              <p className="mt-1 text-sm text-white/70">
+                Crie sua vitrine de cerimonialista.
+              </p>
             </div>
           </div>
         </section>
@@ -252,8 +236,7 @@ export default function CriarPerfilCerimonialistaPage() {
         <section className="px-6 pt-6">
           {loading && (
             <div className="rounded-[28px] bg-white p-6 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-              <Heart size={38} className="mx-auto text-[#d99200]" />
-              <p className="mt-3 text-sm font-bold text-gray-500">
+              <p className="text-sm font-bold text-gray-500">
                 Carregando perfil...
               </p>
             </div>
@@ -262,33 +245,24 @@ export default function CriarPerfilCerimonialistaPage() {
           {!loading && (
             <>
               <div className="mb-5 rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]">
-                <div className="flex items-start gap-4">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]">
-                    <ShieldCheck size={30} />
-                  </div>
+                <h2 className="text-lg font-extrabold">
+                  Vire fornecedora no REIM
+                </h2>
 
-                  <div className="flex-1">
-                    <h2 className="text-lg font-extrabold">
-                      Vire fornecedora no REIM
-                    </h2>
+                <p className="mt-2 text-sm leading-5 text-gray-600">
+                  Após criar seu perfil, clientes poderão ver sua vitrine e solicitar orçamento.
+                </p>
 
-                    <p className="mt-1 text-sm leading-5 text-gray-600">
-                      Após criar seu perfil, clientes poderão ver sua vitrine e solicitar orçamento.
-                    </p>
-
-                    {userEmail && (
-                      <p className="mt-3 rounded-2xl bg-[#fbf7f1] px-4 py-3 text-xs font-bold text-gray-500">
-                        Conta logada: {userEmail}
-                      </p>
-                    )}
-                  </div>
-                </div>
+                {userEmail && (
+                  <p className="mt-3 rounded-2xl bg-[#fbf7f1] px-4 py-3 text-xs font-bold text-gray-500">
+                    Conta logada: {userEmail}
+                  </p>
+                )}
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <label className="block">
-                  <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
-                    <User size={17} className="text-[#d99200]" />
+                  <span className="mb-2 block text-sm font-extrabold">
                     Nome profissional
                   </span>
 
@@ -301,8 +275,7 @@ export default function CriarPerfilCerimonialistaPage() {
                 </label>
 
                 <label className="block">
-                  <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
-                    <MapPin size={17} className="text-[#d99200]" />
+                  <span className="mb-2 block text-sm font-extrabold">
                     Cidade
                   </span>
 
@@ -315,8 +288,7 @@ export default function CriarPerfilCerimonialistaPage() {
                 </label>
 
                 <label className="block">
-                  <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
-                    <MessageCircle size={17} className="text-[#d99200]" />
+                  <span className="mb-2 block text-sm font-extrabold">
                     WhatsApp
                   </span>
 
@@ -333,8 +305,7 @@ export default function CriarPerfilCerimonialistaPage() {
                 </label>
 
                 <label className="block">
-                  <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
-                    <Instagram size={17} className="text-[#d99200]" />
+                  <span className="mb-2 block text-sm font-extrabold">
                     Instagram
                   </span>
 
@@ -347,8 +318,7 @@ export default function CriarPerfilCerimonialistaPage() {
                 </label>
 
                 <label className="block">
-                  <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
-                    <ShieldCheck size={17} className="text-[#d99200]" />
+                  <span className="mb-2 block text-sm font-extrabold">
                     Valor inicial
                   </span>
 
@@ -361,8 +331,7 @@ export default function CriarPerfilCerimonialistaPage() {
                 </label>
 
                 <label className="block">
-                  <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
-                    <ShieldCheck size={17} className="text-[#d99200]" />
+                  <span className="mb-2 block text-sm font-extrabold">
                     Descrição
                   </span>
 
@@ -381,8 +350,7 @@ export default function CriarPerfilCerimonialistaPage() {
                 )}
 
                 {successMessage && (
-                  <div className="flex items-center gap-2 rounded-2xl bg-green-50 px-4 py-3 text-sm font-bold text-green-700">
-                    <CheckCircle2 size={18} />
+                  <div className="rounded-2xl bg-green-50 px-4 py-3 text-sm font-bold text-green-700">
                     {successMessage}
                   </div>
                 )}
@@ -390,9 +358,8 @@ export default function CriarPerfilCerimonialistaPage() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="mt-6 flex w-full items-center justify-center gap-2 rounded-[24px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg disabled:opacity-60"
+                  className="mt-6 flex w-full items-center justify-center rounded-[24px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg disabled:opacity-60"
                 >
-                  <Save size={21} />
                   {saving
                     ? 'Salvando...'
                     : supplierId
