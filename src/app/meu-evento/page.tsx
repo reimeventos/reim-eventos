@@ -28,6 +28,11 @@ function getSupplierFromSaved(item: any) {
   return item.suppliers || null;
 }
 
+function getSupplierFromCollaborator(item: any) {
+  if (Array.isArray(item.suppliers)) return item.suppliers[0] || null;
+  return item.suppliers || null;
+}
+
 function getCategoryName(supplier: any) {
   if (!supplier) return 'Categoria não informada';
   if (Array.isArray(supplier.categories)) {
@@ -100,7 +105,10 @@ function getEventSpace(event: any) {
 }
 
 function getCollaboratorDisplayName(item: any) {
+  const supplier = getSupplierFromCollaborator(item);
+
   return (
+    supplier?.business_name ||
     item?.collaborator_name ||
     item?.collaborator_email ||
     'Cerimonialista'
@@ -111,6 +119,17 @@ function getCollaboratorStatusLabel(status: string) {
   if (status === 'aceito') return 'Editora';
   if (status === 'recusado') return 'Recusado';
   return 'Pendente';
+}
+
+function getCollaboratorLink(item: any) {
+  const supplier = getSupplierFromCollaborator(item);
+  const supplierId = item?.supplier_id || supplier?.id;
+
+  if (supplierId) {
+    return `/fornecedor/${supplierId}`;
+  }
+
+  return '/meu-evento/compartilhar';
 }
 
 function getWhatsappShareUrl() {
@@ -365,7 +384,7 @@ export default function MeuEventoPage() {
             {collaborators.map((item) => (
               <a
                 key={item.id}
-                href="/meu-evento/compartilhar"
+                href={getCollaboratorLink(item)}
                 className="rounded-[22px] bg-white p-4 shadow-sm ring-1 ring-[#f1e7cf]"
               >
                 <div className="flex items-center gap-2">
