@@ -255,13 +255,6 @@ export default function ConvitesCerimonialistaPage() {
               <p className="mt-2 text-sm leading-5 text-gray-500">
                 Quando uma cliente compartilhar um evento com seu e-mail, o convite aparecerá aqui.
               </p>
-
-              <Link
-                href="/cerimonialista/criar-perfil"
-                className="mt-5 block rounded-[22px] bg-[#e3a925] py-3 text-center text-sm font-extrabold text-white shadow-lg"
-              >
-                Criar perfil profissional
-              </Link>
             </div>
           )}
 
@@ -281,6 +274,8 @@ export default function ConvitesCerimonialistaPage() {
               const hasProfessionalProfile = Boolean(
                 invite.supplier_id || supplier?.id
               );
+
+              const supplierId = invite.supplier_id || supplier?.id || '';
 
               const ownerName =
                 invite.owner_name ||
@@ -394,7 +389,7 @@ export default function ConvitesCerimonialistaPage() {
                       </>
                     )}
 
-                    {isAccepted && (
+                    {isAccepted && hasProfessionalProfile && (
                       <>
                         <Link
                           href={`/cerimonialista/evento/${invite.event_id}`}
@@ -404,22 +399,32 @@ export default function ConvitesCerimonialistaPage() {
                           Atuando neste evento
                         </Link>
 
-                        {hasProfessionalProfile ? (
-                          <Link
-                            href={`/fornecedor/${invite.supplier_id || supplier?.id}`}
-                            className="block rounded-[22px] bg-white py-4 text-center font-extrabold text-[#151515] shadow-sm ring-1 ring-[#f1e7cf]"
-                          >
-                            Ver minha vitrine profissional
-                          </Link>
-                        ) : (
-                          <Link
-                            href="/cerimonialista/criar-perfil"
-                            className="block rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg"
-                          >
-                            Criar perfil profissional
-                          </Link>
-                        )}
+                        <Link
+                          href={`/fornecedor/${supplierId}`}
+                          className="block rounded-[22px] bg-white py-4 text-center font-extrabold text-[#151515] shadow-sm ring-1 ring-[#f1e7cf]"
+                        >
+                          Ver minha vitrine profissional
+                        </Link>
                       </>
+                    )}
+
+                    {isAccepted && !hasProfessionalProfile && (
+                      <div className="rounded-[24px] bg-[#fff7e8] p-4 ring-1 ring-[#f1e7cf]">
+                        <p className="text-sm font-extrabold text-[#151515]">
+                          Complete seu cadastro profissional
+                        </p>
+
+                        <p className="mt-2 text-xs leading-5 text-gray-600">
+                          Para atuar no evento da cliente, crie primeiro sua vitrine como cerimonialista no REIM.
+                        </p>
+
+                        <Link
+                          href={`/cerimonialista/criar-perfil?redirect=/cerimonialista/evento/${invite.event_id}`}
+                          className="mt-4 block rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg"
+                        >
+                          Criar perfil profissional
+                        </Link>
+                      </div>
                     )}
                   </div>
                 </div>
