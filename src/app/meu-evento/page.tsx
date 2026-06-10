@@ -16,6 +16,7 @@ import {
   MessageCircle,
   Star,
   Pencil,
+  Send,
 } from 'lucide-react';
 import { Nav } from '@/components/Nav';
 import { listSavedSuppliers, unsaveSupplier } from '@/lib/suppliers';
@@ -23,20 +24,15 @@ import { getMyEvent } from '@/lib/events';
 import { listEventCollaborators } from '@/lib/collaborators';
 
 function getSupplierFromSaved(item: any) {
-  if (Array.isArray(item.suppliers)) {
-    return item.suppliers[0] || null;
-  }
-
+  if (Array.isArray(item.suppliers)) return item.suppliers[0] || null;
   return item.suppliers || null;
 }
 
 function getCategoryName(supplier: any) {
   if (!supplier) return 'Categoria não informada';
-
   if (Array.isArray(supplier.categories)) {
     return supplier.categories[0]?.name || 'Categoria não informada';
   }
-
   return supplier.categories?.name || 'Categoria não informada';
 }
 
@@ -69,7 +65,6 @@ function formatRating(value: any) {
   if (!value) return '4.9';
 
   const numberValue = Number(value);
-
   if (Number.isNaN(numberValue)) return String(value);
 
   return numberValue.toFixed(1);
@@ -79,7 +74,6 @@ function formatDate(date?: string) {
   if (!date) return 'Data não informada';
 
   const [year, month, day] = date.split('-');
-
   if (!year || !month || !day) return date;
 
   return `${day}/${month}/${year}`;
@@ -108,7 +102,6 @@ function getEventSpace(event: any) {
 function getCollaboratorDisplayName(item: any) {
   return (
     item?.collaborator_name ||
-    item?.owner_name ||
     item?.collaborator_email ||
     'Cerimonialista'
   );
@@ -118,6 +111,15 @@ function getCollaboratorStatusLabel(status: string) {
   if (status === 'aceito') return 'Editora';
   if (status === 'recusado') return 'Recusado';
   return 'Pendente';
+}
+
+function getWhatsappShareUrl() {
+  const appUrl = 'https://reim-eventos.vercel.app';
+  const text =
+    'Conheça o REIM EVENTOS: encontre fornecedores para casamento, aniversário e eventos em Eunápolis. Acesse: ' +
+    appUrl;
+
+  return `https://wa.me/?text=${encodeURIComponent(text)}`;
 }
 
 export default function MeuEventoPage() {
@@ -133,11 +135,12 @@ export default function MeuEventoPage() {
       setLoading(true);
       setErrorMessage('');
 
-      const [eventResult, suppliersResult, collaboratorsResult] = await Promise.all([
-        getMyEvent().catch(() => null),
-        listSavedSuppliers(),
-        listEventCollaborators().catch(() => []),
-      ]);
+      const [eventResult, suppliersResult, collaboratorsResult] =
+        await Promise.all([
+          getMyEvent().catch(() => null),
+          listSavedSuppliers(),
+          listEventCollaborators().catch(() => []),
+        ]);
 
       setEventData(eventResult);
       setSavedSuppliers(suppliersResult || []);
@@ -182,6 +185,7 @@ export default function MeuEventoPage() {
   const eventSpace = getEventSpace(eventData);
 
   const peopleCount = 1 + collaborators.length;
+  const whatsappShareUrl = getWhatsappShareUrl();
 
   return (
     <main className="min-h-screen bg-black text-[#151515]">
@@ -197,7 +201,9 @@ export default function MeuEventoPage() {
               </Link>
 
               <a
-                href="/meu-evento/compartilhar"
+                href={whatsappShareUrl}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-[#e3a925]"
               >
                 <Share2 size={21} />
@@ -310,6 +316,16 @@ export default function MeuEventoPage() {
               </div>
             </div>
           </div>
+
+          <a
+            href={whatsappShareUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-[24px] bg-green-600 py-4 text-center font-extrabold text-white shadow-lg"
+          >
+            <Send size={20} />
+            Compartilhar REIM pelo WhatsApp
+          </a>
         </section>
 
         <section className="px-6 pt-6">
@@ -332,7 +348,10 @@ export default function MeuEventoPage() {
             </div>
 
             {collaborators.length === 0 && (
-              <div className="rounded-[22px] bg-white p-4 shadow-sm ring-1 ring-[#f1e7cf]">
+              <a
+                href="/meu-evento/compartilhar"
+                className="rounded-[22px] bg-white p-4 shadow-sm ring-1 ring-[#f1e7cf]"
+              >
                 <div className="flex items-center gap-2">
                   <ShieldCheck size={18} className="text-[#d99200]" />
                   <p className="text-sm font-extrabold">Cerimonialista</p>
@@ -340,12 +359,13 @@ export default function MeuEventoPage() {
                 <p className="mt-2 text-xs font-bold text-gray-500">
                   Não convidada
                 </p>
-              </div>
+              </a>
             )}
 
             {collaborators.map((item) => (
-              <div
+              <a
                 key={item.id}
+                href="/meu-evento/compartilhar"
                 className="rounded-[22px] bg-white p-4 shadow-sm ring-1 ring-[#f1e7cf]"
               >
                 <div className="flex items-center gap-2">
@@ -357,7 +377,7 @@ export default function MeuEventoPage() {
                 <p className="mt-2 text-xs font-bold text-gray-500">
                   {getCollaboratorStatusLabel(item.status)}
                 </p>
-              </div>
+              </a>
             ))}
           </div>
         </section>
