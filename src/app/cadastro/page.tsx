@@ -48,6 +48,7 @@ export default function CadastroPage() {
       redirectParam.includes('/cerimonialista/convites')
     ) {
       setType('cerimonialista');
+      setRedirectTo('/cerimonialista/convites');
     }
   }, []);
 
@@ -96,7 +97,6 @@ export default function CadastroPage() {
         full_name: input.fullName,
         whatsapp: input.whatsapp,
         city: input.city,
-        account_type: input.accountType,
         updated_at: new Date().toISOString(),
       },
       {
@@ -107,6 +107,96 @@ export default function CadastroPage() {
     if (error) {
       console.error('Erro ao criar profile:', error);
     }
+  }
+
+  async function getCerimonialistaCategoryId() {
+    const { data, error } = await supabase
+      .from('categories')
+      .select('id')
+      .eq('slug', 'cerimonialista')
+      .maybeSingle();
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data?.id) {
+      throw new Error('Categoria cerimonialista não encontrada.');
+    }
+
+    return data.id;
+  }
+
+  async function createCerimonialistaSupplierAndLink(input: {
+    userId: string;
+    email: string;
+    fullName: string;
+    whatsapp: string;
+    city: string;
+  }) {
+    const categoryId = await getCerimonialistaCategoryId();
+
+    const supplierBusinessName =
+      businessName.trim() || input.fullName.trim() || 'Cerimonialista';
+
+    const { data: existingSupplier, error: existingSupplierError } = await supabase
+      .from('suppliers')
+      .select('id,business_name')
+      .eq('owner_id', input.userId)
+      .limit(1)
+      .maybeSingle();
+
+    if (existingSupplierError) {
+      throw existingSupplierError;
+    }
+
+    let supplierId = existingSupplier?.id || '';
+
+    if (!supplierId) {
+      const { data: createdSupplier, error: createSupplierError } = await supabase
+        .from('suppliers')
+        .insert({
+          owner_id: input.userId,
+          category_id: categoryId,
+          business_name: supplierBusinessName,
+          description:
+            'Cerimonialista cadastrada no REIM EVENTOS para organização, acompanhamento e assessoria de eventos.',
+          city: input.city.trim() || 'Eunápolis',
+          whatsapp: input.whatsapp.trim(),
+          instagram: null,
+          average_price: '1200',
+          status: 'ativo',
+          is_featured: false,
+          rating_average: 4.9,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .select('id')
+        .single();
+
+      if (createSupplierError) {
+        throw createSupplierError;
+      }
+
+      supplierId = createdSupplier.id;
+    }
+
+    if (supplierId) {
+      const { error: updateInviteError } = await supabase
+        .from('event_collaborators')
+        .update({
+          status: 'aceito',
+          supplier_id: supplierId,
+          updated_at: new Date().toISOString(),
+        })
+        .ilike('collaborator_email', input.email);
+
+      if (updateInviteError) {
+        console.error('Erro ao vincular convite da cerimonialista:', updateInviteError);
+      }
+    }
+
+    return supplierId;
   }
 
   async function signInAndRedirect(cleanEmail: string, cleanPassword: string) {
@@ -133,6 +223,22 @@ export default function CadastroPage() {
         city: city.trim(),
         accountType: type,
       });
+
+      if (type === 'cerimonialista') {
+        await createCerimonialistaSupplierAndLink({
+          userId: data.user.id,
+          email: cleanEmail,
+          fullName: fullName.trim(),
+          whatsapp: whatsapp.trim(),
+          city: city.trim(),
+        });
+      }
+    }
+
+    if (type === 'cerimonialista') {
+      router.push('/cerimonialista/convites');
+      router.refresh();
+      return;
     }
 
     router.push(redirectTo || '/perfil');
@@ -332,7 +438,7 @@ export default function CadastroPage() {
             {type === 'cerimonialista' && (
               <div className="mb-4 rounded-2xl bg-[#fff7e8] px-4 py-3 text-xs font-bold leading-5 text-[#8a6100]">
                 Você está criando uma conta para acessar convites recebidos de clientes.
-                Depois poderá criar sua vitrine profissional como cerimonialista.
+                O REIM também criará sua vitrine profissional como cerimonialista.
               </div>
             )}
 
@@ -347,6 +453,15 @@ export default function CadastroPage() {
               <input
                 className="mb-3 w-full rounded-2xl border border-[#f1e7cf] p-4 text-sm font-medium outline-none placeholder:text-gray-400"
                 placeholder="Nome da empresa"
+                value={businessName}
+                onChange={(e) => setBusinessName(e.target.value)}
+              />
+            )}
+
+            {type === 'cerimonialista' && (
+              <input
+                className="mb-3 w-full rounded-2xl border border-[#f1e7cf] p-4 text-sm font-medium outline-none placeholder:text-gray-400"
+                placeholder="Nome da vitrine. Ex: Ana Cerimonial"
                 value={businessName}
                 onChange={(e) => setBusinessName(e.target.value)}
               />
