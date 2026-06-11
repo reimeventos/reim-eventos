@@ -51,7 +51,7 @@ function getCollaboratorName(item: any) {
 }
 
 function buildInviteLink() {
-  return 'https://reimeventos.com.br/convite';
+  return 'https://reim-eventos.vercel.app/convite';
 }
 
 function buildWhatsappInviteUrl(input: {
