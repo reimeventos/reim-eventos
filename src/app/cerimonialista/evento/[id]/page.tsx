@@ -9,6 +9,8 @@ import {
   CalendarDays,
   Camera,
   CheckCircle2,
+  Clock,
+  FileText,
   Heart,
   MapPin,
   MessageCircle,
@@ -112,6 +114,30 @@ function formatRating(value: any) {
   return numberValue.toFixed(1);
 }
 
+function statusLabel(status?: string) {
+  if (status === 'aguardando_resposta') return 'Aguardando';
+  if (status === 'novo') return 'Novo';
+  if (status === 'respondido') return 'Respondido';
+  if (status === 'ajuste_solicitado') return 'Ajuste solicitado';
+  if (status === 'aceito') return 'Aceito';
+  if (status === 'fechado') return 'Fechado';
+  return 'Sem orçamento';
+}
+
+function statusClass(status?: string) {
+  if (status === 'respondido') return 'bg-green-50 text-green-700';
+  if (status === 'ajuste_solicitado') return 'bg-yellow-100 text-yellow-800';
+  if (status === 'aceito' || status === 'fechado') {
+    return 'bg-green-100 text-green-700';
+  }
+
+  if (status === 'novo' || status === 'aguardando_resposta') {
+    return 'bg-[#fff7e8] text-[#b97900]';
+  }
+
+  return 'bg-gray-100 text-gray-600';
+}
+
 export default function CerimonialistaEventoPage() {
   const params = useParams();
   const eventId = String(params?.id || '');
@@ -119,8 +145,48 @@ export default function CerimonialistaEventoPage() {
   const [eventData, setEventData] = useState<any>(null);
   const [inviteData, setInviteData] = useState<any>(null);
   const [savedSuppliers, setSavedSuppliers] = useState<any[]>([]);
+  const [quoteRequests, setQuoteRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+
+  async function loadQuoteRequests(ownerId: string, supplierIds: string[]) {
+    if (!ownerId || supplierIds.length === 0) {
+      setQuoteRequests([]);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('quote_requests')
+        .select(`
+          id,
+          supplier_id,
+          status,
+          created_at,
+          quote_responses(
+            id,
+            status,
+            proposal_value,
+            payment_terms,
+            created_at
+          )
+        `)
+        .eq('customer_id', ownerId)
+        .in('supplier_id', supplierIds)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Erro ao carregar orçamentos do evento:', error);
+        setQuoteRequests([]);
+        return;
+      }
+
+      setQuoteRequests(data || []);
+    } catch (error) {
+      console.error('Erro ao consultar orçamentos:', error);
+      setQuoteRequests([]);
+    }
+  }
 
   async function loadEvent() {
     try {
@@ -199,7 +265,14 @@ export default function CerimonialistaEventoPage() {
 
         if (savedError) throw savedError;
 
-        setSavedSuppliers(saved || []);
+        const savedList = saved || [];
+        setSavedSuppliers(savedList);
+
+        const supplierIds = savedList
+          .map((item: any) => item.supplier_id || getSupplierFromSaved(item)?.id)
+          .filter(Boolean);
+
+        await loadQuoteRequests(ownerId, supplierIds);
       }
     } catch (error: any) {
       console.error('Erro ao carregar evento da cerimonialista:', error);
@@ -212,6 +285,10 @@ export default function CerimonialistaEventoPage() {
   useEffect(() => {
     loadEvent();
   }, [eventId]);
+
+  function getQuoteForSupplier(supplierId: string) {
+    return quoteRequests.find((quote) => quote.supplier_id === supplierId) || null;
+  }
 
   const title = getEventTitle(eventData);
   const city = getEventCity(eventData);
@@ -228,6 +305,14 @@ export default function CerimonialistaEventoPage() {
     'Cliente';
 
   const ownerEmail = inviteData?.owner_email || 'E-mail não informado';
+
+  const respondedCount = quoteRequests.filter((item) =>
+    ['respondido', 'aceito', 'fechado', 'ajuste_solicitado'].includes(item.status)
+  ).length;
+
+  const acceptedCount = quoteRequests.filter((item) =>
+    ['aceito', 'fechado'].includes(item.status)
+  ).length;
 
   return (
     <main className="min-h-screen bg-black text-[#151515]">
@@ -307,6 +392,35 @@ export default function CerimonialistaEventoPage() {
                       {ownerEmail}
                     </p>
                   </div>
+                </div>
+              </div>
+
+              <div className="mt-5 grid grid-cols-3 gap-3">
+                <div className="rounded-[22px] bg-white p-4 text-center shadow-sm ring-1 ring-[#f1e7cf]">
+                  <p className="text-2xl font-extrabold text-[#d99200]">
+                    {savedSuppliers.length}
+                  </p>
+                  <p className="mt-1 text-[11px] font-bold text-gray-600">
+                    Salvos
+                  </p>
+                </div>
+
+                <div className="rounded-[22px] bg-white p-4 text-center shadow-sm ring-1 ring-[#f1e7cf]">
+                  <p className="text-2xl font-extrabold text-blue-600">
+                    {respondedCount}
+                  </p>
+                  <p className="mt-1 text-[11px] font-bold text-gray-600">
+                    Respondidos
+                  </p>
+                </div>
+
+                <div className="rounded-[22px] bg-white p-4 text-center shadow-sm ring-1 ring-[#f1e7cf]">
+                  <p className="text-2xl font-extrabold text-green-600">
+                    {acceptedCount}
+                  </p>
+                  <p className="mt-1 text-[11px] font-bold text-gray-600">
+                    Aceitos
+                  </p>
                 </div>
               </div>
 
@@ -406,6 +520,9 @@ export default function CerimonialistaEventoPage() {
                     const rating = formatRating(supplier.rating_average);
                     const price = formatPrice(supplier.average_price);
                     const coverImage = getCoverImage(supplier);
+                    const quote = getQuoteForSupplier(supplierId);
+                    const quoteStatus = quote?.status || '';
+                    const latestResponse = quote?.quote_responses?.[0] || null;
 
                     return (
                       <div
@@ -444,16 +561,43 @@ export default function CerimonialistaEventoPage() {
                         </div>
 
                         <div className="p-5">
-                          <p className="flex items-center gap-1 text-sm font-bold text-gray-700">
-                            <MapPin size={15} className="text-[#d99200]" />
-                            {supplierCity}
-                          </p>
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="flex items-center gap-1 text-sm font-bold text-gray-700">
+                                <MapPin size={15} className="text-[#d99200]" />
+                                {supplierCity}
+                              </p>
 
-                          <p className="mt-1 text-xs font-bold text-gray-500">
-                            {price === 'Sob consulta'
-                              ? 'Valor sob consulta'
-                              : `A partir de ${price}`}
-                          </p>
+                              <p className="mt-1 text-xs font-bold text-gray-500">
+                                {price === 'Sob consulta'
+                                  ? 'Valor sob consulta'
+                                  : `A partir de ${price}`}
+                              </p>
+                            </div>
+
+                            <span
+                              className={`flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-extrabold ${statusClass(quoteStatus)}`}
+                            >
+                              {quoteStatus ? <Clock size={13} /> : <FileText size={13} />}
+                              {statusLabel(quoteStatus)}
+                            </span>
+                          </div>
+
+                          {latestResponse && (
+                            <div className="mt-3 rounded-2xl bg-[#fff7e8] p-3 ring-1 ring-[#f1e7cf]">
+                              <p className="text-xs font-bold text-[#b97900]">
+                                Última proposta
+                              </p>
+
+                              <p className="mt-1 text-lg font-extrabold text-[#151515]">
+                                {latestResponse.proposal_value || 'Valor não informado'}
+                              </p>
+
+                              <p className="mt-1 text-xs font-bold text-gray-500">
+                                {latestResponse.payment_terms || 'Forma de pagamento não informada'}
+                              </p>
+                            </div>
+                          )}
 
                           <div className="mt-4 grid grid-cols-2 gap-3">
                             <a
@@ -464,13 +608,23 @@ export default function CerimonialistaEventoPage() {
                               Ver vitrine
                             </a>
 
-                            <a
-                              href={`/solicitar-orcamento?fornecedor=${supplierId}&cliente=${ownerId}&voltar=${encodeURIComponent(returnUrl)}`}
-                              className="flex items-center justify-center gap-2 rounded-[20px] bg-[#e3a925] py-3 text-center text-sm font-extrabold text-white shadow-lg"
-                            >
-                              <MessageCircle size={17} />
-                              Orçamento
-                            </a>
+                            {quote ? (
+                              <a
+                                href={`/orcamentos/${quote.id}`}
+                                className="flex items-center justify-center gap-2 rounded-[20px] bg-black py-3 text-center text-sm font-extrabold text-white shadow-lg"
+                              >
+                                <MessageCircle size={17} />
+                                Ver orçamento
+                              </a>
+                            ) : (
+                              <a
+                                href={`/solicitar-orcamento?fornecedor=${supplierId}&cliente=${ownerId}&voltar=${encodeURIComponent(returnUrl)}`}
+                                className="flex items-center justify-center gap-2 rounded-[20px] bg-[#e3a925] py-3 text-center text-sm font-extrabold text-white shadow-lg"
+                              >
+                                <MessageCircle size={17} />
+                                Orçamento
+                              </a>
+                            )}
                           </div>
                         </div>
                       </div>
