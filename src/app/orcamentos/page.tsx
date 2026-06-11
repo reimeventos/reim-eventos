@@ -12,66 +12,135 @@ import {
   FileText,
   MessageCircle,
   Search,
+  Trash2,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 export default function OrcamentosPage() {
   const [orcamentos, setOrcamentos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+
+  async function loadOrcamentos() {
+    try {
+      setLoading(true);
+      setErrorMessage('');
+      setSuccessMessage('');
+
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData.user;
+
+      if (!user) {
+        setOrcamentos([]);
+        setErrorMessage('Faça login para ver seus orçamentos.');
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('quote_requests')
+        .select(`
+          *,
+          suppliers(
+            id,
+            business_name,
+            city,
+            categories(name)
+          ),
+          quote_responses(
+            id,
+            status,
+            service_offered,
+            duration_period,
+            proposal_value,
+            payment_terms,
+            proposal_validity,
+            observations,
+            adjustment_notes,
+            adjustment_requested_at,
+            created_at
+          ),
+          quote_messages(
+            id,
+            sender_type,
+            read_by_client,
+            read_by_supplier,
+            created_at
+          )
+        `)
+        .eq('customer_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      setOrcamentos(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar orçamentos:', error);
+      setErrorMessage('Não foi possível carregar seus orçamentos.');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    async function loadOrcamentos() {
-      try {
-        setLoading(true);
-        setErrorMessage('');
-
-        const { data, error } = await supabase
-          .from('quote_requests')
-          .select(`
-            *,
-            suppliers(
-              id,
-              business_name,
-              city,
-              categories(name)
-            ),
-            quote_responses(
-              id,
-              status,
-              service_offered,
-              duration_period,
-              proposal_value,
-              payment_terms,
-              proposal_validity,
-              observations,
-              adjustment_notes,
-              adjustment_requested_at,
-              created_at
-            ),
-            quote_messages(
-              id,
-              sender_type,
-              read_by_client,
-              read_by_supplier,
-              created_at
-            )
-          `)
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-
-        setOrcamentos(data || []);
-      } catch (error) {
-        console.error('Erro ao carregar orçamentos:', error);
-        setErrorMessage('Não foi possível carregar seus orçamentos.');
-      } finally {
-        setLoading(false);
-      }
-    }
-
     loadOrcamentos();
   }, []);
+
+  async function handleDeleteOrcamento(orcamentoId: string) {
+    const confirmed = window.confirm(
+      'Deseja excluir este orçamento? Essa ação removerá a solicitação, mensagens e proposta vinculada.'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setDeletingId(orcamentoId);
+      setErrorMessage('');
+      setSuccessMessage('');
+
+      const { error: messagesError } = await supabase
+        .from('quote_messages')
+        .delete()
+        .eq('quote_request_id', orcamentoId);
+
+      if (messagesError) {
+        throw messagesError;
+      }
+
+      const { error: responsesError } = await supabase
+        .from('quote_responses')
+        .delete()
+        .eq('quote_request_id', orcamentoId);
+
+      if (responsesError) {
+        throw responsesError;
+      }
+
+      const { error: requestError } = await supabase
+        .from('quote_requests')
+        .delete()
+        .eq('id', orcamentoId);
+
+      if (requestError) {
+        throw requestError;
+      }
+
+      setOrcamentos((current) =>
+        current.filter((item) => item.id !== orcamentoId)
+      );
+
+      setSuccessMessage('Orçamento excluído com sucesso.');
+    } catch (error: any) {
+      console.error('Erro ao excluir orçamento:', error);
+      setErrorMessage(
+        error?.message ||
+          'Não foi possível excluir este orçamento. Verifique as permissões no Supabase.'
+      );
+    } finally {
+      setDeletingId('');
+    }
+  }
 
   function formatDate(date?: string) {
     if (!date) return 'Data não informada';
@@ -184,6 +253,15 @@ export default function OrcamentosPage() {
             </p>
           </div>
         </section>
+
+        {successMessage && (
+          <section className="px-6 pt-4">
+            <div className="flex items-center gap-2 rounded-2xl bg-green-50 px-4 py-3 text-sm font-bold text-green-700">
+              <CheckCircle2 size={18} />
+              {successMessage}
+            </div>
+          </section>
+        )}
 
         {totalUnreadMessages > 0 && (
           <section className="px-6 pt-4">
@@ -419,6 +497,18 @@ export default function OrcamentosPage() {
                         </span>
                       )}
                     </Link>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteOrcamento(item.id)}
+                      disabled={deletingId === item.id}
+                      className="flex w-full items-center justify-center gap-2 rounded-[22px] bg-white py-4 text-center font-extrabold text-red-700 shadow-sm ring-1 ring-red-100 disabled:opacity-60"
+                    >
+                      <Trash2 size={21} />
+                      {deletingId === item.id
+                        ? 'Excluindo...'
+                        : 'Excluir orçamento'}
+                    </button>
                   </div>
                 </div>
               );
