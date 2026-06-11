@@ -4,20 +4,76 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft,
+  CalendarDays,
   CheckCircle2,
   Heart,
   Mail,
-  Send,
+  MapPin,
   ShieldCheck,
-  Trash2,
-  UserPlus,
+  UserCheck,
+  XCircle,
   Users,
+  Building2,
+  User,
 } from 'lucide-react';
 import {
-  inviteEventCollaborator,
-  listEventCollaborators,
-  removeEventCollaborator,
+  acceptEventCollaboration,
+  declineEventCollaboration,
+  listMyCollaborationInvites,
 } from '@/lib/collaborators';
+
+function formatDate(date?: string) {
+  if (!date) return 'Data não informada';
+
+  const [year, month, day] = date.split('-');
+
+  if (!year || !month || !day) return date;
+
+  return `${day}/${month}/${year}`;
+}
+
+function getEventFromInvite(invite: any) {
+  if (Array.isArray(invite.events)) {
+    return invite.events[0] || null;
+  }
+
+  return invite.events || null;
+}
+
+function getSupplierFromInvite(invite: any) {
+  if (Array.isArray(invite.suppliers)) {
+    return invite.suppliers[0] || null;
+  }
+
+  return invite.suppliers || null;
+}
+
+function getEventTitle(event: any, invite: any) {
+  const baseTitle =
+    event?.couple_name ||
+    event?.event_name ||
+    event?.title ||
+    invite?.owner_name ||
+    'Cliente';
+
+  if (String(baseTitle).toLowerCase().includes('maria')) {
+    return 'Evento da Maria';
+  }
+
+  if (String(baseTitle).includes('&')) {
+    return `Evento de ${baseTitle}`;
+  }
+
+  return `Evento de ${baseTitle}`;
+}
+
+function getEventCity(event: any) {
+  return event?.event_city || event?.city || 'Cidade não informada';
+}
+
+function getGuestsCount(event: any) {
+  return event?.guests_count || event?.guest_count || null;
+}
 
 function statusClass(status: string) {
   if (status === 'aceito') return 'bg-green-50 text-green-700';
@@ -31,38 +87,25 @@ function statusLabel(status: string) {
   return 'Pendente';
 }
 
-function getCollaboratorName(item: any) {
-  return (
-    item?.collaborator_name ||
-    item?.suppliers?.business_name ||
-    item?.collaborator_email ||
-    'Cerimonialista'
-  );
-}
-
-export default function CompartilharEventoPage() {
-  const [collaborators, setCollaborators] = useState<any[]>([]);
+export default function ConvitesCerimonialistaPage() {
+  const [invites, setInvites] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
-  const [removingId, setRemovingId] = useState('');
-
-  const [collaboratorName, setCollaboratorName] = useState('');
-  const [collaboratorEmail, setCollaboratorEmail] = useState('');
-
+  const [updatingId, setUpdatingId] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
-  async function loadCollaborators() {
+  async function loadInvites() {
     try {
       setLoading(true);
       setErrorMessage('');
 
-      const data = await listEventCollaborators();
-      setCollaborators(data || []);
+      const data = await listMyCollaborationInvites();
+      setInvites(data || []);
     } catch (error: any) {
-      console.error('Erro ao carregar colaboradores:', error);
+      console.error('Erro ao carregar convites:', error);
       setErrorMessage(
-        error?.message || 'Não foi possível carregar os colaboradores.'
+        error?.message ||
+          'Não foi possível carregar os convites recebidos.'
       );
     } finally {
       setLoading(false);
@@ -70,61 +113,48 @@ export default function CompartilharEventoPage() {
   }
 
   useEffect(() => {
-    loadCollaborators();
+    loadInvites();
   }, []);
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    setSuccessMessage('');
-    setErrorMessage('');
-
-    if (!collaboratorEmail.trim()) {
-      setErrorMessage('Informe o e-mail da cerimonialista.');
-      return;
-    }
-
+  async function handleAccept(id: string) {
     try {
-      setSending(true);
-
-      await inviteEventCollaborator({
-        collaborator_name: collaboratorName,
-        collaborator_email: collaboratorEmail,
-        role: 'cerimonialista',
-      });
-
-      setSuccessMessage('Convite enviado com sucesso!');
-      setCollaboratorName('');
-      setCollaboratorEmail('');
-
-      await loadCollaborators();
-    } catch (error: any) {
-      console.error('Erro ao enviar convite:', error);
-      setErrorMessage(error?.message || 'Não foi possível enviar o convite.');
-    } finally {
-      setSending(false);
-    }
-  }
-
-  async function handleRemoveCollaborator(id: string) {
-    try {
-      setRemovingId(id);
+      setUpdatingId(id);
       setSuccessMessage('');
       setErrorMessage('');
 
-      await removeEventCollaborator(id);
-      await loadCollaborators();
+      await acceptEventCollaboration(id);
+      await loadInvites();
 
-      setSuccessMessage('Cerimonialista removida do evento.');
+      setSuccessMessage('Convite aceito com sucesso.');
     } catch (error: any) {
-      console.error('Erro ao remover cerimonialista:', error);
-      setErrorMessage(
-        error?.message || 'Não foi possível remover a cerimonialista.'
-      );
+      console.error('Erro ao aceitar convite:', error);
+      setErrorMessage(error?.message || 'Não foi possível aceitar o convite.');
     } finally {
-      setRemovingId('');
+      setUpdatingId('');
     }
   }
+
+  async function handleDecline(id: string) {
+    try {
+      setUpdatingId(id);
+      setSuccessMessage('');
+      setErrorMessage('');
+
+      await declineEventCollaboration(id);
+      await loadInvites();
+
+      setSuccessMessage('Convite recusado.');
+    } catch (error: any) {
+      console.error('Erro ao recusar convite:', error);
+      setErrorMessage(error?.message || 'Não foi possível recusar o convite.');
+    } finally {
+      setUpdatingId('');
+    }
+  }
+
+  const pendingCount = invites.filter((item) => item.status === 'pendente').length;
+  const acceptedCount = invites.filter((item) => item.status === 'aceito').length;
+  const declinedCount = invites.filter((item) => item.status === 'recusado').length;
 
   return (
     <main className="min-h-screen bg-black text-[#151515]">
@@ -135,7 +165,7 @@ export default function CompartilharEventoPage() {
 
           <div className="relative z-10">
             <Link
-              href="/meu-evento"
+              href="/perfil"
               className="inline-flex items-center gap-2 text-sm font-bold text-[#e3a925]"
             >
               <ArrowLeft size={17} />
@@ -144,189 +174,288 @@ export default function CompartilharEventoPage() {
 
             <div className="mt-6 flex items-center gap-3">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#e3a925] text-white shadow-lg">
-                <UserPlus size={31} />
+                <ShieldCheck size={31} />
               </div>
 
               <div>
                 <h1 className="font-serif text-[31px] leading-tight">
-                  Compartilhar evento
+                  Convites recebidos
                 </h1>
 
                 <p className="mt-1 text-sm text-white/70">
-                  Convide sua cerimonialista para ajudar na organização.
+                  Clientes que convidaram você para atuar em eventos.
                 </p>
               </div>
             </div>
           </div>
         </section>
 
-        <section className="px-6 pt-6">
-          <div className="rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]">
-            <div className="flex items-start gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]">
-                <ShieldCheck size={30} />
-              </div>
+        <section className="grid grid-cols-3 gap-3 px-6 pt-6">
+          <div className="rounded-[22px] bg-white p-4 text-center shadow-sm ring-1 ring-[#f1e7cf]">
+            <p className="text-2xl font-extrabold text-[#d99200]">
+              {pendingCount}
+            </p>
+            <p className="mt-1 text-[11px] font-bold text-gray-600">
+              Pendentes
+            </p>
+          </div>
 
-              <div className="flex-1">
-                <h2 className="text-lg font-extrabold">
-                  Permissão da cerimonialista
-                </h2>
+          <div className="rounded-[22px] bg-white p-4 text-center shadow-sm ring-1 ring-[#f1e7cf]">
+            <p className="text-2xl font-extrabold text-green-600">
+              {acceptedCount}
+            </p>
+            <p className="mt-1 text-[11px] font-bold text-gray-600">
+              Aceitos
+            </p>
+          </div>
 
-                <p className="mt-1 text-sm leading-5 text-gray-600">
-                  A cerimonialista poderá colaborar no evento, ajudar na lista de fornecedores e acompanhar os orçamentos.
-                </p>
-              </div>
-            </div>
+          <div className="rounded-[22px] bg-white p-4 text-center shadow-sm ring-1 ring-[#f1e7cf]">
+            <p className="text-2xl font-extrabold text-red-600">
+              {declinedCount}
+            </p>
+            <p className="mt-1 text-[11px] font-bold text-gray-600">
+              Recusados
+            </p>
           </div>
         </section>
 
         <section className="px-6 pt-6">
-          <form
-            onSubmit={handleSubmit}
-            className="rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]"
-          >
-            <h2 className="text-lg font-extrabold">Enviar convite</h2>
+          {errorMessage && (
+            <div className="mb-4 rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+              {errorMessage}
+            </div>
+          )}
 
-            <label className="mt-4 block">
-              <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
-                <Users size={17} className="text-[#d99200]" />
-                Nome da cerimonialista
-              </span>
+          {successMessage && (
+            <div className="mb-4 flex items-center gap-2 rounded-2xl bg-green-50 px-4 py-3 text-sm font-bold text-green-700">
+              <CheckCircle2 size={18} />
+              {successMessage}
+            </div>
+          )}
 
-              <input
-                value={collaboratorName}
-                onChange={(event) => setCollaboratorName(event.target.value)}
-                className="w-full rounded-[22px] bg-[#fbf7f1] px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400"
-                placeholder="Ex: Ana Cerimonial"
-              />
-            </label>
-
-            <label className="mt-4 block">
-              <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
-                <Mail size={17} className="text-[#d99200]" />
-                E-mail
-              </span>
-
-              <input
-                type="email"
-                value={collaboratorEmail}
-                onChange={(event) => setCollaboratorEmail(event.target.value)}
-                className="w-full rounded-[22px] bg-[#fbf7f1] px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400"
-                placeholder="cerimonialista@email.com"
-              />
-            </label>
-
-            {errorMessage && (
-              <div className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
-                {errorMessage}
-              </div>
-            )}
-
-            {successMessage && (
-              <div className="mt-4 flex items-center gap-2 rounded-2xl bg-green-50 px-4 py-3 text-sm font-bold text-green-700">
-                <CheckCircle2 size={18} />
-                {successMessage}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={sending}
-              className="mt-5 flex w-full items-center justify-center gap-2 rounded-[24px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg disabled:opacity-60"
-            >
-              <Send size={21} />
-              {sending ? 'Enviando...' : 'Enviar convite'}
-            </button>
-          </form>
-        </section>
-
-        <section className="px-6 pt-6">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-extrabold">Cerimonialistas convidadas</h2>
+            <h2 className="text-lg font-extrabold">Solicitações de clientes</h2>
 
             <button
               type="button"
-              onClick={loadCollaborators}
+              onClick={loadInvites}
               className="rounded-full bg-[#fff7e8] px-3 py-1 text-xs font-extrabold text-[#b97900]"
             >
-              {loading ? 'Carregando...' : `${collaborators.length} convite(s)`}
+              {loading ? 'Carregando...' : `${invites.length} convite(s)`}
             </button>
           </div>
 
           {loading && (
             <div className="rounded-[28px] bg-white p-6 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-              <Heart size={36} className="mx-auto text-[#d99200]" />
+              <Heart size={38} className="mx-auto text-[#d99200]" />
               <p className="mt-3 text-sm font-bold text-gray-500">
-                Carregando convites...
+                Carregando convites recebidos...
               </p>
             </div>
           )}
 
-          {!loading && collaborators.length === 0 && (
+          {!loading && invites.length === 0 && (
             <div className="rounded-[28px] bg-white p-6 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-              <UserPlus size={38} className="mx-auto text-[#d99200]" />
+              <ShieldCheck size={38} className="mx-auto text-[#d99200]" />
 
               <h3 className="mt-4 text-lg font-extrabold">
-                Nenhuma cerimonialista convidada
+                Nenhum convite recebido
               </h3>
 
               <p className="mt-2 text-sm leading-5 text-gray-500">
-                Envie um convite para permitir colaboração no evento.
+                Quando uma cliente convidar você para atuar como cerimonialista,
+                o convite aparecerá aqui.
               </p>
             </div>
           )}
 
           <div className="space-y-4">
-            {collaborators.map((item) => (
-              <div
-                key={item.id}
-                className="rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className="text-lg font-extrabold">
-                      {getCollaboratorName(item)}
-                    </h3>
+            {invites.map((invite) => {
+              const event = getEventFromInvite(invite);
+              const supplier = getSupplierFromInvite(invite);
 
-                    <p className="mt-1 break-all text-sm font-bold text-gray-500">
-                      {item.collaborator_email}
+              const title = getEventTitle(event, invite);
+              const city = getEventCity(event);
+              const guests = getGuestsCount(event);
+              const eventDate = formatDate(event?.event_date);
+              const eventSpace = event?.event_space || 'Não informado';
+
+              const isPending = invite.status === 'pendente';
+              const isAccepted = invite.status === 'aceito';
+              const isDeclined = invite.status === 'recusado';
+
+              const hasProfessionalProfile = Boolean(
+                invite.supplier_id || supplier?.id
+              );
+
+              const supplierId = invite.supplier_id || supplier?.id || '';
+
+              const ownerName =
+                invite.owner_name ||
+                event?.couple_name ||
+                event?.event_name ||
+                'Cliente';
+
+              const ownerEmail = invite.owner_email || 'E-mail não informado';
+
+              return (
+                <div
+                  key={invite.id}
+                  className="rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-extrabold text-[#b97900]">
+                        Cliente solicitante
+                      </p>
+
+                      <h3 className="mt-1 text-lg font-extrabold">
+                        {ownerName}
+                      </h3>
+
+                      <p className="mt-1 flex items-center gap-2 break-all text-xs font-bold text-gray-500">
+                        <Mail size={13} className="text-[#d99200]" />
+                        {ownerEmail}
+                      </p>
+                    </div>
+
+                    <span
+                      className={`rounded-full px-3 py-1 text-[11px] font-extrabold ${statusClass(
+                        invite.status
+                      )}`}
+                    >
+                      {statusLabel(invite.status)}
+                    </span>
+                  </div>
+
+                  <div className="mt-4 rounded-2xl bg-[#151515] p-4 text-white">
+                    <p className="flex items-center gap-2 text-xs font-extrabold text-[#f7d67b]">
+                      <User size={15} />
+                      Evento solicitado
+                    </p>
+
+                    <p className="mt-2 text-base font-extrabold">
+                      {title}
+                    </p>
+
+                    <p className="mt-1 text-xs font-bold text-white/60">
+                      Permissão: {invite.role || 'cerimonialista'}
                     </p>
                   </div>
 
-                  <span
-                    className={`rounded-full px-3 py-1 text-[11px] font-extrabold ${statusClass(
-                      item.status
-                    )}`}
-                  >
-                    {statusLabel(item.status)}
-                  </span>
+                  <div className="mt-4 grid grid-cols-2 gap-3">
+                    <div className="rounded-2xl bg-[#fbf7f1] p-3">
+                      <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
+                        <CalendarDays size={14} className="text-[#d99200]" />
+                        Data
+                      </p>
+                      <p className="mt-1 text-sm font-extrabold">{eventDate}</p>
+                    </div>
+
+                    <div className="rounded-2xl bg-[#fbf7f1] p-3">
+                      <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
+                        <MapPin size={14} className="text-[#d99200]" />
+                        Cidade
+                      </p>
+                      <p className="mt-1 text-sm font-extrabold">{city}</p>
+                    </div>
+
+                    <div className="rounded-2xl bg-[#fbf7f1] p-3">
+                      <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
+                        <Users size={14} className="text-[#d99200]" />
+                        Convidados
+                      </p>
+                      <p className="mt-1 text-sm font-extrabold">
+                        {guests || 'Não informado'}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl bg-[#fbf7f1] p-3">
+                      <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
+                        <Building2 size={14} className="text-[#d99200]" />
+                        Espaço
+                      </p>
+                      <p className="mt-1 line-clamp-1 text-sm font-extrabold">
+                        {eventSpace}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 space-y-3">
+                    {isPending && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleAccept(invite.id)}
+                          disabled={updatingId === invite.id}
+                          className="flex w-full items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg disabled:opacity-60"
+                        >
+                          <UserCheck size={21} />
+                          {updatingId === invite.id
+                            ? 'Aceitando...'
+                            : 'Aceitar convite'}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDecline(invite.id)}
+                          disabled={updatingId === invite.id}
+                          className="flex w-full items-center justify-center gap-2 rounded-[22px] bg-white py-4 text-center font-extrabold text-red-700 ring-1 ring-red-100 disabled:opacity-60"
+                        >
+                          <XCircle size={21} />
+                          Recusar convite
+                        </button>
+                      </>
+                    )}
+
+                    {isAccepted && !hasProfessionalProfile && (
+                      <div className="rounded-[24px] bg-[#fff7e8] p-4 ring-1 ring-[#f1e7cf]">
+                        <p className="text-sm font-extrabold text-[#151515]">
+                          Convite aceito
+                        </p>
+
+                        <p className="mt-2 text-xs leading-5 text-gray-600">
+                          Para atuar neste evento como profissional, crie primeiro sua vitrine de cerimonialista no REIM.
+                        </p>
+
+                        <Link
+                          href={`/cerimonialista/criar-perfil?redirect=/cerimonialista/evento/${invite.event_id}`}
+                          className="mt-4 block rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg"
+                        >
+                          Criar perfil profissional
+                        </Link>
+                      </div>
+                    )}
+
+                    {isAccepted && hasProfessionalProfile && (
+                      <>
+                        <Link
+                          href={`/cerimonialista/evento/${invite.event_id}`}
+                          className="flex w-full items-center justify-center gap-2 rounded-[22px] bg-black py-4 text-center font-extrabold text-white shadow-lg"
+                        >
+                          <ShieldCheck size={21} />
+                          Atuar neste evento
+                        </Link>
+
+                        <Link
+                          href={`/fornecedor/${supplierId}`}
+                          className="block rounded-[22px] bg-white py-4 text-center font-extrabold text-[#151515] shadow-sm ring-1 ring-[#f1e7cf]"
+                        >
+                          Ver minha vitrine profissional
+                        </Link>
+                      </>
+                    )}
+
+                    {isDeclined && (
+                      <div className="rounded-[22px] bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+                        Você recusou este convite.
+                      </div>
+                    )}
+                  </div>
                 </div>
-
-                <p className="mt-3 text-xs font-bold text-gray-500">
-                  Permissão: {item.role || 'cerimonialista'}
-                </p>
-
-                <button
-                  type="button"
-                  onClick={() => handleRemoveCollaborator(item.id)}
-                  disabled={removingId === item.id}
-                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-[20px] bg-white py-3 text-center text-sm font-extrabold text-red-700 ring-1 ring-red-100 disabled:opacity-60"
-                >
-                  <Trash2 size={17} />
-                  {removingId === item.id
-                    ? 'Removendo...'
-                    : 'Remover cerimonialista'}
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
-
-          <Link
-            href="/meu-evento"
-            className="mt-6 block rounded-[24px] bg-black py-4 text-center font-extrabold text-white shadow-lg"
-          >
-            Voltar para Meu Evento
-          </Link>
         </section>
       </div>
     </main>
