@@ -20,11 +20,16 @@ export default function LoginPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const redirectParam = params.get('redirect') || '';
+    const emailParam = params.get('email') || '';
 
     if (redirectParam && redirectParam.startsWith('/')) {
       setRedirectTo(redirectParam);
     } else {
       setRedirectTo('/perfil');
+    }
+
+    if (emailParam) {
+      setEmail(emailParam.trim().toLowerCase());
     }
   }, []);
 
@@ -46,6 +51,26 @@ export default function LoginPage() {
 
     checkSession();
   }, [router]);
+
+  function getCadastroHref() {
+    const params = new URLSearchParams();
+
+    if (redirectTo) {
+      params.set('redirect', redirectTo);
+    }
+
+    if (email.trim()) {
+      params.set('email', email.trim().toLowerCase());
+    }
+
+    if (redirectTo.includes('/cerimonialista/convites')) {
+      params.set('type', 'cerimonialista');
+    }
+
+    const query = params.toString();
+
+    return query ? `/cadastro?${query}` : '/cadastro';
+  }
 
   async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -131,6 +156,19 @@ export default function LoginPage() {
               </p>
             </div>
 
+            {redirectTo.includes('/cerimonialista/convites') && (
+              <div className="mb-5 rounded-[24px] bg-[#151515] px-5 py-4 text-white shadow-lg">
+                <p className="text-sm font-extrabold text-[#e3a925]">
+                  Convite de cerimonialista
+                </p>
+
+                <p className="mt-2 text-xs leading-5 text-white/75">
+                  Entre com sua conta ou crie uma nova usando o e-mail informado
+                  no convite.
+                </p>
+              </div>
+            )}
+
             <form
               onSubmit={handleLogin}
               className="rounded-[30px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]"
@@ -195,7 +233,7 @@ export default function LoginPage() {
               </button>
 
               <Link
-                href="/cadastro"
+                href={getCadastroHref()}
                 className="mt-4 block text-center text-sm font-bold text-[#d99200]"
               >
                 Criar conta
@@ -203,8 +241,7 @@ export default function LoginPage() {
             </form>
 
             <div className="mt-5 rounded-[24px] bg-white px-4 py-4 text-center text-xs font-bold leading-5 text-gray-500 shadow-sm ring-1 ring-[#f1e7cf]">
-              Após entrar, você será levado para o Perfil para confirmar qual
-              conta está logada antes de testar Cliente, Fornecedor ou Cerimonialista.
+              Após entrar, você será levado para a tela correta conforme sua conta.
             </div>
           </div>
         </section>
