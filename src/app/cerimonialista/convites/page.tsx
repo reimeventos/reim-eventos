@@ -21,6 +21,7 @@ import {
   declineEventCollaboration,
   listMyCollaborationInvites,
 } from '@/lib/collaborators';
+import { supabase } from '@/lib/supabase';
 
 function formatDate(date?: string) {
   if (!date) return 'Data não informada';
@@ -89,15 +90,45 @@ function statusLabel(status: string) {
 
 export default function ConvitesCerimonialistaPage() {
   const [invites, setInvites] = useState<any[]>([]);
+  const [mySupplierId, setMySupplierId] = useState('');
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
+  async function loadMySupplierId() {
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData.user;
+
+    if (!user) {
+      setMySupplierId('');
+      return '';
+    }
+
+    const { data, error } = await supabase
+      .from('suppliers')
+      .select('id')
+      .eq('owner_id', user.id)
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Erro ao buscar vitrine da cerimonialista:', error);
+      setMySupplierId('');
+      return '';
+    }
+
+    const supplierId = data?.id || '';
+    setMySupplierId(supplierId);
+    return supplierId;
+  }
+
   async function loadInvites() {
     try {
       setLoading(true);
       setErrorMessage('');
+
+      await loadMySupplierId();
 
       const data = await listMyCollaborationInvites();
       setInvites(data || []);
@@ -123,6 +154,19 @@ export default function ConvitesCerimonialistaPage() {
       setErrorMessage('');
 
       await acceptEventCollaboration(id);
+
+      const supplierId = await loadMySupplierId();
+
+      if (supplierId) {
+        await supabase
+          .from('event_collaborators')
+          .update({
+            supplier_id: supplierId,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', id);
+      }
+
       await loadInvites();
 
       setSuccessMessage('Convite aceito com sucesso.');
@@ -284,11 +328,10 @@ export default function ConvitesCerimonialistaPage() {
               const isAccepted = invite.status === 'aceito';
               const isDeclined = invite.status === 'recusado';
 
-              const hasProfessionalProfile = Boolean(
-                invite.supplier_id || supplier?.id
-              );
+              const supplierId =
+                invite.supplier_id || supplier?.id || mySupplierId || '';
 
-              const supplierId = invite.supplier_id || supplier?.id || '';
+              const hasProfessionalProfile = Boolean(supplierId);
 
               const ownerName =
                 invite.owner_name ||
