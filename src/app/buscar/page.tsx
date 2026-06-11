@@ -4,11 +4,14 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Nav } from '@/components/Nav';
 import { listCategories, listSuppliers } from '@/lib/marketplace';
+import { supabase } from '@/lib/supabase';
 import {
   Camera,
   Cake,
+  CheckCircle2,
   Flower2,
   Gem,
+  Heart,
   Landmark,
   MapPin,
   Music2,
@@ -108,6 +111,11 @@ export default function BuscarPage() {
   const [targetCustomerId, setTargetCustomerId] = useState('');
   const [returnUrl, setReturnUrl] = useState('/');
 
+  const [savingSupplierId, setSavingSupplierId] = useState('');
+  const [savedSupplierIds, setSavedSupplierIds] = useState<string[]>([]);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+
   const isCerimonialistaMode = Boolean(targetCustomerId);
 
   useEffect(() => {
@@ -118,6 +126,30 @@ export default function BuscarPage() {
     setTargetCustomerId(cliente);
     setReturnUrl(voltar);
   }, []);
+
+  useEffect(() => {
+    async function loadSavedForTargetCustomer() {
+      if (!targetCustomerId) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('saved_suppliers')
+          .select('supplier_id')
+          .eq('customer_id', targetCustomerId);
+
+        if (error) {
+          console.error('Erro ao carregar fornecedores salvos da cliente:', error);
+          return;
+        }
+
+        setSavedSupplierIds((data || []).map((item: any) => item.supplier_id));
+      } catch (error) {
+        console.error('Erro ao verificar salvos:', error);
+      }
+    }
+
+    loadSavedForTargetCustomer();
+  }, [targetCustomerId]);
 
   function getSupplierLink(supplierId: string) {
     if (isCerimonialistaMode) {
@@ -177,19 +209,67 @@ export default function BuscarPage() {
     loadSuppliers(selectedCategoryId, search);
   }
 
+  async function handleSaveForCustomer(supplierId: string, supplierName: string) {
+    if (!targetCustomerId) return;
+
+    try {
+      setSavingSupplierId(supplierId);
+      setSuccessMessage('');
+      setErrorMessage('');
+
+      const { data: existing, error: existingError } = await supabase
+        .from('saved_suppliers')
+        .select('id')
+        .eq('customer_id', targetCustomerId)
+        .eq('supplier_id', supplierId)
+        .limit(1);
+
+      if (existingError) {
+        throw existingError;
+      }
+
+      if (existing && existing.length > 0) {
+        setSavedSupplierIds((current) =>
+          current.includes(supplierId) ? current : [...current, supplierId]
+        );
+        setSuccessMessage(`${supplierName} já estava salvo no evento da cliente.`);
+        return;
+      }
+
+      const { error } = await supabase.from('saved_suppliers').insert({
+        customer_id: targetCustomerId,
+        supplier_id: supplierId,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      setSavedSupplierIds((current) =>
+        current.includes(supplierId) ? current : [...current, supplierId]
+      );
+
+      setSuccessMessage(`${supplierName} adicionado ao evento da cliente.`);
+    } catch (error: any) {
+      console.error('Erro ao salvar fornecedor para cliente:', error);
+      setErrorMessage(
+        error?.message ||
+          'Não foi possível adicionar este fornecedor ao evento da cliente.'
+      );
+    } finally {
+      setSavingSupplierId('');
+    }
+  }
+
   return (
     <main className="min-h-screen bg-black text-[#151515]">
       <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] pb-40 shadow-2xl">
-        {/* TOPO */}
         <section className="relative overflow-hidden rounded-b-[34px] bg-black px-6 pb-8 pt-7 text-white">
           <div className="absolute inset-0 bg-[url('/layout01-fundo.png')] bg-cover bg-center opacity-45" />
           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/75 to-black" />
 
           <div className="relative z-10">
-            <Link
-              href={returnUrl}
-              className="text-sm font-bold text-[#e3a925]"
-            >
+            <Link href={returnUrl} className="text-sm font-bold text-[#e3a925]">
               ‹ Voltar
             </Link>
 
@@ -209,7 +289,7 @@ export default function BuscarPage() {
                     Modo cerimonialista
                   </p>
                   <p className="mt-1 text-xs leading-5 text-white/70">
-                    Ao abrir uma vitrine, o fornecedor será salvo no evento da cliente.
+                    Ao tocar em “Adicionar ao evento”, o fornecedor será salvo no evento da cliente.
                   </p>
                 </div>
               </div>
@@ -237,7 +317,23 @@ export default function BuscarPage() {
           </div>
         </section>
 
-        {/* CATEGORIAS */}
+        {(successMessage || errorMessage) && (
+          <section className="px-6 pt-4">
+            {successMessage && (
+              <div className="flex items-center gap-2 rounded-2xl bg-green-50 px-4 py-3 text-sm font-bold text-green-700">
+                <CheckCircle2 size={18} />
+                {successMessage}
+              </div>
+            )}
+
+            {errorMessage && (
+              <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+                {errorMessage}
+              </div>
+            )}
+          </section>
+        )}
+
         <section className="px-6 pt-6">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-extrabold">Categorias</h2>
@@ -289,7 +385,6 @@ export default function BuscarPage() {
           </div>
         </section>
 
-        {/* RESULTADOS */}
         <section className="px-6 pt-6">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-extrabold">Resultados</h2>
@@ -331,66 +426,106 @@ export default function BuscarPage() {
               const coverImage = getCoverImage(supplier);
               const supplierId = supplier.id || 'demo';
               const tag = supplier.is_featured ? 'Destaque' : 'Premium';
+              const isSavedForCustomer = savedSupplierIds.includes(supplierId);
 
               return (
-                <Link
-                  href={getSupplierLink(supplierId)}
+                <div
                   key={supplierId}
-                  className="block overflow-hidden rounded-[28px] bg-white shadow-[0_10px_25px_rgba(0,0,0,.08)]"
+                  className="overflow-hidden rounded-[28px] bg-white shadow-[0_10px_25px_rgba(0,0,0,.08)]"
                 >
-                  <div className="relative h-44 bg-cover bg-center">
-                    <img
-                      src={coverImage}
-                      alt={supplierName}
-                      className="h-full w-full object-cover"
-                    />
+                  <Link href={getSupplierLink(supplierId)} className="block">
+                    <div className="relative h-44 bg-cover bg-center">
+                      <img
+                        src={coverImage}
+                        alt={supplierName}
+                        className="h-full w-full object-cover"
+                      />
 
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
 
-                    <span className="absolute left-4 top-4 rounded-full bg-[#e3a925] px-3 py-1 text-xs font-extrabold text-white">
-                      ♛ {tag}
-                    </span>
+                      <span className="absolute left-4 top-4 rounded-full bg-[#e3a925] px-3 py-1 text-xs font-extrabold text-white">
+                        ♛ {tag}
+                      </span>
 
-                    <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between text-white">
+                      {isSavedForCustomer && (
+                        <span className="absolute right-4 top-4 rounded-full bg-green-600 px-3 py-1 text-xs font-extrabold text-white">
+                          Salvo
+                        </span>
+                      )}
+
+                      <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between text-white">
+                        <div>
+                          <h3 className="text-xl font-extrabold">
+                            {supplierName}
+                          </h3>
+                          <p className="text-sm text-white/80">
+                            {categoryName}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-1 rounded-full bg-black/45 px-3 py-1 text-sm font-bold">
+                          <Star
+                            size={15}
+                            fill="#e3a925"
+                            className="text-[#e3a925]"
+                          />
+                          {rating}
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+
+                  <div className="p-4">
+                    <div className="flex items-center justify-between gap-3">
                       <div>
-                        <h3 className="text-xl font-extrabold">
-                          {supplierName}
-                        </h3>
-                        <p className="text-sm text-white/80">
-                          {categoryName}
+                        <p className="flex items-center gap-1 text-sm font-bold text-gray-700">
+                          <MapPin size={15} className="text-[#d99200]" />
+                          {city}
+                        </p>
+
+                        <p className="mt-1 text-xs text-gray-500">
+                          {price === 'Sob consulta'
+                            ? 'Valor sob consulta'
+                            : `A partir de ${price}`}
                         </p>
                       </div>
 
-                      <div className="flex items-center gap-1 rounded-full bg-black/45 px-3 py-1 text-sm font-bold">
-                        <Star
-                          size={15}
-                          fill="#e3a925"
-                          className="text-[#e3a925]"
-                        />
-                        {rating}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between p-4">
-                    <div>
-                      <p className="flex items-center gap-1 text-sm font-bold text-gray-700">
-                        <MapPin size={15} className="text-[#d99200]" />
-                        {city}
-                      </p>
-
-                      <p className="mt-1 text-xs text-gray-500">
-                        {price === 'Sob consulta'
-                          ? 'Valor sob consulta'
-                          : `A partir de ${price}`}
-                      </p>
+                      <Link
+                        href={getSupplierLink(supplierId)}
+                        className="rounded-full bg-black px-4 py-2 text-xs font-bold text-white"
+                      >
+                        Ver vitrine
+                      </Link>
                     </div>
 
-                    <span className="rounded-full bg-black px-4 py-2 text-xs font-bold text-white">
-                      Ver vitrine
-                    </span>
+                    {isCerimonialistaMode && (
+                      <button
+                        type="button"
+                        onClick={() => handleSaveForCustomer(supplierId, supplierName)}
+                        disabled={savingSupplierId === supplierId || isSavedForCustomer}
+                        className={
+                          isSavedForCustomer
+                            ? 'mt-4 flex w-full items-center justify-center gap-2 rounded-[20px] bg-green-50 py-3 text-center text-sm font-extrabold text-green-700 ring-1 ring-green-100'
+                            : 'mt-4 flex w-full items-center justify-center gap-2 rounded-[20px] bg-[#e3a925] py-3 text-center text-sm font-extrabold text-white shadow-lg disabled:opacity-60'
+                        }
+                      >
+                        {isSavedForCustomer ? (
+                          <>
+                            <CheckCircle2 size={18} />
+                            Adicionado ao evento
+                          </>
+                        ) : (
+                          <>
+                            <Heart size={18} />
+                            {savingSupplierId === supplierId
+                              ? 'Adicionando...'
+                              : 'Adicionar ao evento da cliente'}
+                          </>
+                        )}
+                      </button>
+                    )}
                   </div>
-                </Link>
+                </div>
               );
             })}
           </div>
