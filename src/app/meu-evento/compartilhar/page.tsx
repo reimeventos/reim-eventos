@@ -50,17 +50,8 @@ function getCollaboratorName(item: any) {
   );
 }
 
-function buildInviteLink(email?: string) {
-  const baseUrl = 'https://reim-eventos.vercel.app';
-  const cleanEmail = email?.trim().toLowerCase() || '';
-
-  if (!cleanEmail) {
-    return `${baseUrl}/cerimonialista/convites`;
-  }
-
-  return `${baseUrl}/login?redirect=${encodeURIComponent(
-    '/cerimonialista/convites'
-  )}&email=${encodeURIComponent(cleanEmail)}`;
+function buildInviteLink() {
+  return 'https://reim-eventos.vercel.app/convite';
 }
 
 function buildWhatsappInviteUrl(input: {
@@ -69,12 +60,14 @@ function buildWhatsappInviteUrl(input: {
   inviteLink: string;
 }) {
   const name = input.name?.trim() || 'Olá';
+  const email = input.email?.trim() || '';
 
   const message =
     `${name}, você recebeu um convite para atuar como cerimonialista em um evento pelo REIM EVENTOS.\n\n` +
-    `Acesse o link abaixo para entrar, aceitar o convite e acompanhar o evento:\n` +
+    `Acesse:\n` +
     `${input.inviteLink}\n\n` +
-    `Se ainda não tiver conta, crie seu cadastro com este mesmo e-mail: ${input.email || ''}`;
+    `Entre ou crie sua conta usando este e-mail:\n` +
+    `${email}`;
 
   return `https://wa.me/?text=${encodeURIComponent(message)}`;
 }
@@ -139,7 +132,7 @@ export default function CompartilharEventoPage() {
         role: 'cerimonialista',
       });
 
-      const link = buildInviteLink(cleanEmail);
+      const link = buildInviteLink();
 
       setLastInviteName(cleanName);
       setLastInviteEmail(cleanEmail);
@@ -389,7 +382,7 @@ export default function CompartilharEventoPage() {
 
           <div className="space-y-4">
             {collaborators.map((item) => {
-              const inviteLink = buildInviteLink(item.collaborator_email);
+              const inviteLink = buildInviteLink();
               const whatsappUrl = buildWhatsappInviteUrl({
                 name: getCollaboratorName(item),
                 email: item.collaborator_email,
