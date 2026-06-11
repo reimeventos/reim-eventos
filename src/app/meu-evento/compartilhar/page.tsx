@@ -1,25 +1,120 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft,
   CheckCircle2,
+  Copy,
   Heart,
   Mail,
   Send,
   ShieldCheck,
+  Trash2,
   UserPlus,
   Users,
 } from 'lucide-react';
-import { inviteEventCollaborator } from '@/lib/collaborators';
+import {
+  inviteEventCollaborator,
+  listEventCollaborators,
+  removeEventCollaborator,
+} from '@/lib/collaborators';
+
+function statusClass(status: string) {
+  if (status === 'aceito') return 'bg-green-50 text-green-700';
+  if (status === 'recusado') return 'bg-red-50 text-red-700';
+  return 'bg-[#fff7e8] text-[#b97900]';
+}
+
+function statusLabel(status: string) {
+  if (status === 'aceito') return 'Aceito';
+  if (status === 'recusado') return 'Recusado';
+  return 'Pendente';
+}
+
+function getCollaboratorName(item: any) {
+  if (Array.isArray(item?.suppliers)) {
+    return (
+      item?.collaborator_name ||
+      item?.suppliers?.[0]?.business_name ||
+      item?.collaborator_email ||
+      'Cerimonialista'
+    );
+  }
+
+  return (
+    item?.collaborator_name ||
+    item?.suppliers?.business_name ||
+    item?.collaborator_email ||
+    'Cerimonialista'
+  );
+}
+
+function buildInviteLink(email?: string) {
+  const baseUrl = 'https://reim-eventos.vercel.app';
+  const cleanEmail = email?.trim().toLowerCase() || '';
+
+  if (!cleanEmail) {
+    return `${baseUrl}/cerimonialista/convites`;
+  }
+
+  return `${baseUrl}/login?redirect=${encodeURIComponent(
+    '/cerimonialista/convites'
+  )}&email=${encodeURIComponent(cleanEmail)}`;
+}
+
+function buildWhatsappInviteUrl(input: {
+  name?: string;
+  email?: string;
+  inviteLink: string;
+}) {
+  const name = input.name?.trim() || 'Olá';
+
+  const message =
+    `${name}, você recebeu um convite para atuar como cerimonialista em um evento pelo REIM EVENTOS.\n\n` +
+    `Acesse o link abaixo para entrar, aceitar o convite e acompanhar o evento:\n` +
+    `${input.inviteLink}\n\n` +
+    `Se ainda não tiver conta, crie seu cadastro com este mesmo e-mail: ${input.email || ''}`;
+
+  return `https://wa.me/?text=${encodeURIComponent(message)}`;
+}
 
 export default function CompartilharEventoPage() {
+  const [collaborators, setCollaborators] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [removingId, setRemovingId] = useState('');
+
   const [collaboratorName, setCollaboratorName] = useState('');
   const [collaboratorEmail, setCollaboratorEmail] = useState('');
-  const [sending, setSending] = useState(false);
+
+  const [lastInviteName, setLastInviteName] = useState('');
+  const [lastInviteEmail, setLastInviteEmail] = useState('');
+  const [lastInviteLink, setLastInviteLink] = useState('');
+
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+
+  async function loadCollaborators() {
+    try {
+      setLoading(true);
+      setErrorMessage('');
+
+      const data = await listEventCollaborators();
+      setCollaborators(data || []);
+    } catch (error: any) {
+      console.error('Erro ao carregar colaboradores:', error);
+      setErrorMessage(
+        error?.message || 'Não foi possível carregar os colaboradores.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadCollaborators();
+  }, []);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -35,24 +130,73 @@ export default function CompartilharEventoPage() {
     try {
       setSending(true);
 
+      const cleanEmail = collaboratorEmail.trim().toLowerCase();
+      const cleanName = collaboratorName.trim();
+
       await inviteEventCollaborator({
-        collaborator_name: collaboratorName,
-        collaborator_email: collaboratorEmail,
+        collaborator_name: cleanName,
+        collaborator_email: cleanEmail,
         role: 'cerimonialista',
       });
 
-      setSuccessMessage('Convite enviado com sucesso!');
+      const link = buildInviteLink(cleanEmail);
+
+      setLastInviteName(cleanName);
+      setLastInviteEmail(cleanEmail);
+      setLastInviteLink(link);
+
+      setSuccessMessage('Convite criado com sucesso!');
       setCollaboratorName('');
       setCollaboratorEmail('');
+
+      await loadCollaborators();
     } catch (error: any) {
       console.error('Erro ao enviar convite:', error);
-      setErrorMessage(
-        error?.message || 'Não foi possível enviar o convite.'
-      );
+      setErrorMessage(error?.message || 'Não foi possível enviar o convite.');
     } finally {
       setSending(false);
     }
   }
+
+  async function handleRemoveCollaborator(id: string) {
+    try {
+      setRemovingId(id);
+      setSuccessMessage('');
+      setErrorMessage('');
+
+      await removeEventCollaborator(id);
+      await loadCollaborators();
+
+      setSuccessMessage('Cerimonialista removida do evento.');
+    } catch (error: any) {
+      console.error('Erro ao remover cerimonialista:', error);
+      setErrorMessage(
+        error?.message || 'Não foi possível remover a cerimonialista.'
+      );
+    } finally {
+      setRemovingId('');
+    }
+  }
+
+  async function handleCopyInviteLink() {
+    if (!lastInviteLink) return;
+
+    try {
+      await navigator.clipboard.writeText(lastInviteLink);
+      setSuccessMessage('Link do convite copiado.');
+    } catch (error) {
+      console.error('Erro ao copiar link:', error);
+      setErrorMessage('Não foi possível copiar o link.');
+    }
+  }
+
+  const whatsappInviteUrl = lastInviteLink
+    ? buildWhatsappInviteUrl({
+        name: lastInviteName,
+        email: lastInviteEmail,
+        inviteLink: lastInviteLink,
+      })
+    : '';
 
   return (
     <main className="min-h-screen bg-black text-[#151515]">
@@ -163,9 +307,151 @@ export default function CompartilharEventoPage() {
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-[24px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg disabled:opacity-60"
             >
               <Send size={21} />
-              {sending ? 'Enviando...' : 'Enviar convite'}
+              {sending ? 'Criando convite...' : 'Criar convite'}
             </button>
           </form>
+        </section>
+
+        {lastInviteLink && (
+          <section className="px-6 pt-6">
+            <div className="rounded-[28px] bg-[#151515] p-5 text-white shadow-xl">
+              <h2 className="text-lg font-extrabold">
+                Convite pronto para compartilhar
+              </h2>
+
+              <p className="mt-2 text-sm leading-5 text-white/70">
+                Envie este link para a cerimonialista acessar o REIM e aceitar o convite.
+              </p>
+
+              <div className="mt-4 rounded-2xl bg-white/10 p-4 text-xs font-bold leading-5 text-white/80 break-all">
+                {lastInviteLink}
+              </div>
+
+              <div className="mt-4 space-y-3">
+                <a
+                  href={whatsappInviteUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex w-full items-center justify-center gap-2 rounded-[22px] bg-green-600 py-4 text-center font-extrabold text-white shadow-lg"
+                >
+                  <Send size={21} />
+                  Compartilhar convite pelo WhatsApp
+                </a>
+
+                <button
+                  type="button"
+                  onClick={handleCopyInviteLink}
+                  className="flex w-full items-center justify-center gap-2 rounded-[22px] bg-white py-4 text-center font-extrabold text-[#151515] shadow-sm ring-1 ring-white/10"
+                >
+                  <Copy size={21} />
+                  Copiar link do convite
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
+
+        <section className="px-6 pt-6">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-extrabold">Cerimonialistas convidadas</h2>
+
+            <button
+              type="button"
+              onClick={loadCollaborators}
+              className="rounded-full bg-[#fff7e8] px-3 py-1 text-xs font-extrabold text-[#b97900]"
+            >
+              {loading ? 'Carregando...' : `${collaborators.length} convite(s)`}
+            </button>
+          </div>
+
+          {loading && (
+            <div className="rounded-[28px] bg-white p-6 text-center shadow-sm ring-1 ring-[#f1e7cf]">
+              <Heart size={36} className="mx-auto text-[#d99200]" />
+              <p className="mt-3 text-sm font-bold text-gray-500">
+                Carregando convites...
+              </p>
+            </div>
+          )}
+
+          {!loading && collaborators.length === 0 && (
+            <div className="rounded-[28px] bg-white p-6 text-center shadow-sm ring-1 ring-[#f1e7cf]">
+              <UserPlus size={38} className="mx-auto text-[#d99200]" />
+
+              <h3 className="mt-4 text-lg font-extrabold">
+                Nenhuma cerimonialista convidada
+              </h3>
+
+              <p className="mt-2 text-sm leading-5 text-gray-500">
+                Envie um convite para permitir colaboração no evento.
+              </p>
+            </div>
+          )}
+
+          <div className="space-y-4">
+            {collaborators.map((item) => {
+              const inviteLink = buildInviteLink(item.collaborator_email);
+              const whatsappUrl = buildWhatsappInviteUrl({
+                name: getCollaboratorName(item),
+                email: item.collaborator_email,
+                inviteLink,
+              });
+
+              return (
+                <div
+                  key={item.id}
+                  className="rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-lg font-extrabold">
+                        {getCollaboratorName(item)}
+                      </h3>
+
+                      <p className="mt-1 break-all text-sm font-bold text-gray-500">
+                        {item.collaborator_email}
+                      </p>
+                    </div>
+
+                    <span
+                      className={`rounded-full px-3 py-1 text-[11px] font-extrabold ${statusClass(
+                        item.status
+                      )}`}
+                    >
+                      {statusLabel(item.status)}
+                    </span>
+                  </div>
+
+                  <p className="mt-3 text-xs font-bold text-gray-500">
+                    Permissão: {item.role || 'cerimonialista'}
+                  </p>
+
+                  {item.status === 'pendente' && (
+                    <a
+                      href={whatsappUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-4 flex w-full items-center justify-center gap-2 rounded-[20px] bg-green-600 py-3 text-center text-sm font-extrabold text-white shadow-lg"
+                    >
+                      <Send size={17} />
+                      Reenviar pelo WhatsApp
+                    </a>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveCollaborator(item.id)}
+                    disabled={removingId === item.id}
+                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-[20px] bg-white py-3 text-center text-sm font-extrabold text-red-700 ring-1 ring-red-100 disabled:opacity-60"
+                  >
+                    <Trash2 size={17} />
+                    {removingId === item.id
+                      ? 'Removendo...'
+                      : 'Remover cerimonialista'}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
 
           <Link
             href="/meu-evento"
