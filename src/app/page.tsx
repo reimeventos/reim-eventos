@@ -11,19 +11,17 @@ import {
   Flower2,
   Gem,
   Heart,
-  Home,
   Landmark,
   MapPin,
   Menu,
-  MessageSquare,
   Mic,
   Music2,
   Search,
-  User,
   Utensils,
   Video,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { Nav } from '@/components/Nav';
 
 const categories = [
   { icon: Camera, title: 'Fotografia', subtitle: '& Filmagem' },
@@ -87,9 +85,176 @@ function CrownLogo() {
   );
 }
 
+function getTestAccountType(email: string) {
+  const normalized = email.toLowerCase();
+
+  if (normalized.startsWith('cliente@')) {
+    return 'cliente';
+  }
+
+  if (normalized.startsWith('fornecedor@')) {
+    return 'fornecedor';
+  }
+
+  if (normalized.startsWith('cerimonialista@')) {
+    return 'cerimonialista';
+  }
+
+  if (normalized.startsWith('admin@')) {
+    return 'admin';
+  }
+
+  return '';
+}
+
+function getBellHref(accountType: string) {
+  if (accountType === 'admin') {
+    return '/admin';
+  }
+
+  if (accountType === 'fornecedor') {
+    return '/painel-fornecedor/leads';
+  }
+
+  if (accountType === 'cerimonialista') {
+    return '/cerimonialista/convites';
+  }
+
+  if (accountType === 'cliente') {
+    return '/orcamentos';
+  }
+
+  return '/perfil';
+}
+
+function getPlanHref(accountType: string) {
+  if (accountType === 'fornecedor') {
+    return '/painel-fornecedor';
+  }
+
+  if (accountType === 'cerimonialista') {
+    return '/cerimonialista/convites';
+  }
+
+  return '/meu-evento';
+}
+
+function getPlanButtonText(accountType: string) {
+  if (accountType === 'fornecedor') {
+    return 'Abrir painel';
+  }
+
+  if (accountType === 'cerimonialista') {
+    return 'Ver convites';
+  }
+
+  return 'Criar meu evento';
+}
+
 export default function HomePage() {
   const [featuredSuppliers, setFeaturedSuppliers] = useState<any[]>([]);
   const [loadingSuppliers, setLoadingSuppliers] = useState(true);
+  const [accountType, setAccountType] = useState('cliente');
+  const [notificationCount, setNotificationCount] = useState(0);
+
+  useEffect(() => {
+    async function loadAccountType() {
+      try {
+        const { data: userData } = await supabase.auth.getUser();
+        const user = userData.user;
+
+        if (!user) {
+          setAccountType('cliente');
+          setNotificationCount(0);
+          return;
+        }
+
+        const email = user.email || '';
+        const testType = getTestAccountType(email);
+
+        if (testType) {
+          setAccountType(testType);
+        } else {
+          const { data: collaboratorData } = await supabase
+            .from('event_collaborators')
+            .select('id')
+            .ilike('collaborator_email', email)
+            .limit(1);
+
+          if (collaboratorData && collaboratorData.length > 0) {
+            setAccountType('cerimonialista');
+          } else {
+            const { data: supplierData } = await supabase
+              .from('suppliers')
+              .select('id')
+              .eq('owner_id', user.id)
+              .limit(1);
+
+            if (supplierData && supplierData.length > 0) {
+              setAccountType('fornecedor');
+            } else {
+              setAccountType('cliente');
+            }
+          }
+        }
+
+        const currentType = testType || accountType;
+
+        if (testType === 'cerimonialista') {
+          const { data } = await supabase
+            .from('event_collaborators')
+            .select('id,status')
+            .ilike('collaborator_email', email)
+            .eq('status', 'pendente');
+
+          setNotificationCount(data?.length || 0);
+          return;
+        }
+
+        if (testType === 'fornecedor') {
+          const { data: supplierData } = await supabase
+            .from('suppliers')
+            .select('id')
+            .eq('owner_id', user.id)
+            .limit(1)
+            .maybeSingle();
+
+          if (supplierData?.id) {
+            const { data } = await supabase
+              .from('quote_requests')
+              .select('id')
+              .eq('supplier_id', supplierData.id)
+              .eq('status', 'novo');
+
+            setNotificationCount(data?.length || 0);
+          }
+
+          return;
+        }
+
+        if (testType === 'cliente' || currentType === 'cliente') {
+          const { data } = await supabase
+            .from('quote_requests')
+            .select('id')
+            .eq('customer_id', user.id)
+            .in('status', ['respondido', 'ajuste_solicitado']);
+
+          setNotificationCount(data?.length || 0);
+          return;
+        }
+
+        if (testType === 'admin') {
+          setNotificationCount(0);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar tipo da conta:', error);
+        setAccountType('cliente');
+        setNotificationCount(0);
+      }
+    }
+
+    loadAccountType();
+  }, []);
 
   useEffect(() => {
     async function loadFeaturedSuppliers() {
@@ -113,7 +278,9 @@ export default function HomePage() {
           .order('rating_average', { ascending: false })
           .limit(3);
 
-        if (error) throw error;
+        if (error) {
+          throw error;
+        }
 
         setFeaturedSuppliers(data || []);
       } catch (error) {
@@ -132,12 +299,25 @@ export default function HomePage() {
     const cover = media.find((item: any) => item.is_cover);
     const firstMedia = media[0];
 
-    return cover?.file_url || firstMedia?.file_url || fallbackImages[index] || fallbackImages[0];
+    return (
+      cover?.file_url ||
+      firstMedia?.file_url ||
+      fallbackImages[index] ||
+      fallbackImages[0]
+    );
   }
 
   function getSupplierCategory(supplier: any) {
+    if (Array.isArray(supplier?.categories)) {
+      return supplier.categories[0]?.name || 'Fornecedor de eventos';
+    }
+
     return supplier?.categories?.name || 'Fornecedor de eventos';
   }
+
+  const bellHref = getBellHref(accountType);
+  const planHref = getPlanHref(accountType);
+  const planButtonText = getPlanButtonText(accountType);
 
   return (
     <main className="min-h-screen bg-black text-[#151515]">
@@ -159,13 +339,16 @@ export default function HomePage() {
             </button>
 
             <Link
-              href="/admin"
+              href={bellHref}
               className="relative flex h-[58px] w-[58px] items-center justify-center rounded-full bg-black/72 text-[#e7ad28] shadow-xl"
             >
               <Bell size={28} fill="#e7ad28" />
-              <span className="absolute -right-1 -top-1 flex h-7 min-w-7 items-center justify-center rounded-full bg-pink-500 px-1 text-sm font-extrabold text-white">
-                3
-              </span>
+
+              {notificationCount > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-7 min-w-7 items-center justify-center rounded-full bg-pink-500 px-1 text-sm font-extrabold text-white">
+                  {notificationCount}
+                </span>
+              )}
             </Link>
           </div>
 
@@ -272,10 +455,10 @@ export default function HomePage() {
                   </p>
 
                   <Link
-                    href="/meu-evento"
+                    href={planHref}
                     className="mt-3 inline-flex items-center gap-2 rounded-full bg-[#e3a925] px-5 py-2 text-[12px] font-bold text-white shadow-lg"
                   >
-                    Criar meu evento
+                    {planButtonText}
                     <span className="text-lg leading-none">›</span>
                   </Link>
                 </div>
@@ -318,7 +501,9 @@ export default function HomePage() {
                 >
                   <div
                     className="relative h-[96px] bg-cover bg-center"
-                    style={{ backgroundImage: `url(${getSupplierImage(supplier, index)})` }}
+                    style={{
+                      backgroundImage: `url(${getSupplierImage(supplier, index)})`,
+                    }}
                   >
                     <span className="absolute left-2 top-2 rounded-full bg-[#e3a925] px-2 py-1 text-[9px] font-extrabold text-white">
                       ♛ Premium
@@ -352,40 +537,7 @@ export default function HomePage() {
           )}
         </section>
 
-        {/* MENU INFERIOR */}
-        <nav className="fixed bottom-0 left-1/2 z-50 w-full max-w-[430px] -translate-x-1/2 rounded-t-[34px] bg-white/95 px-6 pb-4 pt-3 shadow-[0_-10px_30px_rgba(0,0,0,.16)] backdrop-blur">
-          <div className="grid grid-cols-5 items-end text-center">
-            <Link href="/" className="text-[#e3a925]">
-              <Home size={30} className="mx-auto" fill="#e3a925" />
-              <div className="mt-1 text-[12px] font-bold">Home</div>
-              <div className="mx-auto mt-1 h-[2px] w-7 rounded-full bg-[#e3a925]" />
-            </Link>
-
-            <Link href="/buscar" className="text-[#222]">
-              <Search size={30} className="mx-auto" />
-              <div className="mt-1 text-[12px]">Buscar</div>
-            </Link>
-
-            <Link href="/meu-evento" className="-mt-10">
-              <div className="mx-auto flex h-[76px] w-[76px] items-center justify-center rounded-full bg-[#e3a925] text-white shadow-[0_8px_25px_rgba(227,169,37,.55)]">
-                <Heart size={40} strokeWidth={2.4} />
-              </div>
-              <div className="mt-1 text-[12px] font-bold text-[#222]">
-                Meu Evento
-              </div>
-            </Link>
-
-            <Link href="/orcamentos" className="text-[#222]">
-              <MessageSquare size={30} className="mx-auto" />
-              <div className="mt-1 text-[12px]">Orçamentos</div>
-            </Link>
-
-            <Link href="/perfil" className="text-[#222]">
-              <User size={30} className="mx-auto" />
-              <div className="mt-1 text-[12px]">Perfil</div>
-            </Link>
-          </div>
-        </nav>
+        <Nav />
       </div>
     </main>
   );
