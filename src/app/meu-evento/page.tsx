@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   CalendarDays,
   Clock,
@@ -22,6 +23,17 @@ import { Nav } from '@/components/Nav';
 import { listSavedSuppliers, unsaveSupplier } from '@/lib/suppliers';
 import { getMyEvent } from '@/lib/events';
 import { listEventCollaborators } from '@/lib/collaborators';
+import { supabase } from '@/lib/supabase';
+
+function getTestAccountType(email: string) {
+  const normalized = email.toLowerCase();
+
+  if (normalized.startsWith('cliente@')) return 'cliente';
+  if (normalized.startsWith('fornecedor@')) return 'fornecedor';
+  if (normalized.startsWith('cerimonialista@')) return 'cerimonialista';
+
+  return '';
+}
 
 function getSupplierFromSaved(item: any) {
   if (Array.isArray(item.suppliers)) return item.suppliers[0] || null;
@@ -35,9 +47,11 @@ function getSupplierFromCollaborator(item: any) {
 
 function getCategoryName(supplier: any) {
   if (!supplier) return 'Categoria não informada';
+
   if (Array.isArray(supplier.categories)) {
     return supplier.categories[0]?.name || 'Categoria não informada';
   }
+
   return supplier.categories?.name || 'Categoria não informada';
 }
 
@@ -70,6 +84,7 @@ function formatRating(value: any) {
   if (!value) return '4.9';
 
   const numberValue = Number(value);
+
   if (Number.isNaN(numberValue)) return String(value);
 
   return numberValue.toFixed(1);
@@ -79,6 +94,7 @@ function formatDate(date?: string) {
   if (!date) return 'Data não informada';
 
   const [year, month, day] = date.split('-');
+
   if (!year || !month || !day) return date;
 
   return `${day}/${month}/${year}`;
@@ -142,6 +158,9 @@ function getWhatsappShareUrl() {
 }
 
 export default function MeuEventoPage() {
+  const router = useRouter();
+
+  const [checkingAccess, setCheckingAccess] = useState(true);
   const [eventData, setEventData] = useState<any>(null);
   const [savedSuppliers, setSavedSuppliers] = useState<any[]>([]);
   const [collaborators, setCollaborators] = useState<any[]>([]);
@@ -149,10 +168,70 @@ export default function MeuEventoPage() {
   const [removingId, setRemovingId] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
+  async function checkAccess() {
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData.user;
+
+      if (!user) {
+        router.replace('/login?redirect=/meu-evento');
+        return false;
+      }
+
+      const email = user.email || '';
+      const testType = getTestAccountType(email);
+
+      if (testType === 'cerimonialista') {
+        router.replace('/cerimonialista/convites');
+        return false;
+      }
+
+      if (testType === 'fornecedor') {
+        router.replace('/painel-fornecedor');
+        return false;
+      }
+
+      if (testType === 'cliente') {
+        return true;
+      }
+
+      const { data: collaboratorData } = await supabase
+        .from('event_collaborators')
+        .select('id')
+        .ilike('collaborator_email', email)
+        .limit(1);
+
+      if (collaboratorData && collaboratorData.length > 0) {
+        router.replace('/cerimonialista/convites');
+        return false;
+      }
+
+      const { data: supplierData } = await supabase
+        .from('suppliers')
+        .select('id')
+        .eq('owner_id', user.id)
+        .limit(1);
+
+      if (supplierData && supplierData.length > 0) {
+        router.replace('/painel-fornecedor');
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Erro ao verificar acesso ao Meu Evento:', error);
+      return true;
+    }
+  }
+
   async function loadPageData() {
     try {
       setLoading(true);
       setErrorMessage('');
+
+      const canAccess = await checkAccess();
+
+      if (!canAccess) return;
 
       const [eventResult, suppliersResult, collaboratorsResult] =
         await Promise.all([
@@ -171,6 +250,7 @@ export default function MeuEventoPage() {
       );
     } finally {
       setLoading(false);
+      setCheckingAccess(false);
     }
   }
 
@@ -192,6 +272,22 @@ export default function MeuEventoPage() {
     } finally {
       setRemovingId('');
     }
+  }
+
+  if (checkingAccess || loading) {
+    return (
+      <main className="min-h-screen bg-black text-[#151515]">
+        <div className="mx-auto flex min-h-screen w-full max-w-[430px] items-center justify-center bg-[#fbf7f1] px-6 text-center shadow-2xl">
+          <div className="rounded-[28px] bg-white p-6 shadow-sm ring-1 ring-[#f1e7cf]">
+            <Heart size={42} className="mx-auto text-[#d99200]" />
+            <h1 className="mt-4 text-xl font-extrabold">Carregando Meu Evento</h1>
+            <p className="mt-2 text-sm font-bold text-gray-500">
+              Verificando conta logada...
+            </p>
+          </div>
+        </div>
+      </main>
+    );
   }
 
   const totalSaved = savedSuppliers.length;
@@ -239,7 +335,7 @@ export default function MeuEventoPage() {
                   Meu Evento
                 </h1>
                 <p className="mt-1 text-sm text-white/70">
-                  {loading ? 'Carregando evento...' : eventTitle}
+                  {eventTitle}
                 </p>
               </div>
             </div>
@@ -406,9 +502,7 @@ export default function MeuEventoPage() {
             <div>
               <h2 className="text-lg font-extrabold">Fornecedores salvos</h2>
               <p className="mt-1 text-xs font-bold text-gray-500">
-                {loading
-                  ? 'Carregando...'
-                  : `${totalSaved} fornecedor(es) no Meu Evento`}
+                {`${totalSaved} fornecedor(es) no Meu Evento`}
               </p>
             </div>
 
@@ -423,15 +517,7 @@ export default function MeuEventoPage() {
             </div>
           )}
 
-          {loading && (
-            <div className="rounded-[28px] bg-white p-6 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-              <p className="text-sm font-bold text-gray-500">
-                Carregando dados do evento...
-              </p>
-            </div>
-          )}
-
-          {!loading && savedSuppliers.length === 0 && (
+          {savedSuppliers.length === 0 && (
             <div className="rounded-[28px] bg-white p-6 text-center shadow-sm ring-1 ring-[#f1e7cf]">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#fff7e8] text-[#d99200]">
                 <Heart size={32} />
