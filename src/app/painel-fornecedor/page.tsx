@@ -1,5 +1,11 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
+  AlertCircle,
+  ArrowLeft,
   BarChart3,
   Bell,
   Camera,
@@ -13,6 +19,7 @@ import {
   ToggleRight,
   WalletCards,
 } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 const shortcuts = [
   {
@@ -45,7 +52,229 @@ const shortcuts = [
   },
 ];
 
+function getCategoryName(supplier: any) {
+  if (!supplier) return 'Categoria não informada';
+
+  if (Array.isArray(supplier.categories)) {
+    return supplier.categories[0]?.name || 'Categoria não informada';
+  }
+
+  return supplier.categories?.name || 'Categoria não informada';
+}
+
+function formatPrice(value: any) {
+  if (!value) return 'R$ 0';
+
+  const numberValue = Number(value);
+
+  if (!Number.isNaN(numberValue)) {
+    return numberValue.toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    });
+  }
+
+  return String(value);
+}
+
+function isCerimonialistaTestAccount(email: string) {
+  return email.toLowerCase().startsWith('cerimonialista@');
+}
+
 export default function PainelFornecedorPage() {
+  const router = useRouter();
+
+  const [loading, setLoading] = useState(true);
+  const [checkingRedirect, setCheckingRedirect] = useState(true);
+  const [supplier, setSupplier] = useState<any>(null);
+  const [leadsCount, setLeadsCount] = useState(0);
+  const [answeredCount, setAnsweredCount] = useState(0);
+  const [closedCount, setClosedCount] = useState(0);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  async function loadPanel() {
+    try {
+      setLoading(true);
+      setCheckingRedirect(true);
+      setErrorMessage('');
+
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+
+      if (userError) {
+        throw userError;
+      }
+
+      const user = userData.user;
+
+      if (!user) {
+        router.replace('/login?redirect=/painel-fornecedor');
+        return;
+      }
+
+      const email = user.email || '';
+
+      if (isCerimonialistaTestAccount(email)) {
+        router.replace('/cerimonialista/convites');
+        return;
+      }
+
+      setCheckingRedirect(false);
+
+      const { data: supplierData, error: supplierError } = await supabase
+        .from('suppliers')
+        .select(`
+          *,
+          categories(name, slug),
+          media(file_url, is_cover)
+        `)
+        .eq('owner_id', user.id)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (supplierError) {
+        throw supplierError;
+      }
+
+      if (!supplierData) {
+        setSupplier(null);
+        setErrorMessage('Nenhum fornecedor vinculado a esta conta.');
+        return;
+      }
+
+      setSupplier(supplierData);
+
+      const { data: requestsData, error: requestsError } = await supabase
+        .from('quote_requests')
+        .select('id,status')
+        .eq('supplier_id', supplierData.id);
+
+      if (requestsError) {
+        console.error('Erro ao buscar leads:', requestsError);
+      }
+
+      const requests = requestsData || [];
+
+      setLeadsCount(requests.length);
+      setAnsweredCount(
+        requests.filter((item: any) =>
+          ['respondido', 'revisado'].includes(item.status)
+        ).length
+      );
+      setClosedCount(
+        requests.filter((item: any) => item.status === 'aceito').length
+      );
+
+      const { data: messagesData, error: messagesError } = await supabase
+        .from('quote_messages')
+        .select('id, quote_requests!inner(supplier_id)')
+        .eq('quote_requests.supplier_id', supplierData.id)
+        .eq('read_by_supplier', false);
+
+      if (messagesError) {
+        console.error('Erro ao buscar mensagens não lidas:', messagesError);
+      }
+
+      setUnreadCount(messagesData?.length || 0);
+    } catch (error: any) {
+      console.error('Erro ao carregar painel fornecedor:', error);
+      setErrorMessage(error?.message || 'Não foi possível carregar o painel.');
+    } finally {
+      setLoading(false);
+      setCheckingRedirect(false);
+    }
+  }
+
+  useEffect(() => {
+    loadPanel();
+  }, []);
+
+  if (loading || checkingRedirect) {
+    return (
+      <main className="min-h-screen bg-black text-[#151515]">
+        <div className="mx-auto flex min-h-screen w-full max-w-[430px] items-center justify-center bg-[#fbf7f1] px-6 text-center shadow-2xl">
+          <div className="rounded-[28px] bg-white p-6 shadow-sm ring-1 ring-[#f1e7cf]">
+            <Camera size={42} className="mx-auto text-[#d99200]" />
+            <h1 className="mt-4 text-xl font-extrabold">Carregando painel</h1>
+            <p className="mt-2 text-sm font-bold text-gray-500">
+              Verificando conta logada...
+            </p>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (!supplier) {
+    return (
+      <main className="min-h-screen bg-black text-[#151515]">
+        <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] pb-10 shadow-2xl">
+          <section className="relative overflow-hidden rounded-b-[34px] bg-black px-6 pb-8 pt-7 text-white">
+            <div className="absolute inset-0 bg-[url('/layout01-fundo.png')] bg-cover bg-center opacity-45" />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/85 to-black" />
+
+            <div className="relative z-10">
+              <Link
+                href="/perfil"
+                className="inline-flex items-center gap-2 text-sm font-bold text-[#e3a925]"
+              >
+                <ArrowLeft size={17} />
+                Voltar
+              </Link>
+
+              <h1 className="mt-6 font-serif text-[34px] leading-tight">
+                Painel fornecedor
+              </h1>
+
+              <p className="mt-2 text-sm text-white/70">
+                Acesso restrito a contas com fornecedor vinculado.
+              </p>
+            </div>
+          </section>
+
+          <section className="px-6 pt-6">
+            <div className="rounded-[28px] bg-white p-6 text-center shadow-sm ring-1 ring-[#f1e7cf]">
+              <AlertCircle size={42} className="mx-auto text-[#d99200]" />
+
+              <h2 className="mt-4 text-xl font-extrabold">
+                Nenhum fornecedor encontrado
+              </h2>
+
+              <p className="mt-2 text-sm leading-5 text-gray-500">
+                {errorMessage ||
+                  'Esta conta não possui um fornecedor vinculado. Use uma conta de fornecedor ou crie um perfil profissional.'}
+              </p>
+
+              <div className="mt-5 space-y-3">
+                <Link
+                  href="/perfil"
+                  className="block rounded-[22px] bg-black py-4 text-center font-extrabold text-white shadow-lg"
+                >
+                  Voltar para Perfil
+                </Link>
+
+                <Link
+                  href="/cerimonialista/convites"
+                  className="block rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg"
+                >
+                  Ir para convites da cerimonialista
+                </Link>
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+    );
+  }
+
+  const supplierName = supplier.business_name || 'Fornecedor';
+  const categoryName = getCategoryName(supplier);
+  const rating = supplier.rating_average || '4.9';
+  const averagePrice = formatPrice(supplier.average_price);
+  const planLabel = supplier.is_featured ? 'Plano Premium' : 'Plano gratuito';
+  const publicPriceStatus = supplier.show_price ? 'Ativado' : 'Desativado';
+
   return (
     <main className="min-h-screen bg-black text-[#151515]">
       <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] pb-10 shadow-2xl">
@@ -57,7 +286,18 @@ export default function PainelFornecedorPage() {
           <div className="relative z-10">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-bold text-[#e3a925]">Fornecedor</p>
+                <Link
+                  href="/perfil"
+                  className="inline-flex items-center gap-2 text-sm font-bold text-[#e3a925]"
+                >
+                  <ArrowLeft size={16} />
+                  Perfil
+                </Link>
+
+                <p className="mt-4 text-sm font-bold text-[#e3a925]">
+                  Fornecedor
+                </p>
+
                 <h1 className="mt-2 font-serif text-[34px] leading-tight">
                   Painel
                 </h1>
@@ -68,9 +308,12 @@ export default function PainelFornecedorPage() {
                 className="relative flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-[#e3a925]"
               >
                 <Bell size={24} />
-                <span className="absolute -right-1 -top-1 flex h-6 min-w-6 items-center justify-center rounded-full bg-pink-500 px-1 text-xs font-extrabold text-white">
-                  3
-                </span>
+
+                {unreadCount > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-6 min-w-6 items-center justify-center rounded-full bg-pink-500 px-1 text-xs font-extrabold text-white">
+                    {unreadCount}
+                  </span>
+                )}
               </Link>
             </div>
 
@@ -81,14 +324,15 @@ export default function PainelFornecedorPage() {
                 </div>
 
                 <div>
-                  <h2 className="text-xl font-extrabold">Studio Premium</h2>
+                  <h2 className="text-xl font-extrabold">{supplierName}</h2>
+
                   <p className="mt-1 text-sm text-white/70">
-                    Fotografia & Filmagem
+                    {categoryName}
                   </p>
 
                   <p className="mt-2 flex items-center gap-1 text-sm font-bold text-[#e3a925]">
                     <Star size={15} fill="#e3a925" />
-                    4.9 • Plano Premium
+                    {rating} • {planLabel}
                   </p>
                 </div>
               </div>
@@ -99,18 +343,28 @@ export default function PainelFornecedorPage() {
         {/* RESUMO */}
         <section className="grid grid-cols-3 gap-3 px-6 pt-6">
           <div className="rounded-[22px] bg-white p-4 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-            <p className="text-2xl font-extrabold text-[#d99200]">3</p>
+            <p className="text-2xl font-extrabold text-[#d99200]">
+              {leadsCount}
+            </p>
             <p className="mt-1 text-[11px] font-bold text-gray-600">Leads</p>
           </div>
 
           <div className="rounded-[22px] bg-white p-4 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-            <p className="text-2xl font-extrabold text-blue-600">1</p>
-            <p className="mt-1 text-[11px] font-bold text-gray-600">Respondido</p>
+            <p className="text-2xl font-extrabold text-blue-600">
+              {answeredCount}
+            </p>
+            <p className="mt-1 text-[11px] font-bold text-gray-600">
+              Respondido
+            </p>
           </div>
 
           <div className="rounded-[22px] bg-white p-4 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-            <p className="text-2xl font-extrabold text-green-600">1</p>
-            <p className="mt-1 text-[11px] font-bold text-gray-600">Fechado</p>
+            <p className="text-2xl font-extrabold text-green-600">
+              {closedCount}
+            </p>
+            <p className="mt-1 text-[11px] font-bold text-gray-600">
+              Fechado
+            </p>
           </div>
         </section>
 
@@ -174,7 +428,7 @@ export default function PainelFornecedorPage() {
                 </div>
 
                 <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-extrabold text-gray-600">
-                  Desativado
+                  {publicPriceStatus}
                 </span>
               </div>
             </div>
@@ -195,7 +449,7 @@ export default function PainelFornecedorPage() {
                 </div>
 
                 <span className="text-sm font-extrabold text-[#d99200]">
-                  R$ 1.200
+                  {averagePrice}
                 </span>
               </div>
             </div>
