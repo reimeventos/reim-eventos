@@ -55,25 +55,6 @@ export async function inviteEventCollaborator(input: {
 
   const ownerEmail = user.email || '';
 
-  let supplierId: string | null = null;
-
-  const { data: userByEmail } = await supabase
-    .from('profiles')
-    .select('id,email')
-    .ilike('email', email)
-    .maybeSingle();
-
-  if (userByEmail?.id) {
-    const { data: supplierData } = await supabase
-      .from('suppliers')
-      .select('id')
-      .eq('owner_id', userByEmail.id)
-      .limit(1)
-      .maybeSingle();
-
-    supplierId = supplierData?.id || null;
-  }
-
   const { data, error } = await supabase
     .from('event_collaborators')
     .upsert(
@@ -82,7 +63,6 @@ export async function inviteEventCollaborator(input: {
         owner_id: user.id,
         owner_email: ownerEmail,
         owner_name: event.couple_name || event.event_name || event.title || 'Cliente',
-        supplier_id: supplierId,
         collaborator_email: email,
         collaborator_name: input.collaborator_name?.trim() || null,
         role: input.role || 'cerimonialista',
@@ -118,12 +98,53 @@ export async function removeEventCollaborator(collaboratorId: string) {
   return true;
 }
 
+async function syncMyCollaboratorSupplierId() {
+  const user = (await supabase.auth.getUser()).data.user;
+
+  if (!user?.email) {
+    return null;
+  }
+
+  const { data: supplierData, error: supplierError } = await supabase
+    .from('suppliers')
+    .select('id')
+    .eq('owner_id', user.id)
+    .limit(1)
+    .maybeSingle();
+
+  if (supplierError) {
+    console.error('Erro ao buscar fornecedor da cerimonialista:', supplierError);
+    return null;
+  }
+
+  if (!supplierData?.id) {
+    return null;
+  }
+
+  const { error: updateError } = await supabase
+    .from('event_collaborators')
+    .update({
+      supplier_id: supplierData.id,
+      updated_at: new Date().toISOString(),
+    })
+    .ilike('collaborator_email', user.email)
+    .is('supplier_id', null);
+
+  if (updateError) {
+    console.error('Erro ao vincular fornecedor ao convite:', updateError);
+  }
+
+  return supplierData.id;
+}
+
 export async function listMyCollaborationInvites() {
   const user = (await supabase.auth.getUser()).data.user;
 
   if (!user?.email) {
     return [];
   }
+
+  await syncMyCollaboratorSupplierId();
 
   const { data, error } = await supabase
     .from('event_collaborators')
@@ -162,13 +183,33 @@ export async function listMyCollaborationInvites() {
 }
 
 export async function acceptEventCollaboration(collaboratorId: string) {
+  const user = (await supabase.auth.getUser()).data.user;
+
+  if (!user?.email) {
+    throw new Error('Login necessário.');
+  }
+
+  const { data: supplierData } = await supabase
+    .from('suppliers')
+    .select('id')
+    .eq('owner_id', user.id)
+    .limit(1)
+    .maybeSingle();
+
+  const updatePayload: any = {
+    status: 'aceito',
+    updated_at: new Date().toISOString(),
+  };
+
+  if (supplierData?.id) {
+    updatePayload.supplier_id = supplierData.id;
+  }
+
   const { data, error } = await supabase
     .from('event_collaborators')
-    .update({
-      status: 'aceito',
-      updated_at: new Date().toISOString(),
-    })
+    .update(updatePayload)
     .eq('id', collaboratorId)
+    .ilike('collaborator_email', user.email)
     .select()
     .single();
 
@@ -181,6 +222,12 @@ export async function acceptEventCollaboration(collaboratorId: string) {
 }
 
 export async function declineEventCollaboration(collaboratorId: string) {
+  const user = (await supabase.auth.getUser()).data.user;
+
+  if (!user?.email) {
+    throw new Error('Login necessário.');
+  }
+
   const { data, error } = await supabase
     .from('event_collaborators')
     .update({
@@ -188,6 +235,7 @@ export async function declineEventCollaboration(collaboratorId: string) {
       updated_at: new Date().toISOString(),
     })
     .eq('id', collaboratorId)
+    .ilike('collaborator_email', user.email)
     .select()
     .single();
 
