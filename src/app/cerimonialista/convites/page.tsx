@@ -393,7 +393,7 @@ export default function ConvitesCerimonialistaPage() {
                           <UserCheck size={21} />
                           {updatingId === invite.id
                             ? 'Aceitando...'
-                            : 'Aceitar convite'}
+                            : 'Atuar nesse evento'}
                         </button>
 
                         <button
@@ -434,7 +434,7 @@ export default function ConvitesCerimonialistaPage() {
                           className="flex w-full items-center justify-center gap-2 rounded-[22px] bg-black py-4 text-center font-extrabold text-white shadow-lg"
                         >
                           <ShieldCheck size={21} />
-                          Atuar neste evento
+                          Atuando nesse evento
                         </Link>
 
                         <Link
