@@ -42,9 +42,7 @@ function isSpaceCategory(text: string) {
 function formatWhatsapp(value: string) {
   const digits = value.replace(/\D/g, '').slice(0, 11);
 
-  if (digits.length <= 2) {
-    return digits;
-  }
+  if (digits.length <= 2) return digits;
 
   if (digits.length <= 7) {
     return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
@@ -55,10 +53,6 @@ function formatWhatsapp(value: string) {
 
 function countWhatsappDigits(value: string) {
   return value.replace(/\D/g, '').length;
-}
-
-function getEventOwnerId(event: any) {
-  return event?.customer_id || event?.client_id || null;
 }
 
 function SolicitarOrcamentoContent() {
@@ -76,6 +70,7 @@ function SolicitarOrcamentoContent() {
   const [user, setUser] = useState<any>(null);
   const [userEmail, setUserEmail] = useState('');
   const [userRole, setUserRole] = useState('');
+  const [profileName, setProfileName] = useState('');
   const [loadingUser, setLoadingUser] = useState(true);
 
   const [checkingCerimonialista, setCheckingCerimonialista] = useState(false);
@@ -151,14 +146,17 @@ function SolicitarOrcamentoContent() {
             .maybeSingle();
 
           setUserRole(profileData?.role || '');
+          setProfileName(profileData?.full_name || '');
         } else {
           setUserRole('');
+          setProfileName('');
         }
       } catch (error) {
         console.error('Erro ao verificar login:', error);
         setUser(null);
         setUserEmail('');
         setUserRole('');
+        setProfileName('');
       } finally {
         setLoadingUser(false);
       }
@@ -215,9 +213,7 @@ function SolicitarOrcamentoContent() {
           .limit(1)
           .maybeSingle();
 
-        if (inviteError) {
-          throw inviteError;
-        }
+        if (inviteError) throw inviteError;
 
         if (!invite) {
           setCerimonialistaAllowed(false);
@@ -238,9 +234,7 @@ function SolicitarOrcamentoContent() {
           .limit(1)
           .maybeSingle();
 
-        if (eventError) {
-          throw eventError;
-        }
+        if (eventError) throw eventError;
 
         if (eventData) {
           setSharedEvent(eventData);
@@ -285,6 +279,7 @@ function SolicitarOrcamentoContent() {
       setUser(null);
       setUserEmail('');
       setUserRole('');
+      setProfileName('');
       setErrorMessage('');
       setSuccessMessage('');
     } catch (error) {
@@ -307,6 +302,10 @@ function SolicitarOrcamentoContent() {
     guests_count?: number;
     service_needed?: string;
     notes?: string;
+    created_by_user_id: string;
+    created_by_role: string;
+    created_by_name: string;
+    created_by_email: string;
   }) {
     const { error } = await supabase.from('quote_requests').insert([
       {
@@ -323,12 +322,14 @@ function SolicitarOrcamentoContent() {
         service_needed: payload.service_needed || null,
         notes: payload.notes || null,
         status: 'novo',
+        created_by_user_id: payload.created_by_user_id,
+        created_by_role: payload.created_by_role,
+        created_by_name: payload.created_by_name,
+        created_by_email: payload.created_by_email,
       },
     ]);
 
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
 
     return true;
   }
@@ -385,6 +386,15 @@ function SolicitarOrcamentoContent() {
 
       const finalCustomerId = isCerimonialistaMode ? targetCustomerId : user.id;
 
+      const createdByRole = isCerimonialistaMode ? 'cerimonialista' : 'cliente';
+
+      const createdByName = isCerimonialistaMode
+        ? profileName ||
+          sharedInvite?.collaborator_name ||
+          userEmail ||
+          'Cerimonialista'
+        : customerName;
+
       await createQuoteRequestDirect({
         customer_id: finalCustomerId,
         supplier_id: supplierId,
@@ -401,6 +411,10 @@ function SolicitarOrcamentoContent() {
           (isEventSpaceSupplier
             ? 'Gostaria de consultar disponibilidade para a data informada e receber orçamento do espaço.'
             : ''),
+        created_by_user_id: user.id,
+        created_by_role: createdByRole,
+        created_by_name: createdByName,
+        created_by_email: userEmail,
       });
 
       setSuccessMessage(
@@ -464,9 +478,7 @@ function SolicitarOrcamentoContent() {
               <div className="mt-4 flex items-start gap-3 rounded-2xl bg-white/10 p-4 text-white ring-1 ring-white/10">
                 <ShieldCheck size={20} className="mt-0.5 text-[#e3a925]" />
                 <div>
-                  <p className="text-sm font-extrabold">
-                    Modo cerimonialista
-                  </p>
+                  <p className="text-sm font-extrabold">Modo cerimonialista</p>
                   <p className="mt-1 text-xs leading-5 text-white/70">
                     Esta solicitação será salva no evento da cliente autorizada.
                   </p>
