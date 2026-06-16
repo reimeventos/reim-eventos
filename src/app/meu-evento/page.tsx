@@ -18,6 +18,7 @@ import {
   Star,
   Pencil,
   Send,
+  Eye,
 } from 'lucide-react';
 import { Nav } from '@/components/Nav';
 import { listSavedSuppliers, unsaveSupplier } from '@/lib/suppliers';
@@ -132,9 +133,21 @@ function getCollaboratorDisplayName(item: any) {
 }
 
 function getCollaboratorStatusLabel(status: string) {
-  if (status === 'aceito') return 'Editora';
+  if (status === 'aceito') return 'Atuando no evento';
   if (status === 'recusado') return 'Recusado';
   return 'Pendente';
+}
+
+function getCollaboratorStatusClass(status: string) {
+  if (status === 'aceito') {
+    return 'bg-green-50 text-green-700 ring-green-100';
+  }
+
+  if (status === 'recusado') {
+    return 'bg-red-50 text-red-700 ring-red-100';
+  }
+
+  return 'bg-yellow-50 text-yellow-700 ring-yellow-100';
 }
 
 function getCollaboratorLink(item: any) {
@@ -166,7 +179,9 @@ export default function MeuEventoPage() {
   const [collaborators, setCollaborators] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [removingId, setRemovingId] = useState('');
+  const [removingCollaboratorId, setRemovingCollaboratorId] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   async function checkAccess() {
     try {
@@ -261,8 +276,13 @@ export default function MeuEventoPage() {
   async function handleRemoveSupplier(supplierId: string) {
     try {
       setRemovingId(supplierId);
+      setSuccessMessage('');
+      setErrorMessage('');
+
       await unsaveSupplier(supplierId);
       await loadPageData();
+
+      setSuccessMessage('Fornecedor removido do Meu Evento.');
     } catch (error: any) {
       console.error('Erro ao remover fornecedor:', error);
       setErrorMessage(
@@ -271,6 +291,42 @@ export default function MeuEventoPage() {
       );
     } finally {
       setRemovingId('');
+    }
+  }
+
+  async function handleRemoveCollaborator(collaboratorId: string) {
+    const confirmed = window.confirm(
+      'Deseja remover o acesso desta cerimonialista ao seu evento?'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setRemovingCollaboratorId(collaboratorId);
+      setSuccessMessage('');
+      setErrorMessage('');
+
+      const { error } = await supabase
+        .from('event_collaborators')
+        .delete()
+        .eq('id', collaboratorId);
+
+      if (error) {
+        throw error;
+      }
+
+      await loadPageData();
+
+      setSuccessMessage('Acesso da cerimonialista removido com sucesso.');
+    } catch (error: any) {
+      console.error('Erro ao remover colaborador:', error);
+
+      setErrorMessage(
+        error?.message ||
+          'Não foi possível remover o acesso da cerimonialista.'
+      );
+    } finally {
+      setRemovingCollaboratorId('');
     }
   }
 
@@ -404,6 +460,22 @@ export default function MeuEventoPage() {
           </div>
         </section>
 
+        {(errorMessage || successMessage) && (
+          <section className="px-6 pt-4">
+            {errorMessage && (
+              <div className="rounded-[22px] bg-red-50 p-4 text-sm font-bold leading-5 text-red-700 ring-1 ring-red-100">
+                {errorMessage}
+              </div>
+            )}
+
+            {successMessage && (
+              <div className="rounded-[22px] bg-green-50 p-4 text-sm font-bold leading-5 text-green-700 ring-1 ring-green-100">
+                {successMessage}
+              </div>
+            )}
+          </section>
+        )}
+
         <section className="px-6 pt-6">
           <div className="rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)]">
             <div className="flex items-start gap-4">
@@ -451,49 +523,118 @@ export default function MeuEventoPage() {
             </span>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-[22px] bg-white p-4 shadow-sm ring-1 ring-[#f1e7cf]">
-              <div className="flex items-center gap-2">
-                <Users size={18} className="text-[#d99200]" />
-                <p className="text-sm font-extrabold">Cliente</p>
+          <div className="space-y-3">
+            <div className="rounded-[24px] bg-white p-4 shadow-sm ring-1 ring-[#f1e7cf]">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]">
+                  <Users size={22} />
+                </div>
+
+                <div>
+                  <p className="text-sm font-extrabold">Cliente</p>
+                  <p className="mt-1 text-xs font-bold text-gray-500">
+                    Dona do evento
+                  </p>
+                </div>
               </div>
-              <p className="mt-2 text-xs font-bold text-gray-500">
-                Dona do evento
-              </p>
             </div>
 
             {collaborators.length === 0 && (
               <a
                 href="/meu-evento/compartilhar"
-                className="rounded-[22px] bg-white p-4 shadow-sm ring-1 ring-[#f1e7cf]"
+                className="block rounded-[24px] bg-white p-4 shadow-sm ring-1 ring-[#f1e7cf]"
               >
-                <div className="flex items-center gap-2">
-                  <ShieldCheck size={18} className="text-[#d99200]" />
-                  <p className="text-sm font-extrabold">Cerimonialista</p>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]">
+                    <ShieldCheck size={22} />
+                  </div>
+
+                  <div>
+                    <p className="text-sm font-extrabold">Cerimonialista</p>
+                    <p className="mt-1 text-xs font-bold text-gray-500">
+                      Não convidada
+                    </p>
+                  </div>
                 </div>
-                <p className="mt-2 text-xs font-bold text-gray-500">
-                  Não convidada
-                </p>
               </a>
             )}
 
-            {collaborators.map((item) => (
-              <a
-                key={item.id}
-                href={getCollaboratorLink(item)}
-                className="rounded-[22px] bg-white p-4 shadow-sm ring-1 ring-[#f1e7cf]"
-              >
-                <div className="flex items-center gap-2">
-                  <ShieldCheck size={18} className="text-[#d99200]" />
-                  <p className="line-clamp-1 text-sm font-extrabold">
-                    {getCollaboratorDisplayName(item)}
-                  </p>
+            {collaborators.map((item) => {
+              const statusLabel = getCollaboratorStatusLabel(item.status);
+              const statusClass = getCollaboratorStatusClass(item.status);
+              const link = getCollaboratorLink(item);
+              const supplier = getSupplierFromCollaborator(item);
+              const hasSupplier = Boolean(item?.supplier_id || supplier?.id);
+              const isAccepted = item.status === 'aceito';
+
+              return (
+                <div
+                  key={item.id}
+                  className="rounded-[24px] bg-white p-4 shadow-sm ring-1 ring-[#f1e7cf]"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]">
+                      <ShieldCheck size={22} />
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="line-clamp-1 text-sm font-extrabold">
+                            {getCollaboratorDisplayName(item)}
+                          </p>
+
+                          <p className="mt-1 break-words text-xs font-bold text-gray-500">
+                            {item.collaborator_email}
+                          </p>
+                        </div>
+
+                        <span
+                          className={`shrink-0 rounded-full px-3 py-1 text-[10px] font-extrabold ring-1 ${statusClass}`}
+                        >
+                          {statusLabel}
+                        </span>
+                      </div>
+
+                      {isAccepted && (
+                        <div className="mt-3 rounded-2xl bg-green-50 p-3 text-sm leading-5 text-green-800 ring-1 ring-green-100">
+                          Esta cerimonialista está autorizada a atuar no evento,
+                          buscar fornecedores e acompanhar orçamentos.
+                        </div>
+                      )}
+
+                      {!isAccepted && item.status !== 'recusado' && (
+                        <div className="mt-3 rounded-2xl bg-yellow-50 p-3 text-sm leading-5 text-yellow-800 ring-1 ring-yellow-100">
+                          Convite enviado. A cerimonialista ainda precisa aceitar.
+                        </div>
+                      )}
+
+                      <div className="mt-3 grid grid-cols-2 gap-3">
+                        <Link
+                          href={link}
+                          className="flex items-center justify-center gap-2 rounded-[20px] bg-[#fbf7f1] py-3 text-center text-sm font-extrabold text-[#151515] ring-1 ring-[#f1e7cf]"
+                        >
+                          <Eye size={17} className="text-[#d99200]" />
+                          {hasSupplier ? 'Ver cerimonialista' : 'Ver convite'}
+                        </Link>
+
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveCollaborator(item.id)}
+                          disabled={removingCollaboratorId === item.id}
+                          className="flex items-center justify-center gap-2 rounded-[20px] bg-white py-3 text-center text-sm font-extrabold text-red-700 ring-1 ring-red-100 disabled:opacity-60"
+                        >
+                          <Trash2 size={17} />
+                          {removingCollaboratorId === item.id
+                            ? 'Removendo...'
+                            : 'Remover acesso'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <p className="mt-2 text-xs font-bold text-gray-500">
-                  {getCollaboratorStatusLabel(item.status)}
-                </p>
-              </a>
-            ))}
+              );
+            })}
           </div>
         </section>
 
@@ -510,12 +651,6 @@ export default function MeuEventoPage() {
               Adicionar
             </Link>
           </div>
-
-          {errorMessage && (
-            <div className="mb-4 rounded-[22px] bg-red-50 p-4 text-sm font-bold leading-5 text-red-700 ring-1 ring-red-100">
-              {errorMessage}
-            </div>
-          )}
 
           {savedSuppliers.length === 0 && (
             <div className="rounded-[28px] bg-white p-6 text-center shadow-sm ring-1 ring-[#f1e7cf]">
