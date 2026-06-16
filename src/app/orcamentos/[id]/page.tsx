@@ -12,12 +12,24 @@ import {
   FileText,
   MessageCircle,
   RefreshCcw,
+  ShieldCheck,
 } from 'lucide-react';
 import {
   acceptQuoteResponse,
   getQuoteResponseByRequestId,
   requestQuoteAdjustment,
 } from '@/lib/suppliers';
+import { supabase } from '@/lib/supabase';
+
+function isCerimonialistaCategory(categoryName?: string) {
+  const normalized = String(categoryName || '').toLowerCase();
+
+  return (
+    normalized.includes('cerimonial') ||
+    normalized.includes('cerimonialista') ||
+    normalized.includes('assessoria')
+  );
+}
 
 export default function OrcamentoRecebidoPage() {
   const params = useParams();
@@ -27,6 +39,8 @@ export default function OrcamentoRecebidoPage() {
   const [loading, setLoading] = useState(true);
   const [accepting, setAccepting] = useState(false);
   const [adjusting, setAdjusting] = useState(false);
+  const [invitingCerimonial, setInvitingCerimonial] = useState(false);
+  const [cerimonialInviteStatus, setCerimonialInviteStatus] = useState('');
   const [showAdjustmentBox, setShowAdjustmentBox] = useState(false);
   const [adjustmentNotes, setAdjustmentNotes] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -35,19 +49,194 @@ export default function OrcamentoRecebidoPage() {
   useEffect(() => {
     if (!requestId) return;
 
-    getQuoteResponseByRequestId(requestId)
-      .then((data) => {
+    async function loadQuote() {
+      try {
+        setLoading(true);
+        setErrorMessage('');
+
+        const data = await getQuoteResponseByRequestId(requestId);
+
         setQuote(data);
         setAdjustmentNotes(data?.adjustment_notes || '');
-      })
-      .catch((error) => {
+
+        if (data?.status === 'aceito') {
+          await loadCerimonialInviteStatus(data);
+        }
+      } catch (error) {
         console.error('Erro ao carregar orçamento:', error);
-        setErrorMessage('Orçamento ainda não encontrado ou não respondido pelo fornecedor.');
-      })
-      .finally(() => {
+        setErrorMessage(
+          'Orçamento ainda não encontrado ou não respondido pelo fornecedor.'
+        );
+      } finally {
         setLoading(false);
-      });
+      }
+    }
+
+    loadQuote();
   }, [requestId]);
+
+  async function getMyEvent() {
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData.user;
+
+    if (!user) {
+      throw new Error('Login necessário.');
+    }
+
+    const { data, error } = await supabase
+      .from('events')
+      .select('*')
+      .or(`client_id.eq.${user.id},customer_id.eq.${user.id}`)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data?.id) {
+      throw new Error('Evento do cliente não encontrado.');
+    }
+
+    return {
+      user,
+      event: data,
+    };
+  }
+
+  async function getSupplierWithOwner(supplierId: string) {
+    const { data: supplier, error: supplierError } = await supabase
+      .from('suppliers')
+      .select(`
+        id,
+        business_name,
+        owner_id,
+        categories(name, slug)
+      `)
+      .eq('id', supplierId)
+      .maybeSingle();
+
+    if (supplierError) {
+      throw supplierError;
+    }
+
+    if (!supplier?.id) {
+      throw new Error('Fornecedor não encontrado.');
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id,email,full_name')
+      .eq('id', supplier.owner_id)
+      .maybeSingle();
+
+    if (profileError) {
+      throw profileError;
+    }
+
+    if (!profile?.email) {
+      throw new Error(
+        'Este fornecedor ainda não possui e-mail de perfil vinculado.'
+      );
+    }
+
+    return {
+      supplier,
+      profile,
+    };
+  }
+
+  async function loadCerimonialInviteStatus(quoteData?: any) {
+    try {
+      const currentQuote = quoteData || quote;
+
+      if (!currentQuote?.supplier_id) return;
+
+      const { event } = await getMyEvent();
+
+      const { data, error } = await supabase
+        .from('event_collaborators')
+        .select('id,status,supplier_id')
+        .eq('event_id', event.id)
+        .eq('supplier_id', currentQuote.supplier_id)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Erro ao verificar convite da cerimonialista:', error);
+        return;
+      }
+
+      setCerimonialInviteStatus(data?.status || '');
+    } catch (error) {
+      console.error('Erro ao carregar status da atuação:', error);
+    }
+  }
+
+  async function handleInviteCerimonialistaToEvent() {
+    setSuccessMessage('');
+    setErrorMessage('');
+
+    if (!quote?.supplier_id) {
+      setErrorMessage('Fornecedor não identificado.');
+      return;
+    }
+
+    try {
+      setInvitingCerimonial(true);
+
+      const { user, event } = await getMyEvent();
+      const { supplier, profile } = await getSupplierWithOwner(quote.supplier_id);
+
+      const ownerId = event.customer_id || event.client_id || user.id;
+
+      const ownerName =
+        event.couple_name ||
+        event.event_name ||
+        event.title ||
+        'Cliente';
+
+      const { error } = await supabase.from('event_collaborators').upsert(
+        {
+          event_id: event.id,
+          owner_id: ownerId,
+          owner_email: user.email || '',
+          owner_name: ownerName,
+          collaborator_email: String(profile.email).toLowerCase(),
+          collaborator_name:
+            supplier.business_name ||
+            profile.full_name ||
+            'Cerimonialista',
+          role: 'cerimonialista',
+          status: 'aceito',
+          supplier_id: supplier.id,
+          updated_at: new Date().toISOString(),
+        },
+        {
+          onConflict: 'event_id,collaborator_email',
+        }
+      );
+
+      if (error) {
+        throw error;
+      }
+
+      setCerimonialInviteStatus('aceito');
+
+      setSuccessMessage(
+        'Cerimonialista autorizado para atuar neste evento.'
+      );
+    } catch (error: any) {
+      console.error('Erro ao convidar cerimonialista:', error);
+
+      setErrorMessage(
+        error?.message ||
+          'Não foi possível convidar este cerimonialista para atuar no evento.'
+      );
+    } finally {
+      setInvitingCerimonial(false);
+    }
+  }
 
   function formatDateTime(date?: string) {
     if (!date) return 'Data não informada';
@@ -80,13 +269,18 @@ export default function OrcamentoRecebidoPage() {
         quote_request_id: requestId,
       });
 
-      setQuote({
+      const updatedQuote = {
         ...quote,
         status: 'aceito',
-      });
+      };
 
+      setQuote(updatedQuote);
       setShowAdjustmentBox(false);
-      setSuccessMessage('Orçamento aceito com sucesso! O fornecedor será informado pelo app.');
+      setSuccessMessage(
+        'Orçamento aceito com sucesso! O fornecedor será informado pelo app.'
+      );
+
+      await loadCerimonialInviteStatus(updatedQuote);
     } catch (error) {
       console.error(error);
       setErrorMessage('Não foi possível aceitar o orçamento. Tente novamente.');
@@ -125,7 +319,9 @@ export default function OrcamentoRecebidoPage() {
         adjustment_requested_at: new Date().toISOString(),
       });
 
-      setSuccessMessage('Solicitação de ajuste enviada com sucesso! O fornecedor poderá revisar a proposta.');
+      setSuccessMessage(
+        'Solicitação de ajuste enviada com sucesso! O fornecedor poderá revisar a proposta.'
+      );
     } catch (error) {
       console.error(error);
       setErrorMessage('Não foi possível solicitar ajuste. Tente novamente.');
@@ -136,15 +332,20 @@ export default function OrcamentoRecebidoPage() {
 
   const supplierName = quote?.suppliers?.business_name || 'Fornecedor';
   const supplierCity = quote?.suppliers?.city || 'Cidade não informada';
-  const supplierCategory = quote?.suppliers?.categories?.name || 'Fornecedor de eventos';
+  const supplierCategory =
+    quote?.suppliers?.categories?.name || 'Fornecedor de eventos';
   const supplierWhatsapp = quote?.suppliers?.whatsapp || '';
   const supplierInstagram = quote?.suppliers?.instagram || '';
 
   const quoteStatus = quote?.status || 'enviado';
   const isAccepted = quoteStatus === 'aceito';
   const isAdjustmentRequested = quoteStatus === 'ajuste_solicitado';
+  const isCerimonialista = isCerimonialistaCategory(supplierCategory);
+  const isCerimonialAlreadyAuthorized = cerimonialInviteStatus === 'aceito';
 
-  const budgetCode = requestId ? `ORC-${requestId.slice(0, 8).toUpperCase()}` : 'ORC-REIM';
+  const budgetCode = requestId
+    ? `ORC-${requestId.slice(0, 8).toUpperCase()}`
+    : 'ORC-REIM';
 
   function statusLabel() {
     if (isAccepted) return 'Aceito';
@@ -513,6 +714,44 @@ export default function OrcamentoRecebidoPage() {
                     </div>
                   </div>
                 </div>
+
+                {isAccepted && isCerimonialista && (
+                  <div className="mt-5 rounded-[28px] bg-[#151515] p-5 text-white shadow-lg">
+                    <div className="flex items-start gap-4">
+                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#e3a925] text-white">
+                        <ShieldCheck size={30} />
+                      </div>
+
+                      <div className="flex-1">
+                        <h2 className="text-lg font-extrabold">
+                          Cerimonialista contratado
+                        </h2>
+
+                        <p className="mt-2 text-sm leading-5 text-white/70">
+                          Deseja permitir que este cerimonialista atue no seu evento dentro do REIM, ajudando a organizar fornecedores e acompanhar orçamentos?
+                        </p>
+
+                        {isCerimonialAlreadyAuthorized ? (
+                          <div className="mt-4 rounded-2xl bg-green-50 px-4 py-3 text-sm font-extrabold text-green-700">
+                            Cerimonialista já autorizado para atuar neste evento.
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={handleInviteCerimonialistaToEvent}
+                            disabled={invitingCerimonial}
+                            className="mt-4 flex w-full items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg disabled:opacity-60"
+                          >
+                            <ShieldCheck size={21} />
+                            {invitingCerimonial
+                              ? 'Convidando...'
+                              : 'Convidar para atuar no evento'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {errorMessage && (
                   <div className="mt-5 rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
