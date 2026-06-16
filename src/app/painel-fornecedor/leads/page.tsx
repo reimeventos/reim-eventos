@@ -21,6 +21,7 @@ import {
   AlertCircle,
   Bell,
   Store,
+  ShieldCheck,
 } from 'lucide-react';
 
 export default function LeadsFornecedorPage() {
@@ -98,6 +99,16 @@ export default function LeadsFornecedorPage() {
       normalized.includes('local') ||
       normalized.includes('salão') ||
       normalized.includes('salao')
+    );
+  }
+
+  function isCerimonialistaCategory(category: string) {
+    const normalized = String(category || '').toLowerCase();
+
+    return (
+      normalized.includes('cerimonial') ||
+      normalized.includes('cerimonialista') ||
+      normalized.includes('assessoria')
     );
   }
 
@@ -281,6 +292,9 @@ export default function LeadsFornecedorPage() {
               const notes = lead.notes || 'Cliente não informou mensagem.';
               const status = lead.status || 'novo';
 
+              const isAccepted = status === 'aceito' || status === 'fechado';
+              const isCerimonialista = isCerimonialistaCategory(supplierCategory);
+
               const responses = lead.quote_responses || [];
               const latestResponse =
                 responses.length > 0 ? responses[responses.length - 1] : null;
@@ -300,11 +314,13 @@ export default function LeadsFornecedorPage() {
 
               const hasUnreadMessages = unreadMessages > 0;
 
-              const cardClass = hasAdjustment
-                ? 'rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.10)] ring-2 ring-yellow-300'
-                : hasUnreadMessages
-                  ? 'rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.12)] ring-2 ring-[#e3a925]'
-                  : 'rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]';
+              const cardClass = isAccepted
+                ? 'rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.10)] ring-2 ring-green-300'
+                : hasAdjustment
+                  ? 'rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.10)] ring-2 ring-yellow-300'
+                  : hasUnreadMessages
+                    ? 'rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.12)] ring-2 ring-[#e3a925]'
+                    : 'rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]';
 
               return (
                 <div key={lead.id} className={cardClass}>
@@ -331,7 +347,9 @@ export default function LeadsFornecedorPage() {
                       <span
                         className={`flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-extrabold ${statusClass(status)}`}
                       >
-                        {hasAdjustment ? (
+                        {isAccepted ? (
+                          <CheckCircle2 size={13} />
+                        ) : hasAdjustment ? (
                           <AlertCircle size={13} />
                         ) : (
                           <Clock size={13} />
@@ -357,6 +375,32 @@ export default function LeadsFornecedorPage() {
                       </p>
                     )}
                   </div>
+
+                  {isAccepted && (
+                    <div className="mt-4 rounded-2xl bg-green-50 p-4 ring-1 ring-green-200">
+                      <p className="flex items-center gap-2 text-xs font-extrabold text-green-800">
+                        <CheckCircle2 size={15} />
+                        Orçamento aceito pelo cliente
+                      </p>
+
+                      <p className="mt-2 text-sm leading-5 text-green-900">
+                        Este orçamento foi aceito. A partir de agora, use o chat para alinhar os detalhes finais com o cliente.
+                      </p>
+                    </div>
+                  )}
+
+                  {isAccepted && isCerimonialista && (
+                    <div className="mt-4 rounded-2xl bg-[#151515] p-4 text-white">
+                      <p className="flex items-center gap-2 text-xs font-extrabold text-[#f7d67b]">
+                        <ShieldCheck size={15} />
+                        Atuando nesse evento
+                      </p>
+
+                      <p className="mt-2 text-sm leading-5 text-white/80">
+                        O cliente autorizou este cerimonialista a atuar no evento dentro do REIM.
+                      </p>
+                    </div>
+                  )}
 
                   {hasAdjustment && (
                     <div className="mt-4 rounded-2xl bg-yellow-50 p-4 ring-1 ring-yellow-200">
@@ -466,19 +510,28 @@ export default function LeadsFornecedorPage() {
                   </div>
 
                   <div className="mt-5 space-y-3">
-                    <Link
-                      href={`/painel-fornecedor/leads/${lead.id}/responder`}
-                      className={
-                        hasAdjustment
-                          ? 'flex items-center justify-center gap-2 rounded-[22px] bg-yellow-500 py-4 text-center font-extrabold text-white shadow-lg'
-                          : 'flex items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg'
-                      }
-                    >
-                      <FileText size={21} />
-                      {hasAdjustment
-                        ? 'Revisar orçamento'
-                        : 'Responder orçamento'}
-                    </Link>
+                    {!isAccepted && (
+                      <Link
+                        href={`/painel-fornecedor/leads/${lead.id}/responder`}
+                        className={
+                          hasAdjustment
+                            ? 'flex items-center justify-center gap-2 rounded-[22px] bg-yellow-500 py-4 text-center font-extrabold text-white shadow-lg'
+                            : 'flex items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg'
+                        }
+                      >
+                        <FileText size={21} />
+                        {hasAdjustment
+                          ? 'Revisar orçamento'
+                          : 'Responder orçamento'}
+                      </Link>
+                    )}
+
+                    {isAccepted && (
+                      <div className="flex items-center justify-center gap-2 rounded-[22px] bg-green-50 py-4 text-center font-extrabold text-green-700 ring-1 ring-green-200">
+                        <CheckCircle2 size={21} />
+                        Orçamento aceito
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-2 gap-3">
                       <Link
@@ -504,6 +557,16 @@ export default function LeadsFornecedorPage() {
                         Marcar visto
                       </button>
                     </div>
+
+                    {isAccepted && isCerimonialista && (
+                      <Link
+                        href="/cerimonialista/convites"
+                        className="flex items-center justify-center gap-2 rounded-[22px] bg-[#151515] py-4 text-center font-extrabold text-white shadow-lg"
+                      >
+                        <ShieldCheck size={21} className="text-[#e3a925]" />
+                        Ver atuação no evento
+                      </Link>
+                    )}
                   </div>
                 </div>
               );
