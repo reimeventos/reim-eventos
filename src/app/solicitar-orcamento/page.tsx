@@ -15,11 +15,11 @@ import {
   MessageCircle,
   PartyPopper,
   Send,
+  ShieldCheck,
   User,
   UserPlus,
   Users,
 } from 'lucide-react';
-import { createQuoteRequest } from '@/lib/suppliers';
 import { getSupplier } from '@/lib/marketplace';
 import { supabase } from '@/lib/supabase';
 
@@ -57,9 +57,18 @@ function countWhatsappDigits(value: string) {
   return value.replace(/\D/g, '').length;
 }
 
+function getEventOwnerId(event: any) {
+  return event?.customer_id || event?.client_id || null;
+}
+
 function SolicitarOrcamentoContent() {
   const searchParams = useSearchParams();
+
   const supplierId = searchParams.get('fornecedor') || '';
+  const targetCustomerId = searchParams.get('cliente') || '';
+  const returnUrl = searchParams.get('voltar') || '';
+
+  const isCerimonialistaMode = Boolean(targetCustomerId);
 
   const [supplier, setSupplier] = useState<any>(null);
   const [loadingSupplier, setLoadingSupplier] = useState(true);
@@ -68,6 +77,11 @@ function SolicitarOrcamentoContent() {
   const [userEmail, setUserEmail] = useState('');
   const [userRole, setUserRole] = useState('');
   const [loadingUser, setLoadingUser] = useState(true);
+
+  const [checkingCerimonialista, setCheckingCerimonialista] = useState(false);
+  const [cerimonialistaAllowed, setCerimonialistaAllowed] = useState(false);
+  const [sharedEvent, setSharedEvent] = useState<any>(null);
+  const [sharedInvite, setSharedInvite] = useState<any>(null);
 
   const [customerName, setCustomerName] = useState('');
   const [customerWhatsapp, setCustomerWhatsapp] = useState('');
@@ -92,16 +106,31 @@ function SolicitarOrcamentoContent() {
     isSpaceCategory(supplierCategory) || isSpaceCategory(serviceNeeded);
 
   const currentPath = supplierId
-    ? `/solicitar-orcamento?fornecedor=${supplierId}`
+    ? `/solicitar-orcamento?fornecedor=${supplierId}${
+        targetCustomerId ? `&cliente=${targetCustomerId}` : ''
+      }${returnUrl ? `&voltar=${encodeURIComponent(returnUrl)}` : ''}`
     : '/solicitar-orcamento';
 
   const loginHref = `/login?redirect=${encodeURIComponent(currentPath)}`;
   const cadastroHref = `/cadastro?redirect=${encodeURIComponent(currentPath)}`;
 
+  const backHref = returnUrl
+    ? returnUrl
+    : supplierId
+      ? `/fornecedor/${supplierId}${
+          targetCustomerId
+            ? `?cliente=${targetCustomerId}&voltar=${encodeURIComponent(
+                returnUrl || '/'
+              )}`
+            : ''
+        }`
+      : '/buscar';
+
   const isSupplierAccount =
-    userRole === 'fornecedor' ||
-    userRole === 'supplier' ||
-    userEmail === 'fornecedor@reimeventos.com';
+    !isCerimonialistaMode &&
+    (userRole === 'fornecedor' ||
+      userRole === 'supplier' ||
+      userEmail === 'fornecedor@reimeventos.com');
 
   useEffect(() => {
     async function loadUser() {
@@ -165,6 +194,90 @@ function SolicitarOrcamentoContent() {
     loadSupplier();
   }, [supplierId]);
 
+  useEffect(() => {
+    async function loadCerimonialistaContext() {
+      if (!isCerimonialistaMode || !user?.email || !targetCustomerId) {
+        setCerimonialistaAllowed(false);
+        setSharedEvent(null);
+        setSharedInvite(null);
+        return;
+      }
+
+      try {
+        setCheckingCerimonialista(true);
+
+        const { data: invite, error: inviteError } = await supabase
+          .from('event_collaborators')
+          .select('*')
+          .eq('owner_id', targetCustomerId)
+          .ilike('collaborator_email', user.email)
+          .eq('status', 'aceito')
+          .limit(1)
+          .maybeSingle();
+
+        if (inviteError) {
+          throw inviteError;
+        }
+
+        if (!invite) {
+          setCerimonialistaAllowed(false);
+          setErrorMessage(
+            'Esta conta não está autorizada a solicitar orçamento para esta cliente.'
+          );
+          return;
+        }
+
+        setSharedInvite(invite);
+        setCerimonialistaAllowed(true);
+
+        const { data: eventData, error: eventError } = await supabase
+          .from('events')
+          .select('*')
+          .or(`customer_id.eq.${targetCustomerId},client_id.eq.${targetCustomerId}`)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (eventError) {
+          throw eventError;
+        }
+
+        if (eventData) {
+          setSharedEvent(eventData);
+
+          const ownerName =
+            invite.owner_name ||
+            eventData.couple_name ||
+            eventData.event_name ||
+            eventData.title ||
+            '';
+
+          setCustomerName(ownerName);
+          setEventType(eventData.event_type || 'Casamento');
+          setEventDate(eventData.event_date || '');
+          setEventCity(eventData.event_city || eventData.city || 'Eunápolis');
+          setEventSpace(eventData.event_space || '');
+          setGuestsCount(
+            eventData.guests_count || eventData.guest_count
+              ? String(eventData.guests_count || eventData.guest_count)
+              : ''
+          );
+        }
+      } catch (error: any) {
+        console.error('Erro ao validar cerimonialista:', error);
+        setCerimonialistaAllowed(false);
+        setErrorMessage(
+          error?.message ||
+            'Não foi possível validar sua permissão como cerimonialista.'
+        );
+      } finally {
+        setCheckingCerimonialista(false);
+      }
+    }
+
+    loadCerimonialistaContext();
+  }, [isCerimonialistaMode, user?.email, targetCustomerId]);
+
   async function handleSignOut() {
     try {
       setSigningOut(true);
@@ -180,6 +293,44 @@ function SolicitarOrcamentoContent() {
     } finally {
       setSigningOut(false);
     }
+  }
+
+  async function createQuoteRequestDirect(payload: {
+    customer_id: string;
+    supplier_id: string;
+    customer_name: string;
+    customer_whatsapp: string;
+    event_type: string;
+    event_date?: string;
+    event_city?: string;
+    event_space?: string;
+    guests_count?: number;
+    service_needed?: string;
+    notes?: string;
+  }) {
+    const { error } = await supabase.from('quote_requests').insert([
+      {
+        customer_id: payload.customer_id,
+        supplier_id: payload.supplier_id,
+        customer_name: payload.customer_name,
+        customer_whatsapp: payload.customer_whatsapp,
+        event_type: payload.event_type,
+        event_date: payload.event_date || null,
+        event_time: null,
+        event_space: payload.event_space || null,
+        event_city: payload.event_city || null,
+        guests_count: payload.guests_count || null,
+        service_needed: payload.service_needed || null,
+        notes: payload.notes || null,
+        status: 'novo',
+      },
+    ]);
+
+    if (error) {
+      throw error;
+    }
+
+    return true;
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -200,6 +351,13 @@ function SolicitarOrcamentoContent() {
       return;
     }
 
+    if (isCerimonialistaMode && !cerimonialistaAllowed) {
+      setErrorMessage(
+        'Sua conta de cerimonialista não está autorizada a solicitar orçamento para esta cliente.'
+      );
+      return;
+    }
+
     if (!supplierId) {
       setErrorMessage(
         'Fornecedor não identificado. Volte para a vitrine e clique em Solicitar orçamento novamente.'
@@ -208,12 +366,12 @@ function SolicitarOrcamentoContent() {
     }
 
     if (!customerName.trim()) {
-      setErrorMessage('Informe seu nome.');
+      setErrorMessage('Informe o nome da cliente.');
       return;
     }
 
     if (!customerWhatsapp.trim()) {
-      setErrorMessage('Informe seu WhatsApp.');
+      setErrorMessage('Informe o WhatsApp da cliente.');
       return;
     }
 
@@ -225,7 +383,10 @@ function SolicitarOrcamentoContent() {
     try {
       setLoading(true);
 
-      await createQuoteRequest({
+      const finalCustomerId = isCerimonialistaMode ? targetCustomerId : user.id;
+
+      await createQuoteRequestDirect({
+        customer_id: finalCustomerId,
         supplier_id: supplierId,
         customer_name: customerName,
         customer_whatsapp: customerWhatsapp,
@@ -243,19 +404,24 @@ function SolicitarOrcamentoContent() {
       });
 
       setSuccessMessage(
-        'Solicitação enviada com sucesso! Acompanhe a resposta em Meus Orçamentos.'
+        isCerimonialistaMode
+          ? 'Solicitação enviada em nome da cliente! O fornecedor receberá o pedido.'
+          : 'Solicitação enviada com sucesso! Acompanhe a resposta em Meus Orçamentos.'
       );
 
-      setCustomerName('');
       setCustomerWhatsapp('');
-      setEventType('Casamento');
-      setEventDate('');
-      setEventCity('Eunápolis');
-      setEventSpace('');
-      setStructurePreference('Ainda não sei');
-      setGuestsCount('');
-      setServiceNeeded(supplierCategory);
       setNotes('');
+
+      if (!isCerimonialistaMode) {
+        setCustomerName('');
+        setEventType('Casamento');
+        setEventDate('');
+        setEventCity('Eunápolis');
+        setEventSpace('');
+        setStructurePreference('Ainda não sei');
+        setGuestsCount('');
+        setServiceNeeded(supplierCategory);
+      }
     } catch (error: any) {
       console.error(error);
 
@@ -277,7 +443,7 @@ function SolicitarOrcamentoContent() {
 
           <div className="relative z-10">
             <Link
-              href={supplierId ? `/fornecedor/${supplierId}` : '/buscar'}
+              href={backHref}
               className="inline-flex items-center gap-2 text-sm font-bold text-[#e3a925]"
             >
               <ArrowLeft size={17} />
@@ -289,8 +455,24 @@ function SolicitarOrcamentoContent() {
             </h1>
 
             <p className="mt-2 text-sm text-white/70">
-              Envie os detalhes do seu evento para o fornecedor.
+              {isCerimonialistaMode
+                ? 'Envie o pedido em nome da cliente.'
+                : 'Envie os detalhes do seu evento para o fornecedor.'}
             </p>
+
+            {isCerimonialistaMode && (
+              <div className="mt-4 flex items-start gap-3 rounded-2xl bg-white/10 p-4 text-white ring-1 ring-white/10">
+                <ShieldCheck size={20} className="mt-0.5 text-[#e3a925]" />
+                <div>
+                  <p className="text-sm font-extrabold">
+                    Modo cerimonialista
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-white/70">
+                    Esta solicitação será salva no evento da cliente autorizada.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </section>
 
@@ -368,7 +550,7 @@ function SolicitarOrcamentoContent() {
                 </Link>
 
                 <Link
-                  href={supplierId ? `/fornecedor/${supplierId}` : '/buscar'}
+                  href={backHref}
                   className="block rounded-[22px] bg-white py-4 text-center font-extrabold text-[#151515] ring-1 ring-[#f1e7cf]"
                 >
                   Voltar para vitrine
@@ -431,6 +613,22 @@ function SolicitarOrcamentoContent() {
 
         {!loadingUser && user && !isSupplierAccount && (
           <section className="px-6 pt-6">
+            {isCerimonialistaMode && checkingCerimonialista && (
+              <div className="mb-4 rounded-[24px] bg-white p-4 text-sm font-bold text-gray-600 ring-1 ring-[#f1e7cf]">
+                Validando permissão da cerimonialista...
+              </div>
+            )}
+
+            {isCerimonialistaMode && cerimonialistaAllowed && (
+              <div className="mb-4 rounded-[24px] bg-green-50 p-4 text-sm font-bold leading-5 text-green-700 ring-1 ring-green-100">
+                Solicitação em nome da cliente:{' '}
+                {sharedInvite?.owner_name ||
+                  sharedEvent?.couple_name ||
+                  sharedEvent?.event_name ||
+                  'Cliente'}
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="rounded-[24px] bg-white p-4 text-sm font-bold text-gray-600 ring-1 ring-[#f1e7cf]">
                 Conta logada: {userEmail || 'cliente'}
@@ -439,20 +637,20 @@ function SolicitarOrcamentoContent() {
               <label className="block">
                 <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
                   <User size={17} className="text-[#d99200]" />
-                  Nome
+                  {isCerimonialistaMode ? 'Nome da cliente' : 'Nome'}
                 </span>
                 <input
                   value={customerName}
                   onChange={(event) => setCustomerName(event.target.value)}
                   className="w-full rounded-[22px] bg-white px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400"
-                  placeholder="Seu nome"
+                  placeholder={isCerimonialistaMode ? 'Nome da cliente' : 'Seu nome'}
                 />
               </label>
 
               <label className="block">
                 <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
                   <MessageCircle size={17} className="text-[#d99200]" />
-                  WhatsApp
+                  WhatsApp {isCerimonialistaMode ? 'da cliente' : ''}
                 </span>
                 <input
                   inputMode="numeric"
@@ -596,7 +794,7 @@ function SolicitarOrcamentoContent() {
                   placeholder={
                     isEventSpaceSupplier
                       ? 'Ex: Gostaria de saber se o espaço está disponível para essa data e qual o orçamento...'
-                      : 'Conte um pouco sobre seu evento...'
+                      : 'Conte um pouco sobre o evento...'
                   }
                 />
               </label>
@@ -615,16 +813,25 @@ function SolicitarOrcamentoContent() {
 
               <button
                 type="submit"
-                disabled={loading || loadingSupplier}
+                disabled={
+                  loading ||
+                  loadingSupplier ||
+                  checkingCerimonialista ||
+                  (isCerimonialistaMode && !cerimonialistaAllowed)
+                }
                 className="mt-7 flex w-full items-center justify-center gap-2 rounded-[24px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg disabled:opacity-60"
               >
                 <Send size={21} />
-                {loading ? 'Enviando...' : 'Enviar solicitação'}
+                {loading
+                  ? 'Enviando...'
+                  : isCerimonialistaMode
+                    ? 'Enviar em nome da cliente'
+                    : 'Enviar solicitação'}
               </button>
             </form>
 
             <p className="mt-3 text-center text-xs leading-5 text-gray-500">
-              O fornecedor receberá seu pedido e poderá responder com um orçamento dentro do app.
+              O fornecedor receberá o pedido e poderá responder com um orçamento dentro do app.
             </p>
           </section>
         )}
