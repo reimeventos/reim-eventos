@@ -18,6 +18,7 @@ import {
   Search,
   ShieldCheck,
   Star,
+  Trash2,
   Users,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -180,7 +181,9 @@ export default function CerimonialistaEventoPage() {
   const [savedSuppliers, setSavedSuppliers] = useState<any[]>([]);
   const [quoteRequests, setQuoteRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [removingSavedId, setRemovingSavedId] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   async function loadQuoteRequests(ownerId: string, supplierIds: string[]) {
     if (!ownerId || supplierIds.length === 0) {
@@ -344,6 +347,41 @@ export default function CerimonialistaEventoPage() {
     return sorted[0];
   }
 
+  async function handleRemoveSavedSupplier(savedId: string, supplierName: string) {
+    const confirmed = window.confirm(
+      `Deseja remover "${supplierName}" do evento da cliente?`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setRemovingSavedId(savedId);
+      setSuccessMessage('');
+      setErrorMessage('');
+
+      const { error } = await supabase
+        .from('saved_suppliers')
+        .delete()
+        .eq('id', savedId);
+
+      if (error) {
+        throw error;
+      }
+
+      await loadEvent();
+
+      setSuccessMessage('Fornecedor removido do evento da cliente.');
+    } catch (error: any) {
+      console.error('Erro ao remover fornecedor salvo:', error);
+      setErrorMessage(
+        error?.message ||
+          'Não foi possível remover este fornecedor do evento da cliente.'
+      );
+    } finally {
+      setRemovingSavedId('');
+    }
+  }
+
   const title = getEventTitle(eventData);
   const city = getEventCity(eventData);
   const eventDate = formatDate(eventData?.event_date);
@@ -433,6 +471,12 @@ export default function CerimonialistaEventoPage() {
 
           {!loading && !errorMessage && eventData && (
             <>
+              {successMessage && (
+                <div className="mb-4 rounded-[22px] bg-green-50 p-4 text-sm font-bold leading-5 text-green-700 ring-1 ring-green-100">
+                  {successMessage}
+                </div>
+              )}
+
               <div className="rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]">
                 <div className="flex items-start gap-4">
                   <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]">
@@ -750,6 +794,20 @@ export default function CerimonialistaEventoPage() {
                               <MessageCircle size={17} className="text-[#d99200]" />
                               Abrir chat do orçamento
                             </a>
+                          )}
+
+                          {!isAccepted && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveSavedSupplier(item.id, supplierName)}
+                              disabled={removingSavedId === item.id}
+                              className="mt-3 flex w-full items-center justify-center gap-2 rounded-[20px] bg-white py-3 text-center text-sm font-extrabold text-red-700 ring-1 ring-red-100 disabled:opacity-60"
+                            >
+                              <Trash2 size={17} />
+                              {removingSavedId === item.id
+                                ? 'Removendo...'
+                                : 'Remover do evento'}
+                            </button>
                           )}
                         </div>
                       </div>
