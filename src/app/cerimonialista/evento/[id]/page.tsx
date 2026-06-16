@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import {
   ArrowLeft,
+  AlertCircle,
   Building2,
   CalendarDays,
   Camera,
@@ -116,7 +117,7 @@ function formatRating(value: any) {
 
 function statusLabel(status?: string) {
   if (status === 'aguardando_resposta') return 'Aguardando';
-  if (status === 'novo') return 'Novo';
+  if (status === 'novo') return 'Aguardando';
   if (status === 'respondido') return 'Respondido';
   if (status === 'ajuste_solicitado') return 'Ajuste solicitado';
   if (status === 'aceito') return 'Aceito';
@@ -125,17 +126,49 @@ function statusLabel(status?: string) {
 }
 
 function statusClass(status?: string) {
-  if (status === 'respondido') return 'bg-green-50 text-green-700';
-  if (status === 'ajuste_solicitado') return 'bg-yellow-100 text-yellow-800';
+  if (status === 'respondido') return 'bg-blue-50 text-blue-700 ring-blue-100';
+
+  if (status === 'ajuste_solicitado') {
+    return 'bg-yellow-100 text-yellow-800 ring-yellow-200';
+  }
+
   if (status === 'aceito' || status === 'fechado') {
-    return 'bg-green-100 text-green-700';
+    return 'bg-green-100 text-green-700 ring-green-200';
   }
 
   if (status === 'novo' || status === 'aguardando_resposta') {
-    return 'bg-[#fff7e8] text-[#b97900]';
+    return 'bg-[#fff7e8] text-[#b97900] ring-[#f1e7cf]';
   }
 
-  return 'bg-gray-100 text-gray-600';
+  return 'bg-gray-100 text-gray-600 ring-gray-200';
+}
+
+function statusIcon(status?: string) {
+  if (status === 'aceito' || status === 'fechado') return CheckCircle2;
+  if (status === 'ajuste_solicitado') return AlertCircle;
+  if (status === 'respondido') return FileText;
+  if (status === 'novo' || status === 'aguardando_resposta') return Clock;
+  return FileText;
+}
+
+function getStatusHelpText(status?: string) {
+  if (status === 'aceito' || status === 'fechado') {
+    return 'Fornecedor aceito pela cliente. Use o chat para alinhar detalhes finais.';
+  }
+
+  if (status === 'respondido') {
+    return 'Fornecedor já respondeu. A cliente pode aceitar ou pedir ajuste.';
+  }
+
+  if (status === 'ajuste_solicitado') {
+    return 'A cliente pediu ajuste. Aguarde o fornecedor revisar a proposta.';
+  }
+
+  if (status === 'novo' || status === 'aguardando_resposta') {
+    return 'Orçamento enviado. Aguardando resposta do fornecedor.';
+  }
+
+  return 'Ainda não existe orçamento enviado para este fornecedor.';
 }
 
 export default function CerimonialistaEventoPage() {
@@ -287,7 +320,28 @@ export default function CerimonialistaEventoPage() {
   }, [eventId]);
 
   function getQuoteForSupplier(supplierId: string) {
-    return quoteRequests.find((quote) => quote.supplier_id === supplierId) || null;
+    const supplierQuotes = quoteRequests.filter(
+      (quote) => quote.supplier_id === supplierId
+    );
+
+    if (supplierQuotes.length === 0) return null;
+
+    return supplierQuotes[0];
+  }
+
+  function getLatestResponse(quote: any) {
+    const responses = quote?.quote_responses || [];
+
+    if (responses.length === 0) return null;
+
+    const sorted = [...responses].sort((a: any, b: any) => {
+      const dateA = new Date(a.created_at || 0).getTime();
+      const dateB = new Date(b.created_at || 0).getTime();
+
+      return dateB - dateA;
+    });
+
+    return sorted[0];
   }
 
   const title = getEventTitle(eventData);
@@ -306,6 +360,10 @@ export default function CerimonialistaEventoPage() {
 
   const ownerEmail = inviteData?.owner_email || 'E-mail não informado';
 
+  const requestedCount = quoteRequests.filter((item) =>
+    ['novo', 'aguardando_resposta'].includes(item.status)
+  ).length;
+
   const respondedCount = quoteRequests.filter((item) =>
     ['respondido', 'aceito', 'fechado', 'ajuste_solicitado'].includes(item.status)
   ).length;
@@ -313,6 +371,8 @@ export default function CerimonialistaEventoPage() {
   const acceptedCount = quoteRequests.filter((item) =>
     ['aceito', 'fechado'].includes(item.status)
   ).length;
+
+  const withoutQuoteCount = Math.max(savedSuppliers.length - quoteRequests.length, 0);
 
   return (
     <main className="min-h-screen bg-black text-[#151515]">
@@ -395,34 +455,54 @@ export default function CerimonialistaEventoPage() {
                 </div>
               </div>
 
-              <div className="mt-5 grid grid-cols-3 gap-3">
-                <div className="rounded-[22px] bg-white p-4 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-                  <p className="text-2xl font-extrabold text-[#d99200]">
+              <div className="mt-5 grid grid-cols-4 gap-2">
+                <div className="rounded-[20px] bg-white p-3 text-center shadow-sm ring-1 ring-[#f1e7cf]">
+                  <p className="text-xl font-extrabold text-[#d99200]">
                     {savedSuppliers.length}
                   </p>
-                  <p className="mt-1 text-[11px] font-bold text-gray-600">
+                  <p className="mt-1 text-[10px] font-bold text-gray-600">
                     Salvos
                   </p>
                 </div>
 
-                <div className="rounded-[22px] bg-white p-4 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-                  <p className="text-2xl font-extrabold text-blue-600">
-                    {respondedCount}
+                <div className="rounded-[20px] bg-white p-3 text-center shadow-sm ring-1 ring-[#f1e7cf]">
+                  <p className="text-xl font-extrabold text-[#b97900]">
+                    {requestedCount}
                   </p>
-                  <p className="mt-1 text-[11px] font-bold text-gray-600">
-                    Respondidos
+                  <p className="mt-1 text-[10px] font-bold text-gray-600">
+                    Enviados
                   </p>
                 </div>
 
-                <div className="rounded-[22px] bg-white p-4 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-                  <p className="text-2xl font-extrabold text-green-600">
+                <div className="rounded-[20px] bg-white p-3 text-center shadow-sm ring-1 ring-[#f1e7cf]">
+                  <p className="text-xl font-extrabold text-blue-600">
+                    {respondedCount}
+                  </p>
+                  <p className="mt-1 text-[10px] font-bold text-gray-600">
+                    Resp.
+                  </p>
+                </div>
+
+                <div className="rounded-[20px] bg-white p-3 text-center shadow-sm ring-1 ring-[#f1e7cf]">
+                  <p className="text-xl font-extrabold text-green-600">
                     {acceptedCount}
                   </p>
-                  <p className="mt-1 text-[11px] font-bold text-gray-600">
+                  <p className="mt-1 text-[10px] font-bold text-gray-600">
                     Aceitos
                   </p>
                 </div>
               </div>
+
+              {withoutQuoteCount > 0 && (
+                <div className="mt-4 rounded-[22px] bg-[#fff7e8] p-4 text-sm leading-5 text-[#7a5200] ring-1 ring-[#f1e7cf]">
+                  <p className="font-extrabold">
+                    {withoutQuoteCount} fornecedor(es) ainda sem orçamento.
+                  </p>
+                  <p className="mt-1">
+                    Abra o card do fornecedor e toque em “Solicitar” para enviar o pedido.
+                  </p>
+                </div>
+              )}
 
               <div className="mt-5 grid grid-cols-2 gap-3">
                 <div className="rounded-[22px] bg-white p-4 shadow-sm ring-1 ring-[#f1e7cf]">
@@ -469,7 +549,7 @@ export default function CerimonialistaEventoPage() {
                     className="flex items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg"
                   >
                     <Search size={21} />
-                    Buscar fornecedores
+                    Buscar mais fornecedores
                   </a>
 
                   <Link
@@ -477,7 +557,7 @@ export default function CerimonialistaEventoPage() {
                     className="flex items-center justify-center gap-2 rounded-[22px] bg-white py-4 text-center font-extrabold text-[#151515]"
                   >
                     <MessageCircle size={21} />
-                    Ver orçamentos
+                    Ver todos os orçamentos
                   </Link>
                 </div>
               </div>
@@ -504,6 +584,14 @@ export default function CerimonialistaEventoPage() {
                     <p className="mt-2 text-sm leading-5 text-gray-500">
                       Use a busca para ajudar a cliente a encontrar fornecedores.
                     </p>
+
+                    <a
+                      href={`/buscar?cliente=${ownerId}&voltar=${encodeURIComponent(returnUrl)}`}
+                      className="mt-5 flex items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-3 text-sm font-extrabold text-white shadow-lg"
+                    >
+                      <Search size={18} />
+                      Buscar fornecedores
+                    </a>
                   </div>
                 )}
 
@@ -522,12 +610,19 @@ export default function CerimonialistaEventoPage() {
                     const coverImage = getCoverImage(supplier);
                     const quote = getQuoteForSupplier(supplierId);
                     const quoteStatus = quote?.status || '';
-                    const latestResponse = quote?.quote_responses?.[0] || null;
+                    const latestResponse = getLatestResponse(quote);
+                    const StatusIcon = statusIcon(quoteStatus);
+                    const isAccepted = quoteStatus === 'aceito' || quoteStatus === 'fechado';
+                    const hasQuote = Boolean(quote?.id);
 
                     return (
                       <div
                         key={item.id}
-                        className="overflow-hidden rounded-[28px] bg-white shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]"
+                        className={
+                          isAccepted
+                            ? 'overflow-hidden rounded-[28px] bg-white shadow-[0_10px_25px_rgba(0,0,0,.10)] ring-2 ring-green-300'
+                            : 'overflow-hidden rounded-[28px] bg-white shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]'
+                        }
                       >
                         <div className="relative h-36">
                           <img
@@ -537,6 +632,12 @@ export default function CerimonialistaEventoPage() {
                           />
 
                           <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
+
+                          {isAccepted && (
+                            <span className="absolute left-4 top-4 rounded-full bg-green-600 px-3 py-1 text-xs font-extrabold text-white">
+                              Aceito
+                            </span>
+                          )}
 
                           <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between text-white">
                             <div>
@@ -576,11 +677,21 @@ export default function CerimonialistaEventoPage() {
                             </div>
 
                             <span
-                              className={`flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-extrabold ${statusClass(quoteStatus)}`}
+                              className={`flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-extrabold ring-1 ${statusClass(quoteStatus)}`}
                             >
-                              {quoteStatus ? <Clock size={13} /> : <FileText size={13} />}
+                              <StatusIcon size={13} />
                               {statusLabel(quoteStatus)}
                             </span>
+                          </div>
+
+                          <div
+                            className={
+                              isAccepted
+                                ? 'mt-3 rounded-2xl bg-green-50 p-3 text-sm leading-5 text-green-800 ring-1 ring-green-100'
+                                : 'mt-3 rounded-2xl bg-[#fbf7f1] p-3 text-sm leading-5 text-gray-600 ring-1 ring-[#f1e7cf]'
+                            }
+                          >
+                            {getStatusHelpText(quoteStatus)}
                           </div>
 
                           {latestResponse && (
@@ -608,10 +719,14 @@ export default function CerimonialistaEventoPage() {
                               Ver vitrine
                             </a>
 
-                            {quote ? (
+                            {hasQuote ? (
                               <a
                                 href={`/orcamentos/${quote.id}`}
-                                className="flex items-center justify-center gap-2 rounded-[20px] bg-black py-3 text-center text-sm font-extrabold text-white shadow-lg"
+                                className={
+                                  isAccepted
+                                    ? 'flex items-center justify-center gap-2 rounded-[20px] bg-green-600 py-3 text-center text-sm font-extrabold text-white shadow-lg'
+                                    : 'flex items-center justify-center gap-2 rounded-[20px] bg-black py-3 text-center text-sm font-extrabold text-white shadow-lg'
+                                }
                               >
                                 <MessageCircle size={17} />
                                 Ver orçamento
@@ -622,10 +737,20 @@ export default function CerimonialistaEventoPage() {
                                 className="flex items-center justify-center gap-2 rounded-[20px] bg-[#e3a925] py-3 text-center text-sm font-extrabold text-white shadow-lg"
                               >
                                 <MessageCircle size={17} />
-                                Orçamento
+                                Solicitar
                               </a>
                             )}
                           </div>
+
+                          {hasQuote && (
+                            <a
+                              href={`/orcamentos/${quote.id}/chat`}
+                              className="mt-3 flex items-center justify-center gap-2 rounded-[20px] bg-white py-3 text-center text-sm font-extrabold text-[#151515] ring-1 ring-[#f1e7cf]"
+                            >
+                              <MessageCircle size={17} className="text-[#d99200]" />
+                              Abrir chat do orçamento
+                            </a>
+                          )}
                         </div>
                       </div>
                     );
