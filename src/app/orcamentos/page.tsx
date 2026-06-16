@@ -1,214 +1,463 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
 import {
   ArrowLeft,
-  Bell,
   Building2,
   CalendarDays,
-  CheckCircle2,
-  Clock,
-  FileText,
+  Camera,
+  Lock,
+  LogIn,
+  LogOut,
+  MapPin,
   MessageCircle,
-  Search,
-  Trash2,
+  PartyPopper,
+  Send,
+  ShieldCheck,
+  User,
+  UserPlus,
+  Users,
 } from 'lucide-react';
+import { getSupplier } from '@/lib/marketplace';
 import { supabase } from '@/lib/supabase';
 
-export default function OrcamentosPage() {
-  const [orcamentos, setOrcamentos] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [deletingId, setDeletingId] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
+function formatCategoryName(supplier: any) {
+  return supplier?.categories?.name || 'Serviço não informado';
+}
+
+function isSpaceCategory(text: string) {
+  const normalized = text.toLowerCase();
+
+  return (
+    normalized.includes('espaço') ||
+    normalized.includes('espaco') ||
+    normalized.includes('local') ||
+    normalized.includes('salão') ||
+    normalized.includes('salao')
+  );
+}
+
+function formatWhatsapp(value: string) {
+  const digits = value.replace(/\D/g, '').slice(0, 11);
+
+  if (digits.length <= 2) return digits;
+
+  if (digits.length <= 7) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  }
+
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+}
+
+function countWhatsappDigits(value: string) {
+  return value.replace(/\D/g, '').length;
+}
+
+function SolicitarOrcamentoContent() {
+  const searchParams = useSearchParams();
+
+  const supplierId = searchParams.get('fornecedor') || '';
+  const targetCustomerId = searchParams.get('cliente') || '';
+  const returnUrl = searchParams.get('voltar') || '';
+
+  const isCerimonialistaMode = Boolean(targetCustomerId);
+
+  const [supplier, setSupplier] = useState<any>(null);
+  const [loadingSupplier, setLoadingSupplier] = useState(true);
+
+  const [user, setUser] = useState<any>(null);
+  const [userEmail, setUserEmail] = useState('');
+  const [userRole, setUserRole] = useState('');
+  const [profileName, setProfileName] = useState('');
+  const [loadingUser, setLoadingUser] = useState(true);
+
+  const [checkingCerimonialista, setCheckingCerimonialista] = useState(false);
+  const [cerimonialistaAllowed, setCerimonialistaAllowed] = useState(false);
+  const [sharedEvent, setSharedEvent] = useState<any>(null);
+  const [sharedInvite, setSharedInvite] = useState<any>(null);
+
+  const [customerName, setCustomerName] = useState('');
+  const [customerWhatsapp, setCustomerWhatsapp] = useState('');
+  const [eventType, setEventType] = useState('Casamento');
+  const [eventDate, setEventDate] = useState('');
+  const [eventCity, setEventCity] = useState('Eunápolis');
+  const [eventSpace, setEventSpace] = useState('');
+  const [structurePreference, setStructurePreference] = useState('Ainda não sei');
+  const [guestsCount, setGuestsCount] = useState('');
+  const [serviceNeeded, setServiceNeeded] = useState('');
+  const [notes, setNotes] = useState('');
+
+  const [loading, setLoading] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
 
-  async function loadOrcamentos() {
-    try {
-      setLoading(true);
-      setErrorMessage('');
-      setSuccessMessage('');
+  const supplierCategory = formatCategoryName(supplier);
+  const supplierName = supplier?.business_name || 'Fornecedor';
 
-      const { data: userData } = await supabase.auth.getUser();
-      const user = userData.user;
+  const isEventSpaceSupplier =
+    isSpaceCategory(supplierCategory) || isSpaceCategory(serviceNeeded);
 
-      if (!user) {
-        setOrcamentos([]);
-        setErrorMessage('Faça login para ver seus orçamentos.');
+  const currentPath = supplierId
+    ? `/solicitar-orcamento?fornecedor=${supplierId}${
+        targetCustomerId ? `&cliente=${targetCustomerId}` : ''
+      }${returnUrl ? `&voltar=${encodeURIComponent(returnUrl)}` : ''}`
+    : '/solicitar-orcamento';
+
+  const loginHref = `/login?redirect=${encodeURIComponent(currentPath)}`;
+  const cadastroHref = `/cadastro?redirect=${encodeURIComponent(currentPath)}`;
+
+  const backHref = returnUrl
+    ? returnUrl
+    : supplierId
+      ? `/fornecedor/${supplierId}${
+          targetCustomerId
+            ? `?cliente=${targetCustomerId}&voltar=${encodeURIComponent(
+                returnUrl || '/'
+              )}`
+            : ''
+        }`
+      : '/buscar';
+
+  const isSupplierAccount =
+    !isCerimonialistaMode &&
+    (userRole === 'fornecedor' ||
+      userRole === 'supplier' ||
+      userEmail === 'fornecedor@reimeventos.com');
+
+  useEffect(() => {
+    async function loadUser() {
+      try {
+        setLoadingUser(true);
+
+        const { data } = await supabase.auth.getUser();
+        const currentUser = data.user || null;
+
+        setUser(currentUser);
+        setUserEmail(currentUser?.email || '');
+
+        if (currentUser?.id) {
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('role, full_name')
+            .eq('id', currentUser.id)
+            .maybeSingle();
+
+          setUserRole(profileData?.role || '');
+          setProfileName(profileData?.full_name || '');
+        } else {
+          setUserRole('');
+          setProfileName('');
+        }
+      } catch (error) {
+        console.error('Erro ao verificar login:', error);
+        setUser(null);
+        setUserEmail('');
+        setUserRole('');
+        setProfileName('');
+      } finally {
+        setLoadingUser(false);
+      }
+    }
+
+    loadUser();
+  }, []);
+
+  useEffect(() => {
+    async function loadSupplier() {
+      try {
+        setLoadingSupplier(true);
+
+        if (!supplierId) {
+          setSupplier(null);
+          return;
+        }
+
+        const data = await getSupplier(supplierId);
+
+        if (data) {
+          setSupplier(data);
+          setServiceNeeded(formatCategoryName(data));
+        }
+      } catch (error) {
+        console.error('Erro ao carregar fornecedor:', error);
+        setSupplier(null);
+      } finally {
+        setLoadingSupplier(false);
+      }
+    }
+
+    loadSupplier();
+  }, [supplierId]);
+
+  useEffect(() => {
+    async function loadCerimonialistaContext() {
+      if (!isCerimonialistaMode || !user?.email || !targetCustomerId) {
+        setCerimonialistaAllowed(false);
+        setSharedEvent(null);
+        setSharedInvite(null);
         return;
       }
 
-      const { data, error } = await supabase
-        .from('quote_requests')
-        .select(`
-          *,
-          suppliers(
-            id,
-            business_name,
-            city,
-            categories(name)
-          ),
-          quote_responses(
-            id,
-            status,
-            service_offered,
-            duration_period,
-            proposal_value,
-            payment_terms,
-            proposal_validity,
-            observations,
-            adjustment_notes,
-            adjustment_requested_at,
-            created_at
-          ),
-          quote_messages(
-            id,
-            sender_type,
-            read_by_client,
-            read_by_supplier,
-            created_at
-          )
-        `)
-        .eq('customer_id', user.id)
-        .order('created_at', { ascending: false });
+      try {
+        setCheckingCerimonialista(true);
 
-      if (error) throw error;
+        const { data: invite, error: inviteError } = await supabase
+          .from('event_collaborators')
+          .select('*')
+          .eq('owner_id', targetCustomerId)
+          .ilike('collaborator_email', user.email)
+          .eq('status', 'aceito')
+          .limit(1)
+          .maybeSingle();
 
-      setOrcamentos(data || []);
+        if (inviteError) throw inviteError;
+
+        if (!invite) {
+          setCerimonialistaAllowed(false);
+          setErrorMessage(
+            'Esta conta não está autorizada a solicitar orçamento para esta cliente.'
+          );
+          return;
+        }
+
+        setSharedInvite(invite);
+        setCerimonialistaAllowed(true);
+
+        const { data: eventData, error: eventError } = await supabase
+          .from('events')
+          .select('*')
+          .or(`customer_id.eq.${targetCustomerId},client_id.eq.${targetCustomerId}`)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (eventError) throw eventError;
+
+        if (eventData) {
+          setSharedEvent(eventData);
+
+          const ownerName =
+            invite.owner_name ||
+            eventData.couple_name ||
+            eventData.event_name ||
+            eventData.title ||
+            '';
+
+          setCustomerName(ownerName);
+          setEventType(eventData.event_type || 'Casamento');
+          setEventDate(eventData.event_date || '');
+          setEventCity(eventData.event_city || eventData.city || 'Eunápolis');
+          setEventSpace(eventData.event_space || '');
+          setGuestsCount(
+            eventData.guests_count || eventData.guest_count
+              ? String(eventData.guests_count || eventData.guest_count)
+              : ''
+          );
+        }
+      } catch (error: any) {
+        console.error('Erro ao validar cerimonialista:', error);
+        setCerimonialistaAllowed(false);
+        setErrorMessage(
+          error?.message ||
+            'Não foi possível validar sua permissão como cerimonialista.'
+        );
+      } finally {
+        setCheckingCerimonialista(false);
+      }
+    }
+
+    loadCerimonialistaContext();
+  }, [isCerimonialistaMode, user?.email, targetCustomerId]);
+
+  async function handleSignOut() {
+    try {
+      setSigningOut(true);
+      await supabase.auth.signOut();
+      setUser(null);
+      setUserEmail('');
+      setUserRole('');
+      setProfileName('');
+      setErrorMessage('');
+      setSuccessMessage('');
     } catch (error) {
-      console.error('Erro ao carregar orçamentos:', error);
-      setErrorMessage('Não foi possível carregar seus orçamentos.');
+      console.error('Erro ao sair da conta:', error);
+      setErrorMessage('Não foi possível sair da conta. Tente novamente.');
+    } finally {
+      setSigningOut(false);
+    }
+  }
+
+  async function createQuoteRequestDirect(payload: {
+    customer_id: string;
+    supplier_id: string;
+    customer_name: string;
+    customer_whatsapp: string;
+    event_type: string;
+    event_date?: string;
+    event_city?: string;
+    event_space?: string;
+    guests_count?: number;
+    service_needed?: string;
+    notes?: string;
+    created_by_user_id: string;
+    created_by_role: string;
+    created_by_name: string;
+    created_by_email: string;
+  }) {
+    const { error } = await supabase.from('quote_requests').insert([
+      {
+        customer_id: payload.customer_id,
+        supplier_id: payload.supplier_id,
+        customer_name: payload.customer_name,
+        customer_whatsapp: payload.customer_whatsapp,
+        event_type: payload.event_type,
+        event_date: payload.event_date || null,
+        event_time: null,
+        event_space: payload.event_space || null,
+        event_city: payload.event_city || null,
+        guests_count: payload.guests_count || null,
+        service_needed: payload.service_needed || null,
+        notes: payload.notes || null,
+        status: 'novo',
+        created_by_user_id: payload.created_by_user_id,
+        created_by_role: payload.created_by_role,
+        created_by_name: payload.created_by_name,
+        created_by_email: payload.created_by_email,
+      },
+    ]);
+
+    if (error) throw error;
+
+    return true;
+  }
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    setSuccessMessage('');
+    setErrorMessage('');
+
+    if (!user) {
+      setErrorMessage('Para solicitar orçamento, faça login ou crie sua conta.');
+      return;
+    }
+
+    if (isSupplierAccount) {
+      setErrorMessage(
+        'Você está logado como fornecedor. Para solicitar orçamento, entre com uma conta de cliente/noiva.'
+      );
+      return;
+    }
+
+    if (isCerimonialistaMode && !cerimonialistaAllowed) {
+      setErrorMessage(
+        'Sua conta de cerimonialista não está autorizada a solicitar orçamento para esta cliente.'
+      );
+      return;
+    }
+
+    if (!supplierId) {
+      setErrorMessage(
+        'Fornecedor não identificado. Volte para a vitrine e clique em Solicitar orçamento novamente.'
+      );
+      return;
+    }
+
+    if (!customerName.trim()) {
+      setErrorMessage('Informe o nome da cliente.');
+      return;
+    }
+
+    if (!customerWhatsapp.trim()) {
+      setErrorMessage('Informe o WhatsApp da cliente.');
+      return;
+    }
+
+    if (countWhatsappDigits(customerWhatsapp) < 10) {
+      setErrorMessage('Informe um WhatsApp válido com DDD.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const finalCustomerId = isCerimonialistaMode ? targetCustomerId : user.id;
+
+      const createdByRole = isCerimonialistaMode ? 'cerimonialista' : 'cliente';
+
+      const createdByName = isCerimonialistaMode
+        ? profileName ||
+          sharedInvite?.collaborator_name ||
+          userEmail ||
+          'Cerimonialista'
+        : customerName;
+
+      await createQuoteRequestDirect({
+        customer_id: finalCustomerId,
+        supplier_id: supplierId,
+        customer_name: customerName,
+        customer_whatsapp: customerWhatsapp,
+        event_type: eventType,
+        event_date: eventDate || undefined,
+        event_city: eventCity,
+        event_space: isEventSpaceSupplier ? structurePreference : eventSpace,
+        guests_count: guestsCount ? Number(guestsCount) : undefined,
+        service_needed: serviceNeeded || supplierCategory,
+        notes:
+          notes ||
+          (isEventSpaceSupplier
+            ? 'Gostaria de consultar disponibilidade para a data informada e receber orçamento do espaço.'
+            : ''),
+        created_by_user_id: user.id,
+        created_by_role: createdByRole,
+        created_by_name: createdByName,
+        created_by_email: userEmail,
+      });
+
+      setSuccessMessage(
+        isCerimonialistaMode
+          ? 'Solicitação enviada em nome da cliente! O fornecedor receberá o pedido.'
+          : 'Solicitação enviada com sucesso! Acompanhe a resposta em Meus Orçamentos.'
+      );
+
+      setCustomerWhatsapp('');
+      setNotes('');
+
+      if (!isCerimonialistaMode) {
+        setCustomerName('');
+        setEventType('Casamento');
+        setEventDate('');
+        setEventCity('Eunápolis');
+        setEventSpace('');
+        setStructurePreference('Ainda não sei');
+        setGuestsCount('');
+        setServiceNeeded(supplierCategory);
+      }
+    } catch (error: any) {
+      console.error(error);
+
+      setErrorMessage(
+        error?.message ||
+          'Não foi possível enviar a solicitação. Tente novamente.'
+      );
     } finally {
       setLoading(false);
     }
   }
 
-  useEffect(() => {
-    loadOrcamentos();
-  }, []);
-
-  async function handleDeleteOrcamento(orcamentoId: string) {
-    const confirmed = window.confirm(
-      'Deseja excluir este orçamento? Essa ação removerá a solicitação, mensagens e proposta vinculada.'
-    );
-
-    if (!confirmed) return;
-
-    try {
-      setDeletingId(orcamentoId);
-      setErrorMessage('');
-      setSuccessMessage('');
-
-      const { error: messagesError } = await supabase
-        .from('quote_messages')
-        .delete()
-        .eq('quote_request_id', orcamentoId);
-
-      if (messagesError) {
-        throw messagesError;
-      }
-
-      const { error: responsesError } = await supabase
-        .from('quote_responses')
-        .delete()
-        .eq('quote_request_id', orcamentoId);
-
-      if (responsesError) {
-        throw responsesError;
-      }
-
-      const { error: requestError } = await supabase
-        .from('quote_requests')
-        .delete()
-        .eq('id', orcamentoId);
-
-      if (requestError) {
-        throw requestError;
-      }
-
-      setOrcamentos((current) =>
-        current.filter((item) => item.id !== orcamentoId)
-      );
-
-      setSuccessMessage('Orçamento excluído com sucesso.');
-    } catch (error: any) {
-      console.error('Erro ao excluir orçamento:', error);
-      setErrorMessage(
-        error?.message ||
-          'Não foi possível excluir este orçamento. Verifique as permissões no Supabase.'
-      );
-    } finally {
-      setDeletingId('');
-    }
-  }
-
-  function formatDate(date?: string) {
-    if (!date) return 'Data não informada';
-
-    const [year, month, day] = date.split('-');
-
-    if (!year || !month || !day) {
-      return date;
-    }
-
-    return `${day}/${month}/${year}`;
-  }
-
-  function statusLabel(status?: string) {
-    if (status === 'aguardando_resposta') return 'Aguardando';
-    if (status === 'respondido') return 'Respondido';
-    if (status === 'ajuste_solicitado') return 'Ajuste solicitado';
-    if (status === 'aceito') return 'Aceito';
-    if (status === 'fechado') return 'Fechado';
-    return 'Aguardando';
-  }
-
-  function statusClass(status?: string) {
-    if (status === 'respondido') {
-      return 'bg-green-50 text-green-700';
-    }
-
-    if (status === 'ajuste_solicitado') {
-      return 'bg-yellow-100 text-yellow-800';
-    }
-
-    if (status === 'aceito' || status === 'fechado') {
-      return 'bg-green-100 text-green-700';
-    }
-
-    return 'bg-[#fff7e8] text-[#b97900]';
-  }
-
-  const totalUnreadMessages = orcamentos.reduce((total, item) => {
-    const messages = item.quote_messages || [];
-
-    const unread = messages.filter(
-      (message: any) =>
-        message.sender_type === 'fornecedor' &&
-        message.read_by_client === false
-    ).length;
-
-    return total + unread;
-  }, 0);
-
-  const respondedCount = orcamentos.filter(
-    (item) => item.status === 'respondido'
-  ).length;
-
-  const acceptedCount = orcamentos.filter(
-    (item) => item.status === 'aceito' || item.status === 'fechado'
-  ).length;
-
   return (
     <main className="min-h-screen bg-black text-[#151515]">
-      <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] pb-24 shadow-2xl">
+      <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] pb-10 shadow-2xl">
         <section className="relative overflow-hidden rounded-b-[34px] bg-black px-6 pb-8 pt-7 text-white">
           <div className="absolute inset-0 bg-[url('/layout01-fundo.png')] bg-cover bg-center opacity-45" />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/85 to-black" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/80 to-black" />
 
           <div className="relative z-10">
             <Link
-              href="/perfil"
+              href={backHref}
               className="inline-flex items-center gap-2 text-sm font-bold text-[#e3a925]"
             >
               <ArrowLeft size={17} />
@@ -216,306 +465,401 @@ export default function OrcamentosPage() {
             </Link>
 
             <h1 className="mt-5 font-serif text-[34px] leading-tight">
-              Meus Orçamentos
+              Solicitar orçamento
             </h1>
 
             <p className="mt-2 text-sm text-white/70">
-              Acompanhe suas solicitações, propostas e mensagens.
+              {isCerimonialistaMode
+                ? 'Envie o pedido em nome da cliente.'
+                : 'Envie os detalhes do seu evento para o fornecedor.'}
             </p>
+
+            {isCerimonialistaMode && (
+              <div className="mt-4 flex items-start gap-3 rounded-2xl bg-white/10 p-4 text-white ring-1 ring-white/10">
+                <ShieldCheck size={20} className="mt-0.5 text-[#e3a925]" />
+                <div>
+                  <p className="text-sm font-extrabold">Modo cerimonialista</p>
+                  <p className="mt-1 text-xs leading-5 text-white/70">
+                    Esta solicitação será salva no evento da cliente autorizada.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </section>
 
-        <section className="grid grid-cols-3 gap-3 px-6 pt-6">
-          <div className="rounded-[22px] bg-white p-4 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-            <p className="text-2xl font-extrabold text-[#d99200]">
-              {orcamentos.length}
-            </p>
-            <p className="mt-1 text-[11px] font-bold text-gray-600">
-              Pedidos
-            </p>
-          </div>
-
-          <div className="rounded-[22px] bg-white p-4 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-            <p className="text-2xl font-extrabold text-green-600">
-              {respondedCount}
-            </p>
-            <p className="mt-1 text-[11px] font-bold text-gray-600">
-              Respondidos
-            </p>
-          </div>
-
-          <div className="rounded-[22px] bg-white p-4 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-            <p className="text-2xl font-extrabold text-blue-600">
-              {acceptedCount}
-            </p>
-            <p className="mt-1 text-[11px] font-bold text-gray-600">
-              Aceitos
-            </p>
-          </div>
-        </section>
-
-        {successMessage && (
-          <section className="px-6 pt-4">
-            <div className="flex items-center gap-2 rounded-2xl bg-green-50 px-4 py-3 text-sm font-bold text-green-700">
-              <CheckCircle2 size={18} />
-              {successMessage}
-            </div>
-          </section>
-        )}
-
-        {totalUnreadMessages > 0 && (
-          <section className="px-6 pt-4">
-            <div className="flex items-center gap-3 rounded-[22px] bg-[#151515] px-4 py-4 text-white shadow-lg">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#e3a925]">
-                <Bell size={22} />
+        <section className="px-6 pt-6">
+          <div className="rounded-[26px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)]">
+            <div className="flex items-center gap-4">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]">
+                <Camera size={30} />
               </div>
 
               <div>
-                <p className="text-sm font-extrabold">
-                  {totalUnreadMessages === 1
-                    ? '1 nova mensagem'
-                    : `${totalUnreadMessages} novas mensagens`}
+                <p className="text-xs font-bold text-gray-500">Fornecedor</p>
+
+                <h2 className="text-lg font-extrabold">
+                  {loadingSupplier ? 'Carregando fornecedor...' : supplierName}
+                </h2>
+
+                <p className="text-sm text-gray-500">
+                  {loadingSupplier ? 'Buscando dados...' : supplierCategory}
                 </p>
-                <p className="mt-1 text-xs text-white/70">
-                  Abra o chat do orçamento para visualizar.
-                </p>
+
+                {!supplierId && (
+                  <p className="mt-1 text-xs font-bold text-red-600">
+                    Fornecedor não identificado.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {loadingUser && (
+          <section className="px-6 pt-6">
+            <div className="rounded-[28px] bg-white p-6 text-center shadow-sm ring-1 ring-[#f1e7cf]">
+              <Lock size={36} className="mx-auto text-[#d99200]" />
+              <p className="mt-3 text-sm font-bold text-gray-600">
+                Verificando sua conta...
+              </p>
+            </div>
+          </section>
+        )}
+
+        {!loadingUser && !user && (
+          <section className="px-6 pt-6">
+            <div className="rounded-[28px] bg-white p-6 text-center shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]">
+                <Lock size={34} />
+              </div>
+
+              <h2 className="mt-5 text-xl font-extrabold">
+                Acesse sua conta para solicitar orçamento
+              </h2>
+
+              <p className="mt-3 text-sm leading-6 text-gray-600">
+                Para enviar uma solicitação, você precisa estar logado. Assim seus
+                pedidos ficam salvos no app e você pode acompanhar respostas,
+                orçamentos e conversas com os fornecedores.
+              </p>
+
+              <div className="mt-6 space-y-3">
+                <Link
+                  href={loginHref}
+                  className="flex items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg"
+                >
+                  <LogIn size={21} />
+                  Fazer login
+                </Link>
+
+                <Link
+                  href={cadastroHref}
+                  className="flex items-center justify-center gap-2 rounded-[22px] bg-black py-4 text-center font-extrabold text-white shadow-lg"
+                >
+                  <UserPlus size={21} />
+                  Criar conta
+                </Link>
+
+                <Link
+                  href={backHref}
+                  className="block rounded-[22px] bg-white py-4 text-center font-extrabold text-[#151515] ring-1 ring-[#f1e7cf]"
+                >
+                  Voltar para vitrine
+                </Link>
               </div>
             </div>
           </section>
         )}
 
-        <section className="px-6 pt-6">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-extrabold">Solicitações</h2>
-
-            <span className="rounded-full bg-[#fff7e8] px-3 py-1 text-xs font-extrabold text-[#b97900]">
-              {loading ? 'Carregando...' : `${orcamentos.length} orçamento(s)`}
-            </span>
-          </div>
-
-          {loading && (
-            <div className="rounded-[28px] bg-white p-6 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-              <p className="text-sm font-bold text-gray-500">
-                Carregando orçamentos...
-              </p>
-            </div>
-          )}
-
-          {!loading && errorMessage && (
-            <div className="rounded-[28px] bg-red-50 p-6 text-center text-sm font-bold text-red-700 ring-1 ring-red-100">
-              {errorMessage}
-            </div>
-          )}
-
-          {!loading && !errorMessage && orcamentos.length === 0 && (
-            <div className="rounded-[28px] bg-white p-6 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#fff7e8] text-[#d99200]">
-                <Search size={32} />
+        {!loadingUser && user && isSupplierAccount && (
+          <section className="px-6 pt-6">
+            <div className="rounded-[28px] bg-white p-6 text-center shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]">
+                <Lock size={34} />
               </div>
 
-              <h3 className="mt-4 text-lg font-extrabold">
-                Nenhum orçamento ainda
-              </h3>
+              <h2 className="mt-5 text-xl font-extrabold">
+                Você está logado como fornecedor
+              </h2>
 
-              <p className="mt-2 text-sm leading-5 text-gray-500">
-                Quando você solicitar orçamento a um fornecedor, ele aparecerá aqui.
+              <p className="mt-3 text-sm leading-6 text-gray-600">
+                Esta conta está vinculada ao painel do fornecedor. Para solicitar
+                orçamento, saia desta conta e entre como cliente/noiva.
               </p>
 
-              <Link
-                href="/buscar"
-                className="mt-5 flex items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg"
-              >
-                Buscar fornecedores
-              </Link>
-            </div>
-          )}
+              <p className="mt-3 rounded-2xl bg-[#fbf7f1] px-4 py-3 text-xs font-bold text-gray-500">
+                Conta atual: {userEmail || 'fornecedor'}
+              </p>
 
-          <div className="space-y-4">
-            {orcamentos.map((item) => {
-              const responses = item.quote_responses || [];
-              const sortedResponses = [...responses].sort((a, b) => {
-                return (
-                  new Date(b.created_at).getTime() -
-                  new Date(a.created_at).getTime()
-                );
-              });
-
-              const latestResponse = sortedResponses[0] || null;
-
-              const messages = item.quote_messages || [];
-              const unreadMessages = messages.filter(
-                (message: any) =>
-                  message.sender_type === 'fornecedor' &&
-                  message.read_by_client === false
-              ).length;
-
-              const hasUnreadMessages = unreadMessages > 0;
-
-              const supplierName =
-                item.suppliers?.business_name || 'Fornecedor';
-              const supplierCity =
-                item.suppliers?.city || item.event_city || 'Cidade não informada';
-              const supplierCategory =
-                item.suppliers?.categories?.name ||
-                item.service_needed ||
-                'Fornecedor de eventos';
-
-              const status = item.status || 'aguardando_resposta';
-              const eventType = item.event_type || 'Evento não informado';
-              const eventDate = formatDate(item.event_date);
-              const serviceNeeded =
-                item.service_needed || latestResponse?.service_offered || 'Serviço não informado';
-
-              return (
-                <div
-                  key={item.id}
-                  className={
-                    hasUnreadMessages
-                      ? 'rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.12)] ring-2 ring-[#e3a925]'
-                      : 'rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)]'
-                  }
+              <div className="mt-6 space-y-3">
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  disabled={signingOut}
+                  className="flex w-full items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg disabled:opacity-60"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h3 className="text-lg font-extrabold">{eventType}</h3>
+                  <LogOut size={21} />
+                  {signingOut ? 'Saindo...' : 'Sair desta conta'}
+                </button>
 
-                      <p className="mt-1 flex items-center gap-1 text-sm font-bold text-gray-500">
-                        <Building2 size={15} className="text-[#d99200]" />
-                        {supplierName}
-                      </p>
-                    </div>
+                <Link
+                  href={loginHref}
+                  className="flex items-center justify-center gap-2 rounded-[22px] bg-black py-4 text-center font-extrabold text-white shadow-lg"
+                >
+                  <LogIn size={21} />
+                  Entrar como cliente
+                </Link>
 
-                    <div className="flex flex-col items-end gap-2">
-                      {hasUnreadMessages && (
-                        <span className="flex items-center gap-1 rounded-full bg-[#151515] px-3 py-1 text-[11px] font-extrabold text-white">
-                          <Bell size={13} className="text-[#e3a925]" />
-                          {unreadMessages === 1
-                            ? '1 nova msg'
-                            : `${unreadMessages} novas msg`}
-                        </span>
-                      )}
+                <Link
+                  href={cadastroHref}
+                  className="flex items-center justify-center gap-2 rounded-[22px] bg-white py-4 text-center font-extrabold text-[#151515] ring-1 ring-[#f1e7cf]"
+                >
+                  <UserPlus size={21} />
+                  Criar conta cliente
+                </Link>
+              </div>
+            </div>
+          </section>
+        )}
 
-                      <span
-                        className={`flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-extrabold ${statusClass(status)}`}
-                      >
-                        {status === 'respondido' || status === 'aceito' ? (
-                          <CheckCircle2 size={13} />
-                        ) : (
-                          <Clock size={13} />
-                        )}
-                        {statusLabel(status)}
-                      </span>
-                    </div>
-                  </div>
+        {!loadingUser && user && !isSupplierAccount && (
+          <section className="px-6 pt-6">
+            {isCerimonialistaMode && checkingCerimonialista && (
+              <div className="mb-4 rounded-[24px] bg-white p-4 text-sm font-bold text-gray-600 ring-1 ring-[#f1e7cf]">
+                Validando permissão da cerimonialista...
+              </div>
+            )}
 
-                  {hasUnreadMessages && (
-                    <div className="mt-4 rounded-2xl bg-[#151515] p-4 text-white">
-                      <p className="flex items-center gap-2 text-xs font-extrabold text-[#f7d67b]">
-                        <Bell size={15} />
-                        Mensagem nova no chat
-                      </p>
+            {isCerimonialistaMode && cerimonialistaAllowed && (
+              <div className="mb-4 rounded-[24px] bg-green-50 p-4 text-sm font-bold leading-5 text-green-700 ring-1 ring-green-100">
+                Solicitação em nome da cliente:{' '}
+                {sharedInvite?.owner_name ||
+                  sharedEvent?.couple_name ||
+                  sharedEvent?.event_name ||
+                  'Cliente'}
+              </div>
+            )}
 
-                      <p className="mt-2 text-sm leading-5 text-white/80">
-                        O fornecedor enviou{' '}
-                        {unreadMessages === 1
-                          ? 'uma nova mensagem.'
-                          : `${unreadMessages} novas mensagens.`}
-                      </p>
-                    </div>
-                  )}
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="rounded-[24px] bg-white p-4 text-sm font-bold text-gray-600 ring-1 ring-[#f1e7cf]">
+                Conta logada: {userEmail || 'cliente'}
+              </div>
 
-                  <div className="mt-4 grid grid-cols-2 gap-3">
-                    <div className="rounded-2xl bg-[#fbf7f1] p-3">
-                      <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
-                        <CalendarDays size={14} className="text-[#d99200]" />
-                        Data
-                      </p>
-                      <p className="mt-1 text-sm font-extrabold">
-                        {eventDate}
-                      </p>
-                    </div>
+              <label className="block">
+                <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
+                  <User size={17} className="text-[#d99200]" />
+                  {isCerimonialistaMode ? 'Nome da cliente' : 'Nome'}
+                </span>
+                <input
+                  value={customerName}
+                  onChange={(event) => setCustomerName(event.target.value)}
+                  className="w-full rounded-[22px] bg-white px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400"
+                  placeholder={isCerimonialistaMode ? 'Nome da cliente' : 'Seu nome'}
+                />
+              </label>
 
-                    <div className="rounded-2xl bg-[#fbf7f1] p-3">
-                      <p className="text-xs font-bold text-gray-500">
-                        Cidade
-                      </p>
-                      <p className="mt-1 text-sm font-extrabold">
-                        {supplierCity}
-                      </p>
-                    </div>
-                  </div>
+              <label className="block">
+                <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
+                  <MessageCircle size={17} className="text-[#d99200]" />
+                  WhatsApp {isCerimonialistaMode ? 'da cliente' : ''}
+                </span>
+                <input
+                  inputMode="numeric"
+                  maxLength={15}
+                  value={customerWhatsapp}
+                  onChange={(event) =>
+                    setCustomerWhatsapp(formatWhatsapp(event.target.value))
+                  }
+                  className="w-full rounded-[22px] bg-white px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400"
+                  placeholder="(73) 99999-9999"
+                />
+                <p className="mt-2 text-xs text-gray-500">
+                  Informe o DDD + número. Ex: (73) 99999-9999
+                </p>
+              </label>
 
-                  <div className="mt-3 rounded-2xl bg-[#fbf7f1] p-3">
-                    <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
-                      <FileText size={14} className="text-[#d99200]" />
-                      Serviço
-                    </p>
-                    <p className="mt-1 text-sm font-extrabold">
-                      {serviceNeeded}
-                    </p>
-                  </div>
+              <label className="block">
+                <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
+                  <PartyPopper size={17} className="text-[#d99200]" />
+                  Tipo de evento
+                </span>
+                <select
+                  value={eventType}
+                  onChange={(event) => setEventType(event.target.value)}
+                  className="w-full rounded-[22px] bg-white px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf]"
+                >
+                  <option>Casamento</option>
+                  <option>Aniversário</option>
+                  <option>Debutante</option>
+                  <option>Evento corporativo</option>
+                  <option>Formatura</option>
+                  <option>Batizado</option>
+                  <option>Chá revelação</option>
+                  <option>Outro</option>
+                </select>
+              </label>
 
-                  {latestResponse && (
-                    <div className="mt-3 rounded-2xl bg-[#fff7e8] p-4 ring-1 ring-[#f1e7cf]">
-                      <p className="text-xs font-bold text-[#b97900]">
-                        Última proposta
-                      </p>
+              <label className="block">
+                <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
+                  <Camera size={17} className="text-[#d99200]" />
+                  Serviço desejado
+                </span>
+                <input
+                  value={serviceNeeded}
+                  onChange={(event) => setServiceNeeded(event.target.value)}
+                  className="w-full rounded-[22px] bg-white px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400"
+                  placeholder="Ex: Fotografia, buffet, decoração..."
+                />
+              </label>
 
-                      <p className="mt-1 text-2xl font-extrabold text-[#151515]">
-                        {latestResponse.proposal_value || 'Valor não informado'}
-                      </p>
+              <label className="block">
+                <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
+                  <CalendarDays size={17} className="text-[#d99200]" />
+                  Data do evento
+                </span>
+                <input
+                  type="date"
+                  value={eventDate}
+                  onChange={(event) => setEventDate(event.target.value)}
+                  className="w-full rounded-[22px] bg-white px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf]"
+                />
+              </label>
 
-                      <p className="mt-1 text-xs font-bold text-gray-500">
-                        {latestResponse.payment_terms || 'Forma de pagamento não informada'}
-                      </p>
-                    </div>
-                  )}
+              <label className="block">
+                <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
+                  <MapPin size={17} className="text-[#d99200]" />
+                  Cidade do evento
+                </span>
+                <input
+                  value={eventCity}
+                  onChange={(event) => setEventCity(event.target.value)}
+                  className="w-full rounded-[22px] bg-white px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400"
+                  placeholder="Ex: Eunápolis"
+                />
+              </label>
 
-                  <div className="mt-5 space-y-3">
-                    <Link
-                      href={`/orcamentos/${item.id}`}
-                      className="flex items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg"
-                    >
-                      <FileText size={21} />
-                      {latestResponse ? 'Ver orçamento' : 'Aguardar resposta'}
-                    </Link>
+              {isEventSpaceSupplier ? (
+                <label className="block">
+                  <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
+                    <Building2 size={17} className="text-[#d99200]" />
+                    Preferência de estrutura
+                  </span>
+                  <select
+                    value={structurePreference}
+                    onChange={(event) =>
+                      setStructurePreference(event.target.value)
+                    }
+                    className="w-full rounded-[22px] bg-white px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf]"
+                  >
+                    <option>Salão fechado</option>
+                    <option>Área ao ar livre</option>
+                    <option>Espaço com piscina</option>
+                    <option>Cerimônia e recepção no mesmo local</option>
+                    <option>Espaço com hospedagem</option>
+                    <option>Ainda não sei</option>
+                  </select>
 
-                    <Link
-                      href={`/orcamentos/${item.id}/chat`}
-                      className={
-                        hasUnreadMessages
-                          ? 'relative flex items-center justify-center gap-2 rounded-[22px] bg-black py-4 text-center font-extrabold text-white shadow-lg ring-2 ring-[#e3a925]'
-                          : 'flex items-center justify-center gap-2 rounded-[22px] bg-black py-4 text-center font-extrabold text-white shadow-lg'
-                      }
-                    >
-                      <MessageCircle size={21} />
-                      Chat
+                  <p className="mt-2 text-xs leading-5 text-gray-500">
+                    Para espaços de evento, o cliente consulta disponibilidade da data e orçamento do local.
+                  </p>
+                </label>
+              ) : (
+                <label className="block">
+                  <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
+                    <Building2 size={17} className="text-[#d99200]" />
+                    Espaço do evento
+                  </span>
+                  <input
+                    value={eventSpace}
+                    onChange={(event) => setEventSpace(event.target.value)}
+                    className="w-full rounded-[22px] bg-white px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400"
+                    placeholder="Ex: Espaço Villa Real, clube, fazenda..."
+                  />
+                </label>
+              )}
 
-                      {hasUnreadMessages && (
-                        <span className="absolute -right-2 -top-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-[#e3a925] px-2 text-[11px] font-extrabold text-white">
-                          {unreadMessages}
-                        </span>
-                      )}
-                    </Link>
+              <label className="block">
+                <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
+                  <Users size={17} className="text-[#d99200]" />
+                  Quantidade de convidados
+                </span>
+                <input
+                  type="number"
+                  min="1"
+                  value={guestsCount}
+                  onChange={(event) => setGuestsCount(event.target.value)}
+                  className="w-full rounded-[22px] bg-white px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400"
+                  placeholder="Ex: 150"
+                />
+              </label>
 
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteOrcamento(item.id)}
-                      disabled={deletingId === item.id}
-                      className="flex w-full items-center justify-center gap-2 rounded-[22px] bg-white py-4 text-center font-extrabold text-red-700 shadow-sm ring-1 ring-red-100 disabled:opacity-60"
-                    >
-                      <Trash2 size={21} />
-                      {deletingId === item.id
-                        ? 'Excluindo...'
-                        : 'Excluir orçamento'}
-                    </button>
-                  </div>
+              <label className="block">
+                <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
+                  <MessageCircle size={17} className="text-[#d99200]" />
+                  Mensagem para o fornecedor
+                </span>
+                <textarea
+                  value={notes}
+                  onChange={(event) => setNotes(event.target.value)}
+                  className="min-h-[130px] w-full resize-none rounded-[22px] bg-white px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400"
+                  placeholder={
+                    isEventSpaceSupplier
+                      ? 'Ex: Gostaria de saber se o espaço está disponível para essa data e qual o orçamento...'
+                      : 'Conte um pouco sobre o evento...'
+                  }
+                />
+              </label>
+
+              {errorMessage && (
+                <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+                  {errorMessage}
                 </div>
-              );
-            })}
-          </div>
-        </section>
+              )}
+
+              {successMessage && (
+                <div className="rounded-2xl bg-green-50 px-4 py-3 text-sm font-bold text-green-700">
+                  {successMessage}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={
+                  loading ||
+                  loadingSupplier ||
+                  checkingCerimonialista ||
+                  (isCerimonialistaMode && !cerimonialistaAllowed)
+                }
+                className="mt-7 flex w-full items-center justify-center gap-2 rounded-[24px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg disabled:opacity-60"
+              >
+                <Send size={21} />
+                {loading
+                  ? 'Enviando...'
+                  : isCerimonialistaMode
+                    ? 'Enviar em nome da cliente'
+                    : 'Enviar solicitação'}
+              </button>
+            </form>
+
+            <p className="mt-3 text-center text-xs leading-5 text-gray-500">
+              O fornecedor receberá o pedido e poderá responder com um orçamento dentro do app.
+            </p>
+          </section>
+        )}
       </div>
     </main>
+  );
+}
+
+export default function SolicitarOrcamentoPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#fbf7f1] p-6">Carregando...</div>
+      }
+    >
+      <SolicitarOrcamentoContent />
+    </Suspense>
   );
 }
