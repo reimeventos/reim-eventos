@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { getSupplierLeads } from '@/lib/suppliers';
+import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -27,6 +28,7 @@ import {
 export default function LeadsFornecedorPage() {
   const [leads, setLeads] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [markingSeenId, setMarkingSeenId] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
   async function loadLeads() {
@@ -169,9 +171,11 @@ export default function LeadsFornecedorPage() {
 
   function unreadSenderText(messages: any[]) {
     const unreadMessages = messages.filter(isUnreadForSupplier);
+
     const hasClient = unreadMessages.some(
       (message: any) => message.sender_type === 'cliente'
     );
+
     const hasCerimonialista = unreadMessages.some(
       (message: any) => message.sender_type === 'cerimonialista'
     );
@@ -185,6 +189,48 @@ export default function LeadsFornecedorPage() {
     }
 
     return 'A cliente enviou';
+  }
+
+  async function handleMarkSeen(leadId: string) {
+    try {
+      setMarkingSeenId(leadId);
+      setErrorMessage('');
+
+      const { error } = await supabase
+        .from('quote_messages')
+        .update({ read_by_supplier: true })
+        .eq('quote_request_id', leadId)
+        .eq('read_by_supplier', false);
+
+      if (error) {
+        throw error;
+      }
+
+      setLeads((current) =>
+        current.map((lead) => {
+          if (lead.id !== leadId) return lead;
+
+          const updatedMessages = (lead.quote_messages || []).map(
+            (message: any) => ({
+              ...message,
+              read_by_supplier: true,
+            })
+          );
+
+          return {
+            ...lead,
+            quote_messages: updatedMessages,
+          };
+        })
+      );
+    } catch (error: any) {
+      console.error('Erro ao marcar mensagens como vistas:', error);
+      setErrorMessage(
+        error?.message || 'Não foi possível marcar as mensagens como vistas.'
+      );
+    } finally {
+      setMarkingSeenId('');
+    }
   }
 
   const newCount = leads.filter(
@@ -301,7 +347,7 @@ export default function LeadsFornecedorPage() {
                     : `${totalUnreadMessages} novas mensagens`}
                 </p>
                 <p className="mt-1 text-xs text-white/70">
-                  Abra o chat do orçamento para responder.
+                  Abra o chat do orçamento ou marque como visto.
                 </p>
               </div>
             </div>
@@ -649,9 +695,22 @@ export default function LeadsFornecedorPage() {
                         )}
                       </Link>
 
-                      <button className="flex items-center justify-center gap-2 rounded-[20px] bg-[#fbf7f1] py-3 text-center text-sm font-extrabold text-[#151515] ring-1 ring-[#f1e7cf]">
+                      <button
+                        type="button"
+                        onClick={() => handleMarkSeen(lead.id)}
+                        disabled={!hasUnreadMessages || markingSeenId === lead.id}
+                        className={
+                          hasUnreadMessages
+                            ? 'flex items-center justify-center gap-2 rounded-[20px] bg-[#fbf7f1] py-3 text-center text-sm font-extrabold text-[#151515] ring-1 ring-[#f1e7cf] disabled:opacity-60'
+                            : 'flex items-center justify-center gap-2 rounded-[20px] bg-green-50 py-3 text-center text-sm font-extrabold text-green-700 ring-1 ring-green-100 disabled:opacity-70'
+                        }
+                      >
                         <CheckCircle2 size={18} className="text-green-600" />
-                        Marcar visto
+                        {markingSeenId === lead.id
+                          ? 'Marcando...'
+                          : hasUnreadMessages
+                            ? 'Marcar visto'
+                            : 'Visto'}
                       </button>
                     </div>
 
