@@ -132,6 +132,33 @@ export default function LeadsFornecedorPage() {
     return supplier?.categories?.name || '';
   }
 
+  function getOriginInfo(lead: any) {
+    const role = lead.created_by_role || 'cliente';
+    const name = lead.created_by_name || '';
+    const email = lead.created_by_email || '';
+
+    if (role === 'cerimonialista') {
+      return {
+        label: 'Solicitado pela cerimonialista',
+        detail: name || email || 'Cerimonialista',
+        description:
+          'Este pedido foi enviado por uma cerimonialista autorizada pela cliente.',
+        icon: ShieldCheck,
+        boxClass: 'bg-green-50 text-green-800 ring-green-100',
+        iconClass: 'text-green-700',
+      };
+    }
+
+    return {
+      label: 'Solicitado pela cliente',
+      detail: name || email || lead.customer_name || 'Cliente',
+      description: 'Este pedido foi enviado diretamente pela cliente.',
+      icon: User,
+      boxClass: 'bg-[#fff7e8] text-[#7a5200] ring-[#f1e7cf]',
+      iconClass: 'text-[#d99200]',
+    };
+  }
+
   const newCount = leads.filter(
     (lead) => lead.status === 'novo' || lead.status === 'aguardando_resposta'
   ).length;
@@ -142,6 +169,10 @@ export default function LeadsFornecedorPage() {
 
   const closedCount = leads.filter(
     (lead) => lead.status === 'aceito' || lead.status === 'fechado'
+  ).length;
+
+  const cerimonialistaCount = leads.filter(
+    (lead) => lead.created_by_role === 'cerimonialista'
   ).length;
 
   const totalUnreadMessages = leads.reduce((total, lead) => {
@@ -177,7 +208,7 @@ export default function LeadsFornecedorPage() {
             </h1>
 
             <p className="mt-2 text-sm text-white/70">
-              Pedidos de orçamento enviados pelos clientes.
+              Pedidos de orçamento enviados pelos clientes e cerimonialistas autorizadas.
             </p>
           </div>
         </section>
@@ -210,6 +241,28 @@ export default function LeadsFornecedorPage() {
             </p>
           </div>
         </section>
+
+        {cerimonialistaCount > 0 && (
+          <section className="px-6 pt-4">
+            <div className="flex items-start gap-3 rounded-[22px] bg-green-50 px-4 py-4 text-green-800 ring-1 ring-green-100">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-green-100">
+                <ShieldCheck size={22} />
+              </div>
+
+              <div>
+                <p className="text-sm font-extrabold">
+                  {cerimonialistaCount === 1
+                    ? '1 lead veio de cerimonialista'
+                    : `${cerimonialistaCount} leads vieram de cerimonialista`}
+                </p>
+
+                <p className="mt-1 text-xs leading-5 text-green-700">
+                  Esses pedidos foram enviados em nome da cliente por cerimonialistas autorizadas no evento.
+                </p>
+              </div>
+            </div>
+          </section>
+        )}
 
         {totalUnreadMessages > 0 && (
           <section className="px-6 pt-4">
@@ -270,7 +323,7 @@ export default function LeadsFornecedorPage() {
               </h3>
 
               <p className="mt-2 text-sm leading-5 text-gray-500">
-                Quando uma noiva solicitar orçamento, o pedido aparecerá aqui.
+                Quando uma cliente ou cerimonialista autorizada solicitar orçamento, o pedido aparecerá aqui.
               </p>
             </div>
           )}
@@ -291,6 +344,9 @@ export default function LeadsFornecedorPage() {
               const guests = lead.guests_count || 'Não informado';
               const notes = lead.notes || 'Cliente não informou mensagem.';
               const status = lead.status || 'novo';
+
+              const originInfo = getOriginInfo(lead);
+              const OriginIcon = originInfo.icon;
 
               const isAccepted = status === 'aceito' || status === 'fechado';
               const isCerimonialista = isCerimonialistaCategory(supplierCategory);
@@ -357,6 +413,29 @@ export default function LeadsFornecedorPage() {
                         {statusLabel(status)}
                       </span>
                     </div>
+                  </div>
+
+                  <div
+                    className={`mt-4 rounded-2xl p-4 ring-1 ${originInfo.boxClass}`}
+                  >
+                    <p className="flex items-center gap-2 text-xs font-extrabold">
+                      <OriginIcon size={16} className={originInfo.iconClass} />
+                      Origem do lead
+                    </p>
+
+                    <p className="mt-2 text-sm font-extrabold">
+                      {originInfo.label}
+                    </p>
+
+                    {originInfo.detail && (
+                      <p className="mt-1 break-all text-xs font-bold opacity-80">
+                        {originInfo.detail}
+                      </p>
+                    )}
+
+                    <p className="mt-2 text-xs leading-5 opacity-80">
+                      {originInfo.description}
+                    </p>
                   </div>
 
                   <div className="mt-4 rounded-2xl bg-[#151515] p-4 text-white">
