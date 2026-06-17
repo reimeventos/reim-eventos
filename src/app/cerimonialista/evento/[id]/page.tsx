@@ -603,6 +603,14 @@ export default function CerimonialistaEventoPage() {
                     <MessageCircle size={21} />
                     Ver todos os orçamentos
                   </Link>
+
+                  <Link
+                    href={`/meu-evento/linha-do-tempo?evento=${eventId}`}
+                    className="flex items-center justify-center gap-2 rounded-[22px] bg-white/10 py-4 text-center font-extrabold text-white ring-1 ring-white/10"
+                  >
+                    <Clock size={21} className="text-[#e3a925]" />
+                    Linha do tempo
+                  </Link>
                 </div>
               </div>
 
