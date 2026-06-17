@@ -450,13 +450,23 @@ export default function MeuEventoPage() {
               </div>
             </div>
 
-            <Link
-              href="/meu-evento/editar"
-              className="mt-5 flex items-center justify-center gap-2 rounded-[22px] bg-white/10 py-3 text-sm font-extrabold text-white ring-1 ring-white/10"
-            >
-              <Pencil size={17} className="text-[#e3a925]" />
-              Editar dados do evento
-            </Link>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <Link
+                href="/meu-evento/editar"
+                className="flex items-center justify-center gap-2 rounded-[22px] bg-white/10 py-3 text-sm font-extrabold text-white ring-1 ring-white/10"
+              >
+                <Pencil size={17} className="text-[#e3a925]" />
+                Editar
+              </Link>
+
+              <Link
+                href="/meu-evento/linha-do-tempo"
+                className="flex items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-3 text-sm font-extrabold text-white shadow-lg"
+              >
+                <Clock size={17} />
+                Linha do tempo
+              </Link>
+            </div>
           </div>
         </section>
 
