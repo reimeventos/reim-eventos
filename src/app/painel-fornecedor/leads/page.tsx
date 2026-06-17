@@ -159,6 +159,34 @@ export default function LeadsFornecedorPage() {
     };
   }
 
+  function isUnreadForSupplier(message: any) {
+    return (
+      message.read_by_supplier === false &&
+      (message.sender_type === 'cliente' ||
+        message.sender_type === 'cerimonialista')
+    );
+  }
+
+  function unreadSenderText(messages: any[]) {
+    const unreadMessages = messages.filter(isUnreadForSupplier);
+    const hasClient = unreadMessages.some(
+      (message: any) => message.sender_type === 'cliente'
+    );
+    const hasCerimonialista = unreadMessages.some(
+      (message: any) => message.sender_type === 'cerimonialista'
+    );
+
+    if (hasClient && hasCerimonialista) {
+      return 'A cliente e a cerimonialista enviaram';
+    }
+
+    if (hasCerimonialista) {
+      return 'A cerimonialista enviou';
+    }
+
+    return 'A cliente enviou';
+  }
+
   const newCount = leads.filter(
     (lead) => lead.status === 'novo' || lead.status === 'aguardando_resposta'
   ).length;
@@ -177,12 +205,7 @@ export default function LeadsFornecedorPage() {
 
   const totalUnreadMessages = leads.reduce((total, lead) => {
     const messages = lead.quote_messages || [];
-
-    const unread = messages.filter(
-      (message: any) =>
-        message.sender_type === 'cliente' &&
-        message.read_by_supplier === false
-    ).length;
+    const unread = messages.filter(isUnreadForSupplier).length;
 
     return total + unread;
   }, 0);
@@ -362,12 +385,7 @@ export default function LeadsFornecedorPage() {
 
               const messages = lead.quote_messages || [];
 
-              const unreadMessages = messages.filter(
-                (message: any) =>
-                  message.sender_type === 'cliente' &&
-                  message.read_by_supplier === false
-              ).length;
-
+              const unreadMessages = messages.filter(isUnreadForSupplier).length;
               const hasUnreadMessages = unreadMessages > 0;
 
               const cardClass = isAccepted
@@ -503,7 +521,7 @@ export default function LeadsFornecedorPage() {
                       </p>
 
                       <p className="mt-2 text-sm leading-5 text-white/80">
-                        A cliente enviou{' '}
+                        {unreadSenderText(messages)}{' '}
                         {unreadMessages === 1
                           ? 'uma nova mensagem.'
                           : `${unreadMessages} novas mensagens.`}
@@ -515,7 +533,7 @@ export default function LeadsFornecedorPage() {
                     <div className="rounded-2xl bg-[#fbf7f1] p-3">
                       <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
                         <User size={14} className="text-[#d99200]" />
-                        Cliente
+                        Cliente do evento
                       </p>
                       <p className="mt-1 text-sm font-extrabold">
                         {clientName}
