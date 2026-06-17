@@ -25,10 +25,6 @@ export async function sendQuoteMessage(data: {
   sender_name?: string;
   message: string;
 }) {
-  const isClient = data.sender_type === 'cliente';
-  const isSupplier = data.sender_type === 'fornecedor';
-  const isCerimonialista = data.sender_type === 'cerimonialista';
-
   const { error } = await supabase.from('quote_messages').insert([
     {
       quote_request_id: data.quote_request_id,
@@ -36,21 +32,8 @@ export async function sendQuoteMessage(data: {
       sender_type: data.sender_type,
       sender_name: data.sender_name || null,
       message: data.message,
-
-      /*
-        Regras:
-        - Cliente envia: cliente já leu, fornecedor ainda não.
-        - Fornecedor envia: fornecedor já leu, cliente ainda não.
-        - Cerimonialista envia: fornecedor ainda não leu e cliente também pode ver como nova.
-      */
-      read_by_client: isClient,
-      read_by_supplier: isSupplier,
-
-      /*
-        Se futuramente criar coluna read_by_cerimonialista,
-        podemos controlar leitura separada da cerimonialista.
-        Por enquanto, ela atua dentro do lado da cliente.
-      */
+      read_by_client: data.sender_type === 'cliente',
+      read_by_supplier: data.sender_type === 'fornecedor',
     },
   ]);
 
