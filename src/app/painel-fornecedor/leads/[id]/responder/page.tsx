@@ -13,6 +13,7 @@ import {
   MessageCircle,
   Save,
   Send,
+  ShieldCheck,
   User,
   Users,
   PartyPopper,
@@ -48,7 +49,10 @@ export default function ResponderOrcamentoPage() {
 
         const responses = data?.quote_responses || [];
         const sortedResponses = [...responses].sort((a, b) => {
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+          return (
+            new Date(b.created_at).getTime() -
+            new Date(a.created_at).getTime()
+          );
         });
 
         const last = sortedResponses[0] || null;
@@ -83,12 +87,40 @@ export default function ResponderOrcamentoPage() {
   }
 
   function statusLabel(status: string) {
+    if (status === 'novo') return 'Novo';
     if (status === 'aguardando_resposta') return 'Novo';
     if (status === 'respondido') return 'Respondido';
     if (status === 'ajuste_solicitado') return 'Ajuste solicitado';
     if (status === 'aceito') return 'Aceito';
     if (status === 'fechado') return 'Fechado';
-    return status;
+    return status || 'Novo';
+  }
+
+  function getOriginInfo(item: any) {
+    const role = item?.created_by_role || 'cliente';
+    const name = item?.created_by_name || '';
+    const email = item?.created_by_email || '';
+
+    if (role === 'cerimonialista') {
+      return {
+        label: 'Solicitado pela cerimonialista',
+        detail: name || email || 'Cerimonialista',
+        description:
+          'Esta solicitação foi enviada por uma cerimonialista autorizada pela cliente no evento.',
+        icon: ShieldCheck,
+        boxClass: 'bg-green-50 text-green-800 ring-green-100',
+        iconClass: 'text-green-700',
+      };
+    }
+
+    return {
+      label: 'Solicitado pela cliente',
+      detail: name || email || item?.customer_name || 'Cliente',
+      description: 'Esta solicitação foi enviada diretamente pela cliente.',
+      icon: User,
+      boxClass: 'bg-[#fff7e8] text-[#7a5200] ring-[#f1e7cf]',
+      iconClass: 'text-[#d99200]',
+    };
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -155,6 +187,9 @@ export default function ResponderOrcamentoPage() {
   const isAdjustmentRequested = status === 'ajuste_solicitado';
   const adjustmentNotes = latestResponse?.adjustment_notes || '';
 
+  const originInfo = getOriginInfo(lead);
+  const OriginIcon = originInfo.icon;
+
   return (
     <main className="min-h-screen bg-black text-[#151515]">
       <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] pb-10 shadow-2xl">
@@ -205,6 +240,29 @@ export default function ResponderOrcamentoPage() {
               </p>
             ) : (
               <>
+                <div
+                  className={`mb-4 rounded-2xl p-4 ring-1 ${originInfo.boxClass}`}
+                >
+                  <p className="flex items-center gap-2 text-xs font-extrabold">
+                    <OriginIcon size={16} className={originInfo.iconClass} />
+                    Origem da solicitação
+                  </p>
+
+                  <p className="mt-2 text-sm font-extrabold">
+                    {originInfo.label}
+                  </p>
+
+                  {originInfo.detail && (
+                    <p className="mt-1 break-all text-xs font-bold opacity-80">
+                      {originInfo.detail}
+                    </p>
+                  )}
+
+                  <p className="mt-2 text-xs leading-5 opacity-80">
+                    {originInfo.description}
+                  </p>
+                </div>
+
                 {isAdjustmentRequested && (
                   <div className="mb-4 rounded-2xl bg-yellow-50 p-4 ring-1 ring-yellow-200">
                     <p className="flex items-center gap-2 text-xs font-extrabold text-yellow-800">
@@ -213,7 +271,8 @@ export default function ResponderOrcamentoPage() {
                     </p>
 
                     <p className="mt-2 text-sm leading-5 text-yellow-900">
-                      {adjustmentNotes || 'A cliente solicitou ajuste, mas não informou detalhes.'}
+                      {adjustmentNotes ||
+                        'A cliente solicitou ajuste, mas não informou detalhes.'}
                     </p>
                   </div>
                 )}
@@ -273,7 +332,9 @@ export default function ResponderOrcamentoPage() {
                 <div className="mt-3 rounded-2xl bg-[#fbf7f1] p-3">
                   <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
                     <Building2 size={14} className="text-[#d99200]" />
-                    {isEventSpace ? 'Preferência de estrutura' : 'Espaço do evento'}
+                    {isEventSpace
+                      ? 'Preferência de estrutura'
+                      : 'Espaço do evento'}
                   </p>
                   <p className="mt-1 text-sm font-extrabold">{eventSpace}</p>
                 </div>
@@ -399,7 +460,11 @@ export default function ResponderOrcamentoPage() {
                 disabled={sending}
                 className="flex w-full items-center justify-center gap-2 rounded-[24px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg disabled:opacity-60"
               >
-                {isAdjustmentRequested ? <RefreshCcw size={21} /> : <Send size={21} />}
+                {isAdjustmentRequested ? (
+                  <RefreshCcw size={21} />
+                ) : (
+                  <Send size={21} />
+                )}
                 {sending
                   ? 'Enviando...'
                   : isAdjustmentRequested
