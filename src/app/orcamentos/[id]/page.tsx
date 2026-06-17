@@ -13,6 +13,7 @@ import {
   MessageCircle,
   RefreshCcw,
   ShieldCheck,
+  User,
 } from 'lucide-react';
 import {
   acceptQuoteResponse,
@@ -31,6 +32,28 @@ function isCerimonialistaCategory(categoryName?: string) {
   );
 }
 
+function getOriginInfo(origin: any) {
+  const role = origin?.created_by_role || 'cliente';
+  const name = origin?.created_by_name || '';
+  const email = origin?.created_by_email || '';
+
+  if (role === 'cerimonialista') {
+    return {
+      label: 'Solicitado pela cerimonialista',
+      detail: name || email || 'Cerimonialista',
+      icon: ShieldCheck,
+      className: 'bg-green-50 text-green-700 ring-green-100',
+    };
+  }
+
+  return {
+    label: 'Solicitado por você',
+    detail: name || email || 'Cliente',
+    icon: User,
+    className: 'bg-[#fff7e8] text-[#b97900] ring-[#f1e7cf]',
+  };
+}
+
 export default function OrcamentoRecebidoPage() {
   const params = useParams();
   const requestId = String(params.id || '');
@@ -41,6 +64,7 @@ export default function OrcamentoRecebidoPage() {
   const [adjusting, setAdjusting] = useState(false);
   const [invitingCerimonial, setInvitingCerimonial] = useState(false);
   const [cerimonialInviteStatus, setCerimonialInviteStatus] = useState('');
+  const [quoteRequestOrigin, setQuoteRequestOrigin] = useState<any>(null);
   const [showAdjustmentBox, setShowAdjustmentBox] = useState(false);
   const [adjustmentNotes, setAdjustmentNotes] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -58,6 +82,19 @@ export default function OrcamentoRecebidoPage() {
 
         setQuote(data);
         setAdjustmentNotes(data?.adjustment_notes || '');
+
+        const { data: originData, error: originError } = await supabase
+          .from('quote_requests')
+          .select('created_by_user_id,created_by_role,created_by_name,created_by_email')
+          .eq('id', requestId)
+          .maybeSingle();
+
+        if (originError) {
+          console.error('Erro ao carregar origem do orçamento:', originError);
+          setQuoteRequestOrigin(null);
+        } else {
+          setQuoteRequestOrigin(originData || null);
+        }
 
         if (data?.status === 'aceito') {
           await loadCerimonialInviteStatus(data);
@@ -378,6 +415,8 @@ export default function OrcamentoRecebidoPage() {
   }
 
   const printStatus = statusColors();
+  const originInfo = getOriginInfo(quoteRequestOrigin);
+  const OriginIcon = originInfo.icon;
 
   return (
     <>
@@ -616,6 +655,32 @@ export default function OrcamentoRecebidoPage() {
                   <div className="mt-4 rounded-2xl bg-[#fbf7f1] p-3">
                     <p className="text-xs font-bold text-gray-500">Cidade</p>
                     <p className="mt-1 text-sm font-extrabold">{supplierCity}</p>
+                  </div>
+                </div>
+
+                <div
+                  className={`mt-5 rounded-[28px] p-5 shadow-sm ring-1 ${originInfo.className}`}
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/70">
+                      <OriginIcon size={30} />
+                    </div>
+
+                    <div className="flex-1">
+                      <p className="text-xs font-bold opacity-80">
+                        Origem da solicitação
+                      </p>
+
+                      <h2 className="mt-1 text-lg font-extrabold">
+                        {originInfo.label}
+                      </h2>
+
+                      {originInfo.detail && (
+                        <p className="mt-2 break-all text-sm font-bold opacity-80">
+                          {originInfo.detail}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -1023,6 +1088,67 @@ export default function OrcamentoRecebidoPage() {
                     {budgetCode}
                   </div>
                 </div>
+              </div>
+            </section>
+
+            <section
+              style={{
+                marginTop: 18,
+                borderRadius: 18,
+                overflow: 'hidden',
+                border:
+                  quoteRequestOrigin?.created_by_role === 'cerimonialista'
+                    ? '1px solid #bbf7d0'
+                    : '1px solid #e3a925',
+              }}
+            >
+              <div
+                style={{
+                  background:
+                    quoteRequestOrigin?.created_by_role === 'cerimonialista'
+                      ? '#e8fff2'
+                      : '#fff7e8',
+                  padding: '14px 18px',
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 800,
+                    color:
+                      quoteRequestOrigin?.created_by_role === 'cerimonialista'
+                        ? '#166534'
+                        : '#9a6a00',
+                  }}
+                >
+                  ORIGEM DA SOLICITAÇÃO
+                </div>
+
+                <div
+                  style={{
+                    marginTop: 5,
+                    fontSize: 16,
+                    fontWeight: 900,
+                    color:
+                      quoteRequestOrigin?.created_by_role === 'cerimonialista'
+                        ? '#166534'
+                        : '#151515',
+                  }}
+                >
+                  {originInfo.label}
+                </div>
+
+                {originInfo.detail && (
+                  <div
+                    style={{
+                      marginTop: 4,
+                      fontSize: 13,
+                      color: '#555',
+                    }}
+                  >
+                    {originInfo.detail}
+                  </div>
+                )}
               </div>
             </section>
 
