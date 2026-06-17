@@ -9,6 +9,7 @@ import {
   Send,
   User,
   Building2,
+  ShieldCheck,
 } from 'lucide-react';
 import {
   listQuoteMessages,
@@ -18,6 +19,8 @@ import {
 import { getQuoteResponseByRequestId } from '@/lib/suppliers';
 import { supabase } from '@/lib/supabase';
 
+type SenderType = 'cliente' | 'fornecedor' | 'cerimonialista';
+
 export default function ChatOrcamentoPage() {
   const params = useParams();
   const requestId = String(params.id || '');
@@ -25,9 +28,10 @@ export default function ChatOrcamentoPage() {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   const [quote, setQuote] = useState<any>(null);
+  const [quoteRequest, setQuoteRequest] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [message, setMessage] = useState('');
-  const [senderType, setSenderType] = useState<'cliente' | 'fornecedor'>('cliente');
+  const [senderType, setSenderType] = useState<SenderType>('cliente');
   const [senderName, setSenderName] = useState('Cliente');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -39,6 +43,7 @@ export default function ChatOrcamentoPage() {
     async function loadChat() {
       try {
         setLoading(true);
+        setErrorMessage('');
 
         const [quoteData, messagesData] = await Promise.all([
           getQuoteResponseByRequestId(requestId),
@@ -48,10 +53,30 @@ export default function ChatOrcamentoPage() {
         setQuote(quoteData);
         setMessages(messagesData);
 
+        const { data: requestData, error: requestError } = await supabase
+          .from('quote_requests')
+          .select(`
+            id,
+            customer_id,
+            customer_name,
+            created_by_user_id,
+            created_by_role,
+            created_by_name,
+            created_by_email
+          `)
+          .eq('id', requestId)
+          .maybeSingle();
+
+        if (requestError) {
+          console.error('Erro ao carregar dados da solicitação:', requestError);
+        }
+
+        setQuoteRequest(requestData || null);
+
         const user = (await supabase.auth.getUser()).data.user;
 
-        let detectedSenderType: 'cliente' | 'fornecedor' = 'cliente';
-        let detectedSenderName = 'Cliente';
+        let detectedSenderType: SenderType = 'cliente';
+        let detectedSenderName = requestData?.customer_name || 'Cliente';
 
         if (user && quoteData?.supplier_id) {
           const { data: supplierOwner } = await supabase
@@ -70,12 +95,37 @@ export default function ChatOrcamentoPage() {
           }
         }
 
+        if (
+          user?.email &&
+          detectedSenderType !== 'fornecedor' &&
+          requestData?.customer_id
+        ) {
+          const { data: collaborator } = await supabase
+            .from('event_collaborators')
+            .select('id, collaborator_name, collaborator_email, status')
+            .eq('owner_id', requestData.customer_id)
+            .ilike('collaborator_email', user.email)
+            .eq('status', 'aceito')
+            .limit(1)
+            .maybeSingle();
+
+          if (collaborator) {
+            detectedSenderType = 'cerimonialista';
+            detectedSenderName =
+              collaborator.collaborator_name ||
+              requestData.created_by_name ||
+              user.email ||
+              'Cerimonialista';
+          }
+        }
+
         setSenderType(detectedSenderType);
         setSenderName(detectedSenderName);
 
         await markMessagesAsRead({
           quote_request_id: requestId,
-          reader_type: detectedSenderType,
+          reader_type:
+            detectedSenderType === 'fornecedor' ? 'fornecedor' : 'cliente',
         });
 
         const updatedMessages = await listQuoteMessages(requestId);
@@ -127,11 +177,30 @@ export default function ChatOrcamentoPage() {
     }
   }
 
+  function getMessageRoleLabel(item: any) {
+    if (item.sender_type === 'fornecedor') return 'Fornecedor';
+    if (item.sender_type === 'cerimonialista') return 'Cerimonialista';
+    return 'Cliente';
+  }
+
+  function getMessageIcon(item: any) {
+    if (item.sender_type === 'fornecedor') return Building2;
+    if (item.sender_type === 'cerimonialista') return ShieldCheck;
+    return User;
+  }
+
+  function getSenderModeLabel() {
+    if (senderType === 'fornecedor') return 'Fornecedor';
+    if (senderType === 'cerimonialista') return 'Cerimonialista';
+    return 'Cliente';
+  }
+
   const supplierName = quote?.suppliers?.business_name || 'Fornecedor';
   const supplierCategory =
     quote?.suppliers?.categories?.name || 'Fornecedor de eventos';
 
   const isSupplierMode = senderType === 'fornecedor';
+  const isCerimonialistaMode = senderType === 'cerimonialista';
 
   return (
     <main className="min-h-screen bg-black text-[#151515]">
@@ -142,7 +211,13 @@ export default function ChatOrcamentoPage() {
 
           <div className="relative z-10">
             <Link
-              href={isSupplierMode ? '/painel-fornecedor/leads' : `/orcamentos/${requestId}`}
+              href={
+                isSupplierMode
+                  ? '/painel-fornecedor/leads'
+                  : isCerimonialistaMode
+                    ? '/cerimonialista/convites'
+                    : `/orcamentos/${requestId}`
+              }
               className="inline-flex items-center gap-2 text-sm font-bold text-[#e3a925]"
             >
               <ArrowLeft size={17} />
@@ -178,11 +253,29 @@ export default function ChatOrcamentoPage() {
             className={
               isSupplierMode
                 ? 'mt-3 rounded-2xl bg-[#fff7e8] px-4 py-3 text-xs font-extrabold text-[#9a6a00] ring-1 ring-[#e3a925]/30'
-                : 'mt-3 rounded-2xl bg-white px-4 py-3 text-xs font-extrabold text-gray-600 ring-1 ring-[#f1e7cf]'
+                : isCerimonialistaMode
+                  ? 'mt-3 rounded-2xl bg-green-50 px-4 py-3 text-xs font-extrabold text-green-700 ring-1 ring-green-100'
+                  : 'mt-3 rounded-2xl bg-white px-4 py-3 text-xs font-extrabold text-gray-600 ring-1 ring-[#f1e7cf]'
             }
           >
-            Você está respondendo como: {isSupplierMode ? 'Fornecedor' : 'Cliente'}
+            Você está respondendo como: {getSenderModeLabel()}
+            {senderName && (
+              <span className="mt-1 block break-all font-bold opacity-80">
+                {senderName}
+              </span>
+            )}
           </div>
+
+          {quoteRequest?.created_by_role === 'cerimonialista' && (
+            <div className="mt-3 rounded-2xl bg-green-50 px-4 py-3 text-xs font-bold leading-5 text-green-700 ring-1 ring-green-100">
+              Este orçamento foi solicitado originalmente pela cerimonialista:{' '}
+              <strong>
+                {quoteRequest.created_by_name ||
+                  quoteRequest.created_by_email ||
+                  'Cerimonialista'}
+              </strong>
+            </div>
+          )}
         </section>
 
         <section className="flex-1 px-6 py-5">
@@ -217,6 +310,9 @@ export default function ChatOrcamentoPage() {
           <div className="space-y-3">
             {messages.map((item) => {
               const isSupplier = item.sender_type === 'fornecedor';
+              const isCerimonialista = item.sender_type === 'cerimonialista';
+              const isClient = !isSupplier && !isCerimonialista;
+              const MessageIcon = getMessageIcon(item);
 
               return (
                 <div
@@ -227,12 +323,23 @@ export default function ChatOrcamentoPage() {
                     className={
                       isSupplier
                         ? 'max-w-[82%] rounded-3xl rounded-tl-md bg-white px-4 py-3 shadow-sm ring-1 ring-[#f1e7cf]'
-                        : 'max-w-[82%] rounded-3xl rounded-tr-md bg-[#e3a925] px-4 py-3 text-white shadow-sm'
+                        : isCerimonialista
+                          ? 'max-w-[82%] rounded-3xl rounded-tr-md bg-green-600 px-4 py-3 text-white shadow-sm'
+                          : 'max-w-[82%] rounded-3xl rounded-tr-md bg-[#e3a925] px-4 py-3 text-white shadow-sm'
                     }
                   >
-                    <div className="mb-1 flex items-center gap-1 text-[11px] font-extrabold opacity-80">
-                      {isSupplier ? <Building2 size={12} /> : <User size={12} />}
-                      {item.sender_name || (isSupplier ? 'Fornecedor' : 'Cliente')}
+                    <div className="mb-1 flex items-center gap-1 text-[11px] font-extrabold opacity-90">
+                      <MessageIcon size={12} />
+                      {getMessageRoleLabel(item)}
+                    </div>
+
+                    <div className="mb-1 text-[11px] font-bold opacity-80">
+                      {item.sender_name ||
+                        (isSupplier
+                          ? 'Fornecedor'
+                          : isCerimonialista
+                            ? 'Cerimonialista'
+                            : 'Cliente')}
                     </div>
 
                     <p className="text-sm leading-5">{item.message}</p>
@@ -263,7 +370,9 @@ export default function ChatOrcamentoPage() {
               placeholder={
                 isSupplierMode
                   ? 'Responder como fornecedor...'
-                  : 'Digite sua mensagem...'
+                  : isCerimonialistaMode
+                    ? 'Responder como cerimonialista...'
+                    : 'Digite sua mensagem...'
               }
             />
 
