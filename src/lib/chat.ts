@@ -1,5 +1,8 @@
 import { supabase } from './supabase';
 
+export type QuoteSenderType = 'cliente' | 'fornecedor' | 'cerimonialista';
+export type QuoteReaderType = 'cliente' | 'fornecedor' | 'cerimonialista';
+
 export async function listQuoteMessages(quoteRequestId: string) {
   const { data, error } = await supabase
     .from('quote_messages')
@@ -18,10 +21,14 @@ export async function listQuoteMessages(quoteRequestId: string) {
 export async function sendQuoteMessage(data: {
   quote_request_id: string;
   supplier_id?: string | null;
-  sender_type: 'cliente' | 'fornecedor';
+  sender_type: QuoteSenderType;
   sender_name?: string;
   message: string;
 }) {
+  const isClient = data.sender_type === 'cliente';
+  const isSupplier = data.sender_type === 'fornecedor';
+  const isCerimonialista = data.sender_type === 'cerimonialista';
+
   const { error } = await supabase.from('quote_messages').insert([
     {
       quote_request_id: data.quote_request_id,
@@ -30,10 +37,20 @@ export async function sendQuoteMessage(data: {
       sender_name: data.sender_name || null,
       message: data.message,
 
-      // Quem envia já leu a própria mensagem.
-      // O outro lado fica como não lida.
-      read_by_client: data.sender_type === 'cliente',
-      read_by_supplier: data.sender_type === 'fornecedor',
+      /*
+        Regras:
+        - Cliente envia: cliente já leu, fornecedor ainda não.
+        - Fornecedor envia: fornecedor já leu, cliente ainda não.
+        - Cerimonialista envia: fornecedor ainda não leu e cliente também pode ver como nova.
+      */
+      read_by_client: isClient,
+      read_by_supplier: isSupplier,
+
+      /*
+        Se futuramente criar coluna read_by_cerimonialista,
+        podemos controlar leitura separada da cerimonialista.
+        Por enquanto, ela atua dentro do lado da cliente.
+      */
     },
   ]);
 
@@ -47,7 +64,7 @@ export async function sendQuoteMessage(data: {
 
 export async function markMessagesAsRead(data: {
   quote_request_id: string;
-  reader_type: 'cliente' | 'fornecedor';
+  reader_type: QuoteReaderType;
 }) {
   const updateData =
     data.reader_type === 'fornecedor'
@@ -69,7 +86,7 @@ export async function markMessagesAsRead(data: {
 
 export async function countUnreadMessages(data: {
   quote_request_id: string;
-  reader_type: 'cliente' | 'fornecedor';
+  reader_type: QuoteReaderType;
 }) {
   const column =
     data.reader_type === 'fornecedor' ? 'read_by_supplier' : 'read_by_client';
