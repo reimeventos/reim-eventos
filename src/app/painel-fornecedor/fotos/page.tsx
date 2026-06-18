@@ -388,24 +388,35 @@ export default function FotosFornecedorPage() {
 
           {!loading && supplier && (
             <>
-              <div className="rounded-[28px] border-2 border-dashed border-[#e3a925]/60 bg-white p-6 text-center shadow-sm">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#fff7e8] text-[#d99200]">
-                  {uploading ? (
-                    <Loader2 size={32} className="animate-spin" />
-                  ) : (
-                    <Upload size={32} />
-                  )}
+              <div className="rounded-[24px] border border-dashed border-[#e3a925]/60 bg-white p-4 shadow-sm">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]">
+                    {uploading ? (
+                      <Loader2 size={25} className="animate-spin" />
+                    ) : (
+                      <Upload size={25} />
+                    )}
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <h2 className="text-base font-extrabold">
+                      Enviar mídia
+                    </h2>
+
+                    <p className="mt-1 text-[11px] leading-4 text-gray-500">
+                      Fotos até 5MB • Vídeos até 50MB
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => inputRef.current?.click()}
+                    disabled={uploading}
+                    className="shrink-0 rounded-[18px] bg-[#e3a925] px-4 py-3 text-xs font-extrabold text-white shadow-lg disabled:opacity-60"
+                  >
+                    {uploading ? 'Enviando...' : 'Escolher'}
+                  </button>
                 </div>
-
-                <h2 className="mt-4 text-lg font-extrabold">
-                  Enviar nova mídia
-                </h2>
-
-                <p className="mt-2 text-sm leading-5 text-gray-500">
-                  Fotos em JPG, PNG ou WEBP até 5MB.
-                  <br />
-                  Vídeos em MP4, WEBM ou MOV até 50MB.
-                </p>
 
                 <input
                   ref={inputRef}
@@ -414,41 +425,38 @@ export default function FotosFornecedorPage() {
                   className="hidden"
                   onChange={(event) => handleUpload(event.target.files)}
                 />
-
-                <button
-                  type="button"
-                  onClick={() => inputRef.current?.click()}
-                  disabled={uploading}
-                  className="mt-5 rounded-[22px] bg-[#e3a925] px-6 py-3 text-sm font-extrabold text-white shadow-lg disabled:opacity-60"
-                >
-                  {uploading ? 'Enviando...' : 'Selecionar arquivo'}
-                </button>
               </div>
 
-              <section className="grid grid-cols-2 gap-4 pt-6">
-                <div className="rounded-[24px] bg-white p-5 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]">
-                    <ImageIcon size={29} />
+              <section className="grid grid-cols-3 gap-3 pt-4">
+                <div className="rounded-[20px] bg-white p-3 text-center shadow-sm ring-1 ring-[#f1e7cf]">
+                  <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-xl bg-[#fff7e8] text-[#d99200]">
+                    <ImageIcon size={19} />
                   </div>
-                  <h3 className="mt-3 text-sm font-extrabold">Fotos</h3>
-                  <p className="mt-1 text-xs text-gray-500">
-                    {photoCount} na galeria
-                  </p>
+                  <p className="mt-2 text-lg font-extrabold">{photoCount}</p>
+                  <p className="text-[10px] font-bold text-gray-500">Fotos</p>
                 </div>
 
-                <div className="rounded-[24px] bg-white p-5 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]">
-                    <Video size={29} />
+                <div className="rounded-[20px] bg-white p-3 text-center shadow-sm ring-1 ring-[#f1e7cf]">
+                  <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-xl bg-[#fff7e8] text-[#d99200]">
+                    <Video size={19} />
                   </div>
-                  <h3 className="mt-3 text-sm font-extrabold">Vídeos</h3>
-                  <p className="mt-1 text-xs text-gray-500">
-                    {videoCount} no portfólio
+                  <p className="mt-2 text-lg font-extrabold">{videoCount}</p>
+                  <p className="text-[10px] font-bold text-gray-500">Vídeos</p>
+                </div>
+
+                <div className="rounded-[20px] bg-white p-3 text-center shadow-sm ring-1 ring-[#f1e7cf]">
+                  <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-xl bg-[#fff7e8] text-[#d99200]">
+                    <Star size={19} />
+                  </div>
+                  <p className="mt-2 text-lg font-extrabold">
+                    {coverMedia ? 'OK' : 'N/I'}
                   </p>
+                  <p className="text-[10px] font-bold text-gray-500">Capa</p>
                 </div>
               </section>
 
-              <section className="pt-6">
-                <div className="mb-4 flex items-center justify-between">
+              <section className="pt-4">
+                <div className="mb-3 flex items-center justify-between">
                   <div>
                     <h2 className="text-lg font-extrabold">Galeria da vitrine</h2>
                     <p className="mt-1 text-xs font-bold text-gray-500">
@@ -495,7 +503,7 @@ export default function FotosFornecedorPage() {
                         <button
                           type="button"
                           onClick={() => setSelectedMedia(item)}
-                          className="relative block h-40 w-full bg-[#151515]"
+                          className="relative block h-32 w-full bg-[#151515]"
                         >
                           {isVideo ? (
                             <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-[#151515] via-[#2a2110] to-[#d99200] px-3 text-center text-white">
