@@ -151,6 +151,18 @@ export default function LeadsFornecedorPage() {
       };
     }
 
+    if (role === 'cliente_lote') {
+      return {
+        label: 'Enviado em lote pela cliente',
+        detail: name || email || lead.customer_name || 'Cliente',
+        description:
+          'Este pedido veio do botão “Solicitar orçamento para todos”.',
+        icon: FileText,
+        boxClass: 'bg-blue-50 text-blue-800 ring-blue-100',
+        iconClass: 'text-blue-700',
+      };
+    }
+
     return {
       label: 'Solicitado pela cliente',
       detail: name || email || lead.customer_name || 'Cliente',
@@ -249,6 +261,10 @@ export default function LeadsFornecedorPage() {
     (lead) => lead.created_by_role === 'cerimonialista'
   ).length;
 
+  const batchCount = leads.filter(
+    (lead) => lead.created_by_role === 'cliente_lote'
+  ).length;
+
   const totalUnreadMessages = leads.reduce((total, lead) => {
     const messages = lead.quote_messages || [];
     const unread = messages.filter(isUnreadForSupplier).length;
@@ -327,6 +343,28 @@ export default function LeadsFornecedorPage() {
 
                 <p className="mt-1 text-xs leading-5 text-green-700">
                   Esses pedidos foram enviados em nome da cliente por cerimonialistas autorizadas no evento.
+                </p>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {batchCount > 0 && (
+          <section className="px-6 pt-4">
+            <div className="flex items-start gap-3 rounded-[22px] bg-blue-50 px-4 py-4 text-blue-800 ring-1 ring-blue-100">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-100">
+                <FileText size={22} />
+              </div>
+
+              <div>
+                <p className="text-sm font-extrabold">
+                  {batchCount === 1
+                    ? '1 lead veio de envio em lote'
+                    : `${batchCount} leads vieram de envio em lote`}
+                </p>
+
+                <p className="mt-1 text-xs leading-5 text-blue-700">
+                  Esses pedidos foram enviados pela cliente usando “Solicitar orçamento para todos”.
                 </p>
               </div>
             </div>
