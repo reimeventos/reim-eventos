@@ -41,14 +41,28 @@ function getOriginInfo(origin: any) {
     return {
       label: 'Solicitado pela cerimonialista',
       detail: name || email || 'Cerimonialista',
+      description:
+        'Este orçamento foi solicitado por uma cerimonialista autorizada pela cliente.',
       icon: ShieldCheck,
       className: 'bg-green-50 text-green-700 ring-green-100',
+    };
+  }
+
+  if (role === 'cliente_lote') {
+    return {
+      label: 'Enviado em lote pela cliente',
+      detail: name || email || 'Cliente',
+      description:
+        'Este orçamento veio do botão “Solicitar orçamento para todos”.',
+      icon: FileText,
+      className: 'bg-blue-50 text-blue-700 ring-blue-100',
     };
   }
 
   return {
     label: 'Solicitado por você',
     detail: name || email || 'Cliente',
+    description: 'Este orçamento foi solicitado diretamente pela cliente.',
     icon: User,
     className: 'bg-[#fff7e8] text-[#b97900] ring-[#f1e7cf]',
   };
@@ -579,7 +593,7 @@ export default function OrcamentoRecebidoPage() {
       `}</style>
 
       <main className="screen-area min-h-screen bg-black text-[#151515]">
-        <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] pb-10 shadow-2xl">
+        <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] pb-40 shadow-2xl">
           <section className="relative overflow-hidden rounded-b-[34px] bg-black px-6 pb-8 pt-7 text-white">
             <div className="absolute inset-0 bg-[url('/layout01-fundo.png')] bg-cover bg-center opacity-45" />
             <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/85 to-black" />
@@ -594,11 +608,13 @@ export default function OrcamentoRecebidoPage() {
               </Link>
 
               <h1 className="mt-5 font-serif text-[34px] leading-tight">
-                Orçamento recebido
+                {quote ? supplierName : 'Orçamento recebido'}
               </h1>
 
               <p className="mt-2 text-sm text-white/70">
-                Veja a proposta enviada pelo fornecedor.
+                {quote
+                  ? `${supplierCategory} • ${statusLabel()}`
+                  : 'Veja a proposta enviada pelo fornecedor.'}
               </p>
             </div>
           </section>
@@ -637,24 +653,55 @@ export default function OrcamentoRecebidoPage() {
 
             {!loading && quote && (
               <>
-                <div className="rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)]">
-                  <div className="flex items-center gap-4">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]">
+                <div className="rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]">
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]">
                       <Building2 size={30} />
                     </div>
 
-                    <div>
-                      <p className="text-xs font-bold text-gray-500">
-                        Fornecedor
-                      </p>
-                      <h2 className="text-lg font-extrabold">{supplierName}</h2>
-                      <p className="text-sm text-gray-500">{supplierCategory}</p>
-                    </div>
-                  </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-gray-500">
+                            Fornecedor
+                          </p>
+                          <h2 className="line-clamp-1 text-lg font-extrabold">
+                            {supplierName}
+                          </h2>
+                          <p className="line-clamp-1 text-sm text-gray-500">
+                            {supplierCategory}
+                          </p>
+                        </div>
 
-                  <div className="mt-4 rounded-2xl bg-[#fbf7f1] p-3">
-                    <p className="text-xs font-bold text-gray-500">Cidade</p>
-                    <p className="mt-1 text-sm font-extrabold">{supplierCity}</p>
+                        <span
+                          className={
+                            isAccepted
+                              ? 'shrink-0 rounded-full bg-green-100 px-3 py-1 text-[11px] font-extrabold text-green-700'
+                              : isAdjustmentRequested
+                                ? 'shrink-0 rounded-full bg-yellow-100 px-3 py-1 text-[11px] font-extrabold text-yellow-700'
+                                : 'shrink-0 rounded-full bg-green-50 px-3 py-1 text-[11px] font-extrabold text-green-700'
+                          }
+                        >
+                          {statusLabel()}
+                        </span>
+                      </div>
+
+                      <div className="mt-3 grid grid-cols-2 gap-3">
+                        <div className="rounded-2xl bg-[#fbf7f1] p-3">
+                          <p className="text-xs font-bold text-gray-500">Cidade</p>
+                          <p className="mt-1 line-clamp-1 text-sm font-extrabold">
+                            {supplierCity}
+                          </p>
+                        </div>
+
+                        <div className="rounded-2xl bg-[#fff7e8] p-3">
+                          <p className="text-xs font-bold text-[#b97900]">Valor</p>
+                          <p className="mt-1 line-clamp-1 text-sm font-extrabold">
+                            {quote.proposal_value || 'Não informado'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -680,6 +727,10 @@ export default function OrcamentoRecebidoPage() {
                           {originInfo.detail}
                         </p>
                       )}
+
+                      <p className="mt-2 text-xs leading-5 opacity-80">
+                        {originInfo.description}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -858,7 +909,7 @@ export default function OrcamentoRecebidoPage() {
                   </div>
                 )}
 
-                <div className="mt-6 space-y-3">
+                <div className="sticky bottom-4 z-30 mt-6 space-y-3 rounded-[28px] bg-[#fbf7f1]/95 p-3 shadow-[0_-10px_30px_rgba(0,0,0,.10)] backdrop-blur">
                   <button
                     onClick={handleAcceptQuote}
                     disabled={accepting || isAccepted}
