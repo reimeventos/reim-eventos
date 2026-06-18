@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   Loader2,
   X,
+  PlayCircle,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
@@ -28,6 +29,14 @@ function isVideoUrl(url: string) {
     normalized.includes('.mov') ||
     normalized.includes('video')
   );
+}
+
+function getVideoPreviewUrl(url: string) {
+  if (!url) return '';
+
+  if (url.includes('#t=')) return url;
+
+  return `${url}#t=0.1`;
 }
 
 function getFileKind(file: File) {
@@ -489,12 +498,21 @@ export default function FotosFornecedorPage() {
                           className="relative block h-40 w-full bg-[#151515]"
                         >
                           {isVideo ? (
-                            <video
-                              src={item.file_url}
-                              className="h-full w-full object-cover"
-                              muted
-                              playsInline
-                            />
+                            <>
+                              <video
+                                src={getVideoPreviewUrl(item.file_url)}
+                                className="h-full w-full object-cover"
+                                muted
+                                playsInline
+                                preload="metadata"
+                              />
+
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/25">
+                                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-[#d99200] shadow-lg">
+                                  <PlayCircle size={31} />
+                                </div>
+                              </div>
+                            </>
                           ) : (
                             <img
                               src={item.file_url}
