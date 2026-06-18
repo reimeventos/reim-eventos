@@ -19,6 +19,11 @@ import {
   Pencil,
   Send,
   Eye,
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  FileText,
+  Plus,
 } from 'lucide-react';
 import { Nav } from '@/components/Nav';
 import { listSavedSuppliers, unsaveSupplier } from '@/lib/suppliers';
@@ -133,7 +138,7 @@ function getCollaboratorDisplayName(item: any) {
 }
 
 function getCollaboratorStatusLabel(status: string) {
-  if (status === 'aceito') return 'Atuando no evento';
+  if (status === 'aceito') return 'Atuando';
   if (status === 'recusado') return 'Recusado';
   return 'Pendente';
 }
@@ -170,6 +175,34 @@ function getWhatsappShareUrl() {
   return `https://wa.me/?text=${encodeURIComponent(text)}`;
 }
 
+function getQuoteStatusLabel(status?: string) {
+  if (status === 'novo' || status === 'aguardando_resposta') return 'Orçamento enviado';
+  if (status === 'respondido') return 'Respondido';
+  if (status === 'ajuste_solicitado') return 'Ajuste solicitado';
+  if (status === 'aceito' || status === 'fechado') return 'Aceito';
+  return 'Selecionado';
+}
+
+function getQuoteStatusClass(status?: string) {
+  if (status === 'aceito' || status === 'fechado') {
+    return 'bg-green-50 text-green-700 ring-green-100';
+  }
+
+  if (status === 'respondido') {
+    return 'bg-blue-50 text-blue-700 ring-blue-100';
+  }
+
+  if (status === 'ajuste_solicitado') {
+    return 'bg-yellow-50 text-yellow-800 ring-yellow-100';
+  }
+
+  if (status === 'novo' || status === 'aguardando_resposta') {
+    return 'bg-[#fff7e8] text-[#b97900] ring-[#f1e7cf]';
+  }
+
+  return 'bg-gray-50 text-gray-600 ring-gray-100';
+}
+
 export default function MeuEventoPage() {
   const router = useRouter();
 
@@ -177,6 +210,8 @@ export default function MeuEventoPage() {
   const [eventData, setEventData] = useState<any>(null);
   const [savedSuppliers, setSavedSuppliers] = useState<any[]>([]);
   const [collaborators, setCollaborators] = useState<any[]>([]);
+  const [quoteRequests, setQuoteRequests] = useState<any[]>([]);
+  const [expandedSupplierId, setExpandedSupplierId] = useState('');
   const [loading, setLoading] = useState(true);
   const [removingId, setRemovingId] = useState('');
   const [removingCollaboratorId, setRemovingCollaboratorId] = useState('');
@@ -239,6 +274,39 @@ export default function MeuEventoPage() {
     }
   }
 
+  async function loadQuoteRequests(customerId: string, supplierIds: string[]) {
+    if (!customerId || supplierIds.length === 0) {
+      setQuoteRequests([]);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('quote_requests')
+      .select(`
+        id,
+        supplier_id,
+        status,
+        created_at,
+        quote_responses(
+          id,
+          status,
+          created_at,
+          proposal_value
+        )
+      `)
+      .eq('customer_id', customerId)
+      .in('supplier_id', supplierIds)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Erro ao carregar status dos orçamentos:', error);
+      setQuoteRequests([]);
+      return;
+    }
+
+    setQuoteRequests(data || []);
+  }
+
   async function loadPageData() {
     try {
       setLoading(true);
@@ -248,6 +316,9 @@ export default function MeuEventoPage() {
 
       if (!canAccess) return;
 
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData.user;
+
       const [eventResult, suppliersResult, collaboratorsResult] =
         await Promise.all([
           getMyEvent().catch(() => null),
@@ -255,9 +326,18 @@ export default function MeuEventoPage() {
           listEventCollaborators().catch(() => []),
         ]);
 
+      const savedList = suppliersResult || [];
+      const supplierIds = savedList
+        .map((item: any) => getSupplierFromSaved(item)?.id || item?.supplier_id)
+        .filter(Boolean);
+
       setEventData(eventResult);
-      setSavedSuppliers(suppliersResult || []);
+      setSavedSuppliers(savedList);
       setCollaborators(collaboratorsResult || []);
+
+      if (user?.id) {
+        await loadQuoteRequests(user.id, supplierIds);
+      }
     } catch (error: any) {
       console.error('Erro ao carregar Meu Evento:', error);
       setErrorMessage(
@@ -274,6 +354,12 @@ export default function MeuEventoPage() {
   }, []);
 
   async function handleRemoveSupplier(supplierId: string) {
+    const confirmed = window.confirm(
+      'Deseja remover este fornecedor do seu evento?'
+    );
+
+    if (!confirmed) return;
+
     try {
       setRemovingId(supplierId);
       setSuccessMessage('');
@@ -330,6 +416,16 @@ export default function MeuEventoPage() {
     }
   }
 
+  function getQuoteForSupplier(supplierId: string) {
+    const quotes = quoteRequests.filter(
+      (quote) => quote.supplier_id === supplierId
+    );
+
+    if (quotes.length === 0) return null;
+
+    return quotes[0];
+  }
+
   if (checkingAccess || loading) {
     return (
       <main className="min-h-screen bg-black text-[#151515]">
@@ -347,6 +443,11 @@ export default function MeuEventoPage() {
   }
 
   const totalSaved = savedSuppliers.length;
+  const requestedCount = quoteRequests.length;
+  const acceptedCount = quoteRequests.filter((quote) =>
+    ['aceito', 'fechado'].includes(quote.status)
+  ).length;
+  const pendingCount = Math.max(totalSaved - requestedCount, 0);
   const progress = totalSaved > 0 ? Math.min(100, totalSaved * 20) : 0;
 
   const eventTitle = getEventTitle(eventData);
@@ -360,7 +461,7 @@ export default function MeuEventoPage() {
 
   return (
     <main className="min-h-screen bg-black text-[#151515]">
-      <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] pb-28 shadow-2xl">
+      <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] pb-36 shadow-2xl">
         <section className="relative overflow-hidden rounded-b-[34px] bg-black px-6 pb-8 pt-7 text-white">
           <div className="absolute inset-0 bg-[url('/layout01-fundo.png')] bg-cover bg-center opacity-45" />
           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/80 to-black" />
@@ -371,67 +472,100 @@ export default function MeuEventoPage() {
                 ‹ Voltar
               </Link>
 
-              <a
-                href={whatsappShareUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-[#e3a925]"
-              >
-                <Share2 size={21} />
-              </a>
-            </div>
+              <div className="flex items-center gap-3">
+                <Link
+                  href="/meu-evento/editar"
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-[#e3a925]"
+                >
+                  <Pencil size={19} />
+                </Link>
 
-            <div className="mt-6 flex items-center gap-3">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#e3a925] text-white shadow-lg">
-                <Heart size={31} />
-              </div>
-
-              <div className="flex-1">
-                <h1 className="font-serif text-[34px] leading-tight">
-                  Meu Evento
-                </h1>
-                <p className="mt-1 text-sm text-white/70">
-                  {eventTitle}
-                </p>
+                <a
+                  href={whatsappShareUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-[#e3a925]"
+                >
+                  <Share2 size={19} />
+                </a>
               </div>
             </div>
 
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              <div className="rounded-2xl bg-white/10 p-3">
-                <p className="flex items-center gap-2 text-xs font-bold text-white/60">
-                  <CalendarDays size={14} className="text-[#e3a925]" />
+            <div className="mt-6">
+              <p className="text-xs font-bold uppercase tracking-[0.25em] text-[#e3a925]">
+                Meu Evento
+              </p>
+
+              <h1 className="mt-2 font-serif text-[34px] leading-tight">
+                {eventTitle}
+              </h1>
+
+              <p className="mt-2 text-sm text-white/70">
+                Organize fornecedores, orçamentos e colaboradores em um só lugar.
+              </p>
+            </div>
+
+            <div className="mt-6 overflow-hidden rounded-[28px] bg-white/10 backdrop-blur">
+              <div className="relative h-44">
+                <img
+                  src="/layout01-fundo.png"
+                  alt={eventTitle}
+                  className="h-full w-full object-cover opacity-75"
+                />
+
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+
+                <div className="absolute bottom-4 left-4 right-4">
+                  <h2 className="font-serif text-[24px] leading-tight text-white">
+                    {eventTitle}
+                  </h2>
+
+                  <p className="mt-1 flex items-center gap-2 text-xs font-bold text-white/75">
+                    <MapPin size={13} className="text-[#e3a925]" />
+                    {eventCity}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-5 grid grid-cols-4 gap-2">
+              <div className="rounded-2xl bg-white/10 p-3 text-center">
+                <CalendarDays size={17} className="mx-auto text-[#e3a925]" />
+                <p className="mt-2 text-[10px] font-bold text-white/55">
                   Data
                 </p>
-                <p className="mt-1 text-sm font-extrabold">
+                <p className="mt-1 text-[11px] font-extrabold">
                   {formatDate(eventDate)}
                 </p>
               </div>
 
-              <div className="rounded-2xl bg-white/10 p-3">
-                <p className="flex items-center gap-2 text-xs font-bold text-white/60">
-                  <MapPin size={14} className="text-[#e3a925]" />
-                  Cidade
-                </p>
-                <p className="mt-1 text-sm font-extrabold">{eventCity}</p>
-              </div>
-
-              <div className="rounded-2xl bg-white/10 p-3">
-                <p className="flex items-center gap-2 text-xs font-bold text-white/60">
-                  <Users size={14} className="text-[#e3a925]" />
+              <div className="rounded-2xl bg-white/10 p-3 text-center">
+                <Users size={17} className="mx-auto text-[#e3a925]" />
+                <p className="mt-2 text-[10px] font-bold text-white/55">
                   Convidados
                 </p>
-                <p className="mt-1 text-sm font-extrabold">
-                  {guestsCount ? guestsCount : 'Não informado'}
+                <p className="mt-1 text-[11px] font-extrabold">
+                  {guestsCount ? guestsCount : 'N/I'}
                 </p>
               </div>
 
-              <div className="rounded-2xl bg-white/10 p-3">
-                <p className="flex items-center gap-2 text-xs font-bold text-white/60">
-                  <MapPin size={14} className="text-[#e3a925]" />
+              <div className="rounded-2xl bg-white/10 p-3 text-center">
+                <MapPin size={17} className="mx-auto text-[#e3a925]" />
+                <p className="mt-2 text-[10px] font-bold text-white/55">
+                  Cidade
+                </p>
+                <p className="mt-1 line-clamp-1 text-[11px] font-extrabold">
+                  {eventCity}
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-white/10 p-3 text-center">
+                <MapPin size={17} className="mx-auto text-[#e3a925]" />
+                <p className="mt-2 text-[10px] font-bold text-white/55">
                   Espaço
                 </p>
-                <p className="mt-1 line-clamp-1 text-sm font-extrabold">
-                  {eventSpace || 'Não informado'}
+                <p className="mt-1 line-clamp-1 text-[11px] font-extrabold">
+                  {eventSpace || 'N/I'}
                 </p>
               </div>
             </div>
@@ -452,19 +586,19 @@ export default function MeuEventoPage() {
 
             <div className="mt-5 grid grid-cols-2 gap-3">
               <Link
-                href="/meu-evento/editar"
-                className="flex items-center justify-center gap-2 rounded-[22px] bg-white/10 py-3 text-sm font-extrabold text-white ring-1 ring-white/10"
-              >
-                <Pencil size={17} className="text-[#e3a925]" />
-                Editar
-              </Link>
-
-              <Link
                 href="/meu-evento/linha-do-tempo"
                 className="flex items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-3 text-sm font-extrabold text-white shadow-lg"
               >
                 <Clock size={17} />
                 Linha do tempo
+              </Link>
+
+              <Link
+                href="/orcamentos"
+                className="flex items-center justify-center gap-2 rounded-[22px] bg-white/10 py-3 text-sm font-extrabold text-white ring-1 ring-white/10"
+              >
+                <FileText size={17} className="text-[#e3a925]" />
+                Orçamentos
               </Link>
             </div>
           </div>
@@ -486,11 +620,43 @@ export default function MeuEventoPage() {
           </section>
         )}
 
+        <section className="grid grid-cols-4 gap-2 px-6 pt-6">
+          <div className="rounded-[20px] bg-white p-3 text-center shadow-sm ring-1 ring-[#f1e7cf]">
+            <p className="text-xl font-extrabold text-[#d99200]">
+              {totalSaved}
+            </p>
+            <p className="mt-1 text-[10px] font-bold text-gray-600">Salvos</p>
+          </div>
+
+          <div className="rounded-[20px] bg-white p-3 text-center shadow-sm ring-1 ring-[#f1e7cf]">
+            <p className="text-xl font-extrabold text-blue-600">
+              {requestedCount}
+            </p>
+            <p className="mt-1 text-[10px] font-bold text-gray-600">
+              Orçamentos
+            </p>
+          </div>
+
+          <div className="rounded-[20px] bg-white p-3 text-center shadow-sm ring-1 ring-[#f1e7cf]">
+            <p className="text-xl font-extrabold text-green-600">
+              {acceptedCount}
+            </p>
+            <p className="mt-1 text-[10px] font-bold text-gray-600">Aceitos</p>
+          </div>
+
+          <div className="rounded-[20px] bg-white p-3 text-center shadow-sm ring-1 ring-[#f1e7cf]">
+            <p className="text-xl font-extrabold text-yellow-600">
+              {pendingCount}
+            </p>
+            <p className="mt-1 text-[10px] font-bold text-gray-600">Pendentes</p>
+          </div>
+        </section>
+
         <section className="px-6 pt-6">
-          <div className="rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)]">
+          <div className="rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]">
             <div className="flex items-start gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]">
-                <UserPlus size={30} />
+              <div className="flex h-13 w-13 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]">
+                <UserPlus size={28} />
               </div>
 
               <div className="flex-1">
@@ -499,30 +665,31 @@ export default function MeuEventoPage() {
                 </h2>
 
                 <p className="mt-1 text-sm leading-5 text-gray-600">
-                  Convide sua cerimonialista para ajudar a adicionar fornecedores,
-                  solicitar orçamentos e organizar a lista.
+                  Convide sua cerimonialista para ajudar a organizar fornecedores e orçamentos.
                 </p>
 
-                <a
-                  href="/meu-evento/compartilhar"
-                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-3 text-sm font-extrabold text-white shadow-lg"
-                >
-                  <Share2 size={18} />
-                  Compartilhar com cerimonialista
-                </a>
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  <Link
+                    href="/meu-evento/compartilhar"
+                    className="flex items-center justify-center gap-2 rounded-[20px] bg-[#e3a925] py-3 text-sm font-extrabold text-white shadow-lg"
+                  >
+                    <Share2 size={17} />
+                    Cerimonialista
+                  </Link>
+
+                  <a
+                    href={whatsappShareUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 rounded-[20px] bg-green-600 py-3 text-sm font-extrabold text-white shadow-lg"
+                  >
+                    <Send size={17} />
+                    WhatsApp
+                  </a>
+                </div>
               </div>
             </div>
           </div>
-
-          <a
-            href={whatsappShareUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-[24px] bg-green-600 py-4 text-center font-extrabold text-white shadow-lg"
-          >
-            <Send size={20} />
-            Compartilhar REIM pelo WhatsApp
-          </a>
         </section>
 
         <section className="px-6 pt-6">
@@ -534,7 +701,7 @@ export default function MeuEventoPage() {
           </div>
 
           <div className="space-y-3">
-            <div className="rounded-[24px] bg-white p-4 shadow-sm ring-1 ring-[#f1e7cf]">
+            <div className="rounded-[22px] bg-white p-4 shadow-sm ring-1 ring-[#f1e7cf]">
               <div className="flex items-center gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]">
                   <Users size={22} />
@@ -550,9 +717,9 @@ export default function MeuEventoPage() {
             </div>
 
             {collaborators.length === 0 && (
-              <a
+              <Link
                 href="/meu-evento/compartilhar"
-                className="block rounded-[24px] bg-white p-4 shadow-sm ring-1 ring-[#f1e7cf]"
+                className="block rounded-[22px] bg-white p-4 shadow-sm ring-1 ring-[#f1e7cf]"
               >
                 <div className="flex items-center gap-3">
                   <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]">
@@ -566,7 +733,7 @@ export default function MeuEventoPage() {
                     </p>
                   </div>
                 </div>
-              </a>
+              </Link>
             )}
 
             {collaborators.map((item) => {
@@ -580,68 +747,59 @@ export default function MeuEventoPage() {
               return (
                 <div
                   key={item.id}
-                  className="rounded-[24px] bg-white p-4 shadow-sm ring-1 ring-[#f1e7cf]"
+                  className="rounded-[22px] bg-white p-4 shadow-sm ring-1 ring-[#f1e7cf]"
                 >
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-center gap-3">
                     <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]">
                       <ShieldCheck size={22} />
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="line-clamp-1 text-sm font-extrabold">
-                            {getCollaboratorDisplayName(item)}
-                          </p>
+                      <p className="line-clamp-1 text-sm font-extrabold">
+                        {getCollaboratorDisplayName(item)}
+                      </p>
 
-                          <p className="mt-1 break-words text-xs font-bold text-gray-500">
-                            {item.collaborator_email}
-                          </p>
-                        </div>
-
-                        <span
-                          className={`shrink-0 rounded-full px-3 py-1 text-[10px] font-extrabold ring-1 ${statusClass}`}
-                        >
-                          {statusLabel}
-                        </span>
-                      </div>
-
-                      {isAccepted && (
-                        <div className="mt-3 rounded-2xl bg-green-50 p-3 text-sm leading-5 text-green-800 ring-1 ring-green-100">
-                          Esta cerimonialista está autorizada a atuar no evento,
-                          buscar fornecedores e acompanhar orçamentos.
-                        </div>
-                      )}
-
-                      {!isAccepted && item.status !== 'recusado' && (
-                        <div className="mt-3 rounded-2xl bg-yellow-50 p-3 text-sm leading-5 text-yellow-800 ring-1 ring-yellow-100">
-                          Convite enviado. A cerimonialista ainda precisa aceitar.
-                        </div>
-                      )}
-
-                      <div className="mt-3 grid grid-cols-2 gap-3">
-                        <Link
-                          href={link}
-                          className="flex items-center justify-center gap-2 rounded-[20px] bg-[#fbf7f1] py-3 text-center text-sm font-extrabold text-[#151515] ring-1 ring-[#f1e7cf]"
-                        >
-                          <Eye size={17} className="text-[#d99200]" />
-                          {hasSupplier ? 'Ver vitrine' : 'Ver convite'}
-                        </Link>
-
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveCollaborator(item.id)}
-                          disabled={removingCollaboratorId === item.id}
-                          className="flex items-center justify-center gap-2 rounded-[20px] bg-white py-3 text-center text-sm font-extrabold text-red-700 ring-1 ring-red-100 disabled:opacity-60"
-                        >
-                          <Trash2 size={17} />
-                          {removingCollaboratorId === item.id
-                            ? 'Removendo...'
-                            : 'Remover acesso'}
-                        </button>
-                      </div>
+                      <p className="mt-1 break-words text-xs font-bold text-gray-500">
+                        {item.collaborator_email}
+                      </p>
                     </div>
+
+                    <span
+                      className={`shrink-0 rounded-full px-3 py-1 text-[10px] font-extrabold ring-1 ${statusClass}`}
+                    >
+                      {statusLabel}
+                    </span>
                   </div>
+
+                  {isAccepted && (
+                    <div className="mt-3 grid grid-cols-2 gap-3">
+                      <Link
+                        href={link}
+                        className="flex items-center justify-center gap-2 rounded-[18px] bg-[#fbf7f1] py-3 text-center text-sm font-extrabold text-[#151515] ring-1 ring-[#f1e7cf]"
+                      >
+                        <Eye size={16} className="text-[#d99200]" />
+                        {hasSupplier ? 'Ver vitrine' : 'Ver convite'}
+                      </Link>
+
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveCollaborator(item.id)}
+                        disabled={removingCollaboratorId === item.id}
+                        className="flex items-center justify-center gap-2 rounded-[18px] bg-white py-3 text-center text-sm font-extrabold text-red-700 ring-1 ring-red-100 disabled:opacity-60"
+                      >
+                        <Trash2 size={16} />
+                        {removingCollaboratorId === item.id
+                          ? 'Removendo...'
+                          : 'Remover'}
+                      </button>
+                    </div>
+                  )}
+
+                  {!isAccepted && item.status !== 'recusado' && (
+                    <div className="mt-3 rounded-2xl bg-yellow-50 p-3 text-sm leading-5 text-yellow-800 ring-1 ring-yellow-100">
+                      Convite enviado. A cerimonialista ainda precisa aceitar.
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -651,14 +809,17 @@ export default function MeuEventoPage() {
         <section className="px-6 pt-6">
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-extrabold">Fornecedores salvos</h2>
+              <h2 className="text-lg font-extrabold">Minha lista de fornecedores</h2>
               <p className="mt-1 text-xs font-bold text-gray-500">
-                {`${totalSaved} fornecedor(es) no Meu Evento`}
+                Toque em um fornecedor para ver as ações.
               </p>
             </div>
 
-            <Link href="/buscar" className="text-xs font-extrabold text-[#d99200]">
-              Adicionar
+            <Link
+              href="/buscar"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-[#e3a925] text-white shadow-lg"
+            >
+              <Plus size={21} />
             </Link>
           </div>
 
@@ -686,7 +847,7 @@ export default function MeuEventoPage() {
             </div>
           )}
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             {savedSuppliers.map((item) => {
               const supplier = getSupplierFromSaved(item);
 
@@ -699,118 +860,166 @@ export default function MeuEventoPage() {
               const rating = formatRating(supplier.rating_average);
               const price = formatPrice(supplier.average_price);
               const coverImage = getCoverImage(supplier);
+              const quote = getQuoteForSupplier(supplierId);
+              const isExpanded = expandedSupplierId === supplierId;
+              const isAccepted =
+                quote?.status === 'aceito' || quote?.status === 'fechado';
+              const statusLabel = getQuoteStatusLabel(quote?.status);
+              const statusClass = getQuoteStatusClass(quote?.status);
 
               return (
                 <div
                   key={item.id}
-                  className="overflow-hidden rounded-[28px] bg-white shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]"
+                  className={
+                    isAccepted
+                      ? 'rounded-[24px] bg-white p-3 shadow-sm ring-2 ring-green-200'
+                      : 'rounded-[24px] bg-white p-3 shadow-sm ring-1 ring-[#f1e7cf]'
+                  }
                 >
-                  <div className="relative h-36">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setExpandedSupplierId(isExpanded ? '' : supplierId)
+                    }
+                    className="flex w-full items-center gap-3 text-left"
+                  >
                     <img
                       src={coverImage}
                       alt={supplierName}
-                      className="h-full w-full object-cover"
+                      className="h-[72px] w-[72px] shrink-0 rounded-[18px] object-cover"
                     />
 
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
+                    <div className="min-w-0 flex-1">
+                      <p className="line-clamp-1 text-sm font-extrabold">
+                        {supplierName}
+                      </p>
 
-                    <span className="absolute left-4 top-4 rounded-full bg-[#e3a925] px-3 py-1 text-xs font-extrabold text-white">
-                      ♡ Salvo
-                    </span>
+                      <p className="mt-1 line-clamp-1 text-xs font-bold text-gray-500">
+                        {categoryName}
+                      </p>
 
-                    <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between text-white">
-                      <div>
-                        <p className="text-xs font-bold text-white/75">
-                          {categoryName}
-                        </p>
+                      <div className="mt-2 flex items-center gap-2">
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-[10px] font-extrabold ring-1 ${statusClass}`}
+                        >
+                          {statusLabel}
+                        </span>
 
-                        <h3 className="text-xl font-extrabold">
-                          {supplierName}
-                        </h3>
-                      </div>
-
-                      <div className="flex items-center gap-1 rounded-full bg-black/45 px-3 py-1 text-sm font-bold">
-                        <Star
-                          size={15}
-                          fill="#e3a925"
-                          className="text-[#e3a925]"
-                        />
-                        {rating}
+                        <span className="flex items-center gap-1 text-[10px] font-bold text-gray-400">
+                          <Star
+                            size={11}
+                            fill="#e3a925"
+                            className="text-[#e3a925]"
+                          />
+                          {rating}
+                        </span>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="p-5">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="flex items-center gap-1 text-sm font-bold text-gray-700">
-                          <MapPin size={15} className="text-[#d99200]" />
-                          {city}
-                        </p>
+                    <div className="shrink-0">
+                      {isAccepted ? (
+                        <CheckCircle2 size={22} className="text-green-600" />
+                      ) : isExpanded ? (
+                        <ChevronDown size={22} className="text-[#d99200]" />
+                      ) : (
+                        <ChevronRight size={22} className="text-gray-400" />
+                      )}
+                    </div>
+                  </button>
 
-                        <p className="mt-1 text-xs font-bold text-gray-500">
-                          {price === 'Sob consulta'
-                            ? 'Valor sob consulta'
-                            : `A partir de ${price}`}
-                        </p>
+                  {isExpanded && (
+                    <div className="mt-4 rounded-[22px] bg-[#fbf7f1] p-4 ring-1 ring-[#f1e7cf]">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="rounded-2xl bg-white p-3">
+                          <p className="flex items-center gap-1 text-xs font-bold text-gray-500">
+                            <MapPin size={13} className="text-[#d99200]" />
+                            Cidade
+                          </p>
+                          <p className="mt-1 line-clamp-1 text-sm font-extrabold">
+                            {city}
+                          </p>
+                        </div>
+
+                        <div className="rounded-2xl bg-white p-3">
+                          <p className="text-xs font-bold text-gray-500">
+                            Valor
+                          </p>
+                          <p className="mt-1 line-clamp-1 text-sm font-extrabold">
+                            {price}
+                          </p>
+                        </div>
                       </div>
 
-                      <span className="flex items-center gap-1 rounded-full bg-[#fff7e8] px-3 py-1 text-[11px] font-extrabold text-[#b97900]">
-                        <Clock size={13} />
-                        Salvo
-                      </span>
+                      <div className="mt-4 grid grid-cols-2 gap-3">
+                        <Link
+                          href={`/fornecedor/${supplierId}`}
+                          className="flex items-center justify-center gap-2 rounded-[18px] bg-white py-3 text-center text-sm font-extrabold text-[#151515] ring-1 ring-[#f1e7cf]"
+                        >
+                          <Eye size={16} className="text-[#d99200]" />
+                          Ver vitrine
+                        </Link>
+
+                        {quote?.id ? (
+                          <Link
+                            href={`/orcamentos/${quote.id}`}
+                            className={
+                              isAccepted
+                                ? 'flex items-center justify-center gap-2 rounded-[18px] bg-green-600 py-3 text-center text-sm font-extrabold text-white shadow-lg'
+                                : 'flex items-center justify-center gap-2 rounded-[18px] bg-black py-3 text-center text-sm font-extrabold text-white shadow-lg'
+                            }
+                          >
+                            <FileText size={16} />
+                            Ver orçamento
+                          </Link>
+                        ) : (
+                          <Link
+                            href={`/solicitar-orcamento?fornecedor=${supplierId}`}
+                            className="flex items-center justify-center gap-2 rounded-[18px] bg-[#e3a925] py-3 text-center text-sm font-extrabold text-white shadow-lg"
+                          >
+                            <MessageCircle size={16} />
+                            Orçamento
+                          </Link>
+                        )}
+                      </div>
+
+                      {quote?.id && (
+                        <Link
+                          href={`/orcamentos/${quote.id}/chat`}
+                          className="mt-3 flex items-center justify-center gap-2 rounded-[18px] bg-white py-3 text-center text-sm font-extrabold text-[#151515] ring-1 ring-[#f1e7cf]"
+                        >
+                          <MessageCircle size={16} className="text-[#d99200]" />
+                          Abrir chat
+                        </Link>
+                      )}
+
+                      {!isAccepted && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSupplier(supplierId)}
+                          disabled={removingId === supplierId}
+                          className="mt-3 flex w-full items-center justify-center gap-2 rounded-[18px] bg-white py-3 text-center text-sm font-extrabold text-red-700 ring-1 ring-red-100 disabled:opacity-60"
+                        >
+                          <Trash2 size={16} />
+                          {removingId === supplierId
+                            ? 'Removendo...'
+                            : 'Remover do evento'}
+                        </button>
+                      )}
                     </div>
-
-                    <div className="mt-4 grid grid-cols-2 gap-3">
-                      <Link
-                        href={`/fornecedor/${supplierId}`}
-                        className="flex items-center justify-center gap-2 rounded-[20px] bg-[#fbf7f1] py-3 text-center text-sm font-extrabold text-[#151515] ring-1 ring-[#f1e7cf]"
-                      >
-                        <Camera size={17} className="text-[#d99200]" />
-                        Ver vitrine
-                      </Link>
-
-                      <Link
-                        href={`/solicitar-orcamento?fornecedor=${supplierId}`}
-                        className="flex items-center justify-center gap-2 rounded-[20px] bg-[#e3a925] py-3 text-center text-sm font-extrabold text-white shadow-lg"
-                      >
-                        <MessageCircle size={17} />
-                        Orçamento
-                      </Link>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveSupplier(supplierId)}
-                      disabled={removingId === supplierId}
-                      className="mt-3 flex w-full items-center justify-center gap-2 rounded-[20px] bg-white py-3 text-center text-sm font-extrabold text-red-700 ring-1 ring-red-100 disabled:opacity-60"
-                    >
-                      <Trash2 size={17} />
-                      {removingId === supplierId
-                        ? 'Removendo...'
-                        : 'Remover do Meu Evento'}
-                    </button>
-                  </div>
+                  )}
                 </div>
               );
             })}
           </div>
 
           {savedSuppliers.length > 0 && (
-            <div className="mt-6 space-y-3">
-              <a
+            <div className="fixed bottom-[82px] left-1/2 z-30 w-full max-w-[430px] -translate-x-1/2 px-6">
+              <Link
                 href="/meu-evento/solicitar-todos"
-                className="flex w-full items-center justify-center gap-2 rounded-[24px] bg-black py-4 text-center font-extrabold text-white shadow-lg"
+                className="flex w-full items-center justify-center gap-2 rounded-[24px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-[0_14px_35px_rgba(0,0,0,.25)]"
               >
                 <MessageCircle size={21} />
-                Solicitar orçamento para todos
-              </a>
-
-              <Link
-                href="/orcamentos"
-                className="block rounded-[24px] bg-white py-4 text-center font-extrabold text-[#151515] shadow-sm ring-1 ring-[#f1e7cf]"
-              >
-                Ver todos os orçamentos
+                Solicitar orçamento de todos
               </Link>
             </div>
           )}
