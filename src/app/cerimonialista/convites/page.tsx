@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   CalendarDays,
   CheckCircle2,
+  Clock,
   Heart,
   Mail,
   MapPin,
@@ -472,13 +473,23 @@ export default function ConvitesCerimonialistaPage() {
 
                     {isAccepted && hasProfessionalProfile && (
                       <>
-                        <Link
-                          href={`/cerimonialista/evento/${invite.event_id}`}
-                          className="flex w-full items-center justify-center gap-2 rounded-[22px] bg-black py-4 text-center font-extrabold text-white shadow-lg"
-                        >
-                          <ShieldCheck size={21} />
-                          Atuando nesse evento
-                        </Link>
+                        <div className="grid grid-cols-2 gap-3">
+                          <Link
+                            href={`/cerimonialista/evento/${invite.event_id}`}
+                            className="flex items-center justify-center gap-2 rounded-[22px] bg-black py-4 text-center font-extrabold text-white shadow-lg"
+                          >
+                            <ShieldCheck size={21} />
+                            Abrir evento
+                          </Link>
+
+                          <Link
+                            href={`/meu-evento/linha-do-tempo?evento=${invite.event_id}`}
+                            className="flex items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg"
+                          >
+                            <Clock size={21} />
+                            Linha do tempo
+                          </Link>
+                        </div>
 
                         <Link
                           href={`/fornecedor/${supplierId}`}
