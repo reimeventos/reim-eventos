@@ -8,6 +8,8 @@ import {
   Building2,
   CalendarDays,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   Clock,
   FileText,
   MessageCircle,
@@ -21,6 +23,7 @@ import { supabase } from '@/lib/supabase';
 
 export default function OrcamentosPage() {
   const [orcamentos, setOrcamentos] = useState<any[]>([]);
+  const [expandedOrcamentoId, setExpandedOrcamentoId] = useState('');
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -160,17 +163,33 @@ export default function OrcamentosPage() {
   }
 
   function statusClass(status?: string) {
-    if (status === 'respondido') return 'bg-green-50 text-green-700';
+    if (status === 'respondido') return 'bg-blue-50 text-blue-700 ring-blue-100';
 
     if (status === 'ajuste_solicitado') {
-      return 'bg-yellow-100 text-yellow-800';
+      return 'bg-yellow-100 text-yellow-800 ring-yellow-200';
     }
 
     if (status === 'aceito' || status === 'fechado') {
-      return 'bg-green-100 text-green-700';
+      return 'bg-green-100 text-green-700 ring-green-200';
     }
 
-    return 'bg-[#fff7e8] text-[#b97900]';
+    return 'bg-[#fff7e8] text-[#b97900] ring-[#f1e7cf]';
+  }
+
+  function statusIcon(status?: string) {
+    if (status === 'aceito' || status === 'fechado') return CheckCircle2;
+    if (status === 'respondido') return FileText;
+    return Clock;
+  }
+
+  function getSupplierCategory(item: any) {
+    const category = item.suppliers?.categories;
+
+    if (Array.isArray(category)) {
+      return category[0]?.name || item.service_needed || 'Fornecedor de eventos';
+    }
+
+    return category?.name || item.service_needed || 'Fornecedor de eventos';
   }
 
   function isBatchQuote(item: any) {
@@ -199,8 +218,8 @@ export default function OrcamentosPage() {
 
     if (role === 'cerimonialista') {
       return {
-        label: 'Solicitado pela cerimonialista',
-        detail: name || email || 'Cerimonialista',
+        label: 'Cerimonialista',
+        detail: name || email || 'Cerimonialista autorizada',
         icon: ShieldCheck,
         className: 'bg-green-50 text-green-700 ring-green-100',
       };
@@ -208,31 +227,43 @@ export default function OrcamentosPage() {
 
     if (isBatchQuote(item)) {
       return {
-        label: 'Origem: enviado em lote',
-        detail: 'Solicitado pelo botão “Solicitar orçamento para todos”',
+        label: 'Enviado em lote',
+        detail: 'Solicitar orçamento para todos',
         icon: Send,
         className: 'bg-blue-50 text-blue-700 ring-blue-100',
       };
     }
 
     return {
-      label: 'Solicitado por você',
-      detail: name || email || 'Cliente',
+      label: 'Você',
+      detail: name || email || 'Solicitado por você',
       icon: User,
       className: 'bg-[#fff7e8] text-[#b97900] ring-[#f1e7cf]',
     };
   }
 
-  const totalUnreadMessages = orcamentos.reduce((total, item) => {
+  function getLatestResponse(item: any) {
+    const responses = item.quote_responses || [];
+
+    const sortedResponses = [...responses].sort((a, b) => {
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+
+    return sortedResponses[0] || null;
+  }
+
+  function countUnreadMessages(item: any) {
     const messages = item.quote_messages || [];
 
-    const unread = messages.filter(
+    return messages.filter(
       (message: any) =>
         message.sender_type === 'fornecedor' &&
         message.read_by_client === false
     ).length;
+  }
 
-    return total + unread;
+  const totalUnreadMessages = orcamentos.reduce((total, item) => {
+    return total + countUnreadMessages(item);
   }, 0);
 
   const respondedCount = orcamentos.filter(
@@ -265,42 +296,48 @@ export default function OrcamentosPage() {
               Voltar
             </Link>
 
-            <h1 className="mt-5 font-serif text-[34px] leading-tight">
-              Meus Orçamentos
-            </h1>
+            <div className="mt-6">
+              <p className="text-xs font-bold uppercase tracking-[0.25em] text-[#e3a925]">
+                Meu Evento
+              </p>
 
-            <p className="mt-2 text-sm text-white/70">
-              Acompanhe suas solicitações, propostas e mensagens.
-            </p>
-          </div>
-        </section>
+              <h1 className="mt-2 font-serif text-[34px] leading-tight">
+                Meus Orçamentos
+              </h1>
 
-        <section className="grid grid-cols-3 gap-3 px-6 pt-6">
-          <div className="rounded-[22px] bg-white p-4 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-            <p className="text-2xl font-extrabold text-[#d99200]">
-              {orcamentos.length}
-            </p>
-            <p className="mt-1 text-[11px] font-bold text-gray-600">
-              Pedidos
-            </p>
-          </div>
+              <p className="mt-2 text-sm text-white/70">
+                Acompanhe solicitações, propostas e mensagens em uma lista compacta.
+              </p>
+            </div>
 
-          <div className="rounded-[22px] bg-white p-4 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-            <p className="text-2xl font-extrabold text-green-600">
-              {respondedCount}
-            </p>
-            <p className="mt-1 text-[11px] font-bold text-gray-600">
-              Respondidos
-            </p>
-          </div>
+            <div className="mt-6 grid grid-cols-3 gap-3">
+              <div className="rounded-[20px] bg-white/10 p-3 text-center">
+                <p className="text-2xl font-extrabold text-[#e3a925]">
+                  {orcamentos.length}
+                </p>
+                <p className="mt-1 text-[10px] font-bold text-white/60">
+                  Pedidos
+                </p>
+              </div>
 
-          <div className="rounded-[22px] bg-white p-4 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-            <p className="text-2xl font-extrabold text-blue-600">
-              {acceptedCount}
-            </p>
-            <p className="mt-1 text-[11px] font-bold text-gray-600">
-              Aceitos
-            </p>
+              <div className="rounded-[20px] bg-white/10 p-3 text-center">
+                <p className="text-2xl font-extrabold text-green-400">
+                  {respondedCount}
+                </p>
+                <p className="mt-1 text-[10px] font-bold text-white/60">
+                  Respondidos
+                </p>
+              </div>
+
+              <div className="rounded-[20px] bg-white/10 p-3 text-center">
+                <p className="text-2xl font-extrabold text-blue-400">
+                  {acceptedCount}
+                </p>
+                <p className="mt-1 text-[10px] font-bold text-white/60">
+                  Aceitos
+                </p>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -369,7 +406,7 @@ export default function OrcamentosPage() {
                     : `${totalUnreadMessages} novas mensagens`}
                 </p>
                 <p className="mt-1 text-xs text-white/70">
-                  Abra o chat do orçamento para visualizar.
+                  Toque no orçamento e abra o chat para visualizar.
                 </p>
               </div>
             </div>
@@ -378,7 +415,12 @@ export default function OrcamentosPage() {
 
         <section className="px-6 pt-6">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-extrabold">Solicitações</h2>
+            <div>
+              <h2 className="text-lg font-extrabold">Solicitações</h2>
+              <p className="mt-1 text-xs font-bold text-gray-500">
+                Toque em um orçamento para ver as ações.
+              </p>
+            </div>
 
             <span className="rounded-full bg-[#fff7e8] px-3 py-1 text-xs font-extrabold text-[#b97900]">
               {loading ? 'Carregando...' : `${orcamentos.length} orçamento(s)`}
@@ -422,41 +464,19 @@ export default function OrcamentosPage() {
             </div>
           )}
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             {orcamentos.map((item) => {
-              const responses = item.quote_responses || [];
-              const sortedResponses = [...responses].sort((a, b) => {
-                return (
-                  new Date(b.created_at).getTime() -
-                  new Date(a.created_at).getTime()
-                );
-              });
-
-              const latestResponse = sortedResponses[0] || null;
-
-              const messages = item.quote_messages || [];
-              const unreadMessages = messages.filter(
-                (message: any) =>
-                  message.sender_type === 'fornecedor' &&
-                  message.read_by_client === false
-              ).length;
-
+              const latestResponse = getLatestResponse(item);
+              const unreadMessages = countUnreadMessages(item);
               const hasUnreadMessages = unreadMessages > 0;
 
-              const supplierName =
-                item.suppliers?.business_name || 'Fornecedor';
-
+              const supplierName = item.suppliers?.business_name || 'Fornecedor';
               const supplierCity =
-                item.suppliers?.city ||
-                item.event_city ||
-                'Cidade não informada';
-
-              const supplierCategory =
-                item.suppliers?.categories?.name ||
-                item.service_needed ||
-                'Fornecedor de eventos';
+                item.suppliers?.city || item.event_city || 'Cidade não informada';
+              const supplierCategory = getSupplierCategory(item);
 
               const status = item.status || 'aguardando_resposta';
+              const StatusIcon = statusIcon(status);
               const eventType = item.event_type || 'Evento não informado';
               const eventDate = formatDate(item.event_date);
 
@@ -467,180 +487,207 @@ export default function OrcamentosPage() {
 
               const originInfo = getOriginInfo(item);
               const OriginIcon = originInfo.icon;
+              const isExpanded = expandedOrcamentoId === item.id;
+              const isAccepted = status === 'aceito' || status === 'fechado';
 
               return (
                 <div
                   key={item.id}
                   className={
-                    hasUnreadMessages
-                      ? 'rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.12)] ring-2 ring-[#e3a925]'
-                      : 'rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)]'
+                    isAccepted
+                      ? 'rounded-[24px] bg-white p-3 shadow-sm ring-2 ring-green-200'
+                      : hasUnreadMessages
+                        ? 'rounded-[24px] bg-white p-3 shadow-sm ring-2 ring-[#e3a925]'
+                        : 'rounded-[24px] bg-white p-3 shadow-sm ring-1 ring-[#f1e7cf]'
                   }
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h3 className="text-lg font-extrabold">{eventType}</h3>
-
-                      <p className="mt-1 flex items-center gap-1 text-sm font-bold text-gray-500">
-                        <Building2 size={15} className="text-[#d99200]" />
-                        {supplierName}
-                      </p>
-                    </div>
-
-                    <div className="flex flex-col items-end gap-2">
-                      {hasUnreadMessages && (
-                        <span className="flex items-center gap-1 rounded-full bg-[#151515] px-3 py-1 text-[11px] font-extrabold text-white">
-                          <Bell size={13} className="text-[#e3a925]" />
-                          {unreadMessages === 1
-                            ? '1 nova msg'
-                            : `${unreadMessages} novas msg`}
-                        </span>
-                      )}
-
-                      <span
-                        className={`flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-extrabold ${statusClass(status)}`}
-                      >
-                        {status === 'respondido' ||
-                        status === 'aceito' ||
-                        status === 'fechado' ? (
-                          <CheckCircle2 size={13} />
-                        ) : (
-                          <Clock size={13} />
-                        )}
-                        {statusLabel(status)}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div
-                    className={`mt-4 rounded-2xl px-4 py-3 text-sm font-bold ring-1 ${originInfo.className}`}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setExpandedOrcamentoId(isExpanded ? '' : item.id)
+                    }
+                    className="flex w-full items-center gap-3 text-left"
                   >
-                    <p className="flex items-center gap-2">
-                      <OriginIcon size={17} />
-                      {originInfo.label}
-                    </p>
-
-                    {originInfo.detail && (
-                      <p className="mt-1 break-all text-xs font-bold opacity-80">
-                        {originInfo.detail}
-                      </p>
-                    )}
-                  </div>
-
-                  {hasUnreadMessages && (
-                    <div className="mt-4 rounded-2xl bg-[#151515] p-4 text-white">
-                      <p className="flex items-center gap-2 text-xs font-extrabold text-[#f7d67b]">
-                        <Bell size={15} />
-                        Mensagem nova no chat
-                      </p>
-
-                      <p className="mt-2 text-sm leading-5 text-white/80">
-                        O fornecedor enviou{' '}
-                        {unreadMessages === 1
-                          ? 'uma nova mensagem.'
-                          : `${unreadMessages} novas mensagens.`}
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="mt-4 grid grid-cols-2 gap-3">
-                    <div className="rounded-2xl bg-[#fbf7f1] p-3">
-                      <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
-                        <CalendarDays size={14} className="text-[#d99200]" />
-                        Data
-                      </p>
-                      <p className="mt-1 text-sm font-extrabold">
-                        {eventDate}
-                      </p>
+                    <div className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-[18px] bg-[#151515] text-white">
+                      <Building2 size={30} className="text-[#e3a925]" />
                     </div>
 
-                    <div className="rounded-2xl bg-[#fbf7f1] p-3">
-                      <p className="text-xs font-bold text-gray-500">
-                        Cidade
-                      </p>
-                      <p className="mt-1 text-sm font-extrabold">
-                        {supplierCity}
-                      </p>
-                    </div>
-                  </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="line-clamp-1 text-sm font-extrabold">
+                          {supplierName}
+                        </p>
 
-                  <div className="mt-3 rounded-2xl bg-[#fbf7f1] p-3">
-                    <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
-                      <FileText size={14} className="text-[#d99200]" />
-                      Serviço
-                    </p>
-                    <p className="mt-1 text-sm font-extrabold">
-                      {serviceNeeded}
-                    </p>
-                  </div>
+                        {hasUnreadMessages && (
+                          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#e3a925] px-1.5 text-[10px] font-extrabold text-white">
+                            {unreadMessages}
+                          </span>
+                        )}
+                      </div>
 
-                  {supplierCategory && supplierCategory !== serviceNeeded && (
-                    <div className="mt-3 rounded-2xl bg-[#fbf7f1] p-3">
-                      <p className="text-xs font-bold text-gray-500">
-                        Categoria
-                      </p>
-                      <p className="mt-1 text-sm font-extrabold">
+                      <p className="mt-1 line-clamp-1 text-xs font-bold text-gray-500">
                         {supplierCategory}
                       </p>
-                    </div>
-                  )}
 
-                  {latestResponse && (
-                    <div className="mt-3 rounded-2xl bg-[#fff7e8] p-4 ring-1 ring-[#f1e7cf]">
-                      <p className="text-xs font-bold text-[#b97900]">
-                        Última proposta
-                      </p>
-
-                      <p className="mt-1 text-2xl font-extrabold text-[#151515]">
-                        {latestResponse.proposal_value || 'Valor não informado'}
-                      </p>
-
-                      <p className="mt-1 text-xs font-bold text-gray-500">
-                        {latestResponse.payment_terms ||
-                          'Forma de pagamento não informada'}
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="mt-5 space-y-3">
-                    <Link
-                      href={`/orcamentos/${item.id}`}
-                      className="flex items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg"
-                    >
-                      <FileText size={21} />
-                      {latestResponse ? 'Ver orçamento' : 'Aguardar resposta'}
-                    </Link>
-
-                    <Link
-                      href={`/orcamentos/${item.id}/chat`}
-                      className={
-                        hasUnreadMessages
-                          ? 'relative flex items-center justify-center gap-2 rounded-[22px] bg-black py-4 text-center font-extrabold text-white shadow-lg ring-2 ring-[#e3a925]'
-                          : 'flex items-center justify-center gap-2 rounded-[22px] bg-black py-4 text-center font-extrabold text-white shadow-lg'
-                      }
-                    >
-                      <MessageCircle size={21} />
-                      Chat
-
-                      {hasUnreadMessages && (
-                        <span className="absolute -right-2 -top-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-[#e3a925] px-2 text-[11px] font-extrabold text-white">
-                          {unreadMessages}
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <span
+                          className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-extrabold ring-1 ${statusClass(status)}`}
+                        >
+                          <StatusIcon size={11} />
+                          {statusLabel(status)}
                         </span>
-                      )}
-                    </Link>
 
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteOrcamento(item.id)}
-                      disabled={deletingId === item.id}
-                      className="flex w-full items-center justify-center gap-2 rounded-[22px] bg-white py-4 text-center font-extrabold text-red-700 shadow-sm ring-1 ring-red-100 disabled:opacity-60"
-                    >
-                      <Trash2 size={21} />
-                      {deletingId === item.id
-                        ? 'Excluindo...'
-                        : 'Excluir orçamento'}
-                    </button>
-                  </div>
+                        <span
+                          className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-extrabold ring-1 ${originInfo.className}`}
+                        >
+                          <OriginIcon size={11} />
+                          {originInfo.label}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="shrink-0">
+                      {isAccepted ? (
+                        <CheckCircle2 size={22} className="text-green-600" />
+                      ) : isExpanded ? (
+                        <ChevronDown size={22} className="text-[#d99200]" />
+                      ) : (
+                        <ChevronRight size={22} className="text-gray-400" />
+                      )}
+                    </div>
+                  </button>
+
+                  {isExpanded && (
+                    <div className="mt-4 rounded-[22px] bg-[#fbf7f1] p-4 ring-1 ring-[#f1e7cf]">
+                      {hasUnreadMessages && (
+                        <div className="mb-3 rounded-2xl bg-[#151515] p-4 text-white">
+                          <p className="flex items-center gap-2 text-xs font-extrabold text-[#f7d67b]">
+                            <Bell size={15} />
+                            Mensagem nova no chat
+                          </p>
+
+                          <p className="mt-2 text-sm leading-5 text-white/80">
+                            O fornecedor enviou{' '}
+                            {unreadMessages === 1
+                              ? 'uma nova mensagem.'
+                              : `${unreadMessages} novas mensagens.`}
+                          </p>
+                        </div>
+                      )}
+
+                      <div
+                        className={`rounded-2xl px-4 py-3 text-sm font-bold ring-1 ${originInfo.className}`}
+                      >
+                        <p className="flex items-center gap-2">
+                          <OriginIcon size={17} />
+                          Origem: {originInfo.label}
+                        </p>
+
+                        {originInfo.detail && (
+                          <p className="mt-1 break-all text-xs font-bold opacity-80">
+                            {originInfo.detail}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="mt-4 grid grid-cols-2 gap-3">
+                        <div className="rounded-2xl bg-white p-3">
+                          <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
+                            <CalendarDays size={14} className="text-[#d99200]" />
+                            Data
+                          </p>
+                          <p className="mt-1 text-sm font-extrabold">
+                            {eventDate}
+                          </p>
+                        </div>
+
+                        <div className="rounded-2xl bg-white p-3">
+                          <p className="text-xs font-bold text-gray-500">
+                            Cidade
+                          </p>
+                          <p className="mt-1 line-clamp-1 text-sm font-extrabold">
+                            {supplierCity}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 rounded-2xl bg-white p-3">
+                        <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
+                          <FileText size={14} className="text-[#d99200]" />
+                          Serviço
+                        </p>
+                        <p className="mt-1 text-sm font-extrabold">
+                          {serviceNeeded}
+                        </p>
+                      </div>
+
+                      <div className="mt-3 rounded-2xl bg-white p-3">
+                        <p className="text-xs font-bold text-gray-500">
+                          Tipo de evento
+                        </p>
+                        <p className="mt-1 text-sm font-extrabold">
+                          {eventType}
+                        </p>
+                      </div>
+
+                      {latestResponse && (
+                        <div className="mt-3 rounded-2xl bg-[#fff7e8] p-4 ring-1 ring-[#f1e7cf]">
+                          <p className="text-xs font-bold text-[#b97900]">
+                            Última proposta
+                          </p>
+
+                          <p className="mt-1 text-2xl font-extrabold text-[#151515]">
+                            {latestResponse.proposal_value || 'Valor não informado'}
+                          </p>
+
+                          <p className="mt-1 text-xs font-bold text-gray-500">
+                            {latestResponse.payment_terms ||
+                              'Forma de pagamento não informada'}
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="mt-5 grid grid-cols-2 gap-3">
+                        <Link
+                          href={`/orcamentos/${item.id}`}
+                          className="flex items-center justify-center gap-2 rounded-[18px] bg-[#e3a925] py-3 text-center text-sm font-extrabold text-white shadow-lg"
+                        >
+                          <FileText size={16} />
+                          {latestResponse ? 'Ver orçamento' : 'Aguardar'}
+                        </Link>
+
+                        <Link
+                          href={`/orcamentos/${item.id}/chat`}
+                          className={
+                            hasUnreadMessages
+                              ? 'relative flex items-center justify-center gap-2 rounded-[18px] bg-black py-3 text-center text-sm font-extrabold text-white shadow-lg ring-2 ring-[#e3a925]'
+                              : 'flex items-center justify-center gap-2 rounded-[18px] bg-black py-3 text-center text-sm font-extrabold text-white shadow-lg'
+                          }
+                        >
+                          <MessageCircle size={16} />
+                          Chat
+
+                          {hasUnreadMessages && (
+                            <span className="absolute -right-2 -top-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-[#e3a925] px-2 text-[11px] font-extrabold text-white">
+                              {unreadMessages}
+                            </span>
+                          )}
+                        </Link>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteOrcamento(item.id)}
+                        disabled={deletingId === item.id}
+                        className="mt-3 flex w-full items-center justify-center gap-2 rounded-[18px] bg-white py-3 text-center text-sm font-extrabold text-red-700 ring-1 ring-red-100 disabled:opacity-60"
+                      >
+                        <Trash2 size={16} />
+                        {deletingId === item.id
+                          ? 'Excluindo...'
+                          : 'Excluir orçamento'}
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })}
