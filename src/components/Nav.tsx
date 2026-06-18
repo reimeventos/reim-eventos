@@ -53,17 +53,16 @@ export function Nav() {
           return;
         }
 
-        const { data: collaboratorData } = await supabase
-          .from('event_collaborators')
-          .select('id')
-          .ilike('collaborator_email', email)
-          .limit(1);
+        /*
+          IMPORTANTE:
+          Verificamos fornecedor ANTES de cerimonialista.
 
-        if (collaboratorData && collaboratorData.length > 0) {
-          setAccountType('cerimonialista');
-          return;
-        }
-
+          Motivo:
+          Uma conta de fornecedor pode aparecer em event_collaborators
+          quando é cerimonialista aceita para atuar em um evento.
+          Se verificarmos colaborador primeiro, o menu mostra "Convites"
+          em vez de "Painel".
+        */
         const { data: supplierData } = await supabase
           .from('suppliers')
           .select('id')
@@ -72,6 +71,17 @@ export function Nav() {
 
         if (supplierData && supplierData.length > 0) {
           setAccountType('fornecedor');
+          return;
+        }
+
+        const { data: collaboratorData } = await supabase
+          .from('event_collaborators')
+          .select('id')
+          .ilike('collaborator_email', email)
+          .limit(1);
+
+        if (collaboratorData && collaboratorData.length > 0) {
+          setAccountType('cerimonialista');
           return;
         }
 
@@ -103,8 +113,15 @@ export function Nav() {
 
   const CenterIcon = isCliente ? Heart : isCerimonialista ? ShieldCheck : Briefcase;
 
+  const searchHref = isFornecedor ? '/painel-fornecedor/fotos' : '/buscar';
+  const searchLabel = isFornecedor ? 'Mídias' : 'Buscar';
+  const SearchIcon = isFornecedor ? Briefcase : Search;
+
   const quotesHref = isFornecedor ? '/painel-fornecedor/leads' : '/orcamentos';
   const quotesLabel = isFornecedor ? 'Leads' : 'Orçamentos';
+
+  const perfilHref = isFornecedor ? '/painel-fornecedor/editar' : '/perfil';
+  const perfilLabel = isFornecedor ? 'Vitrine' : 'Perfil';
 
   return (
     <nav className="fixed bottom-0 left-1/2 z-50 w-full max-w-[430px] -translate-x-1/2 rounded-t-[34px] bg-white/95 px-6 pb-4 pt-3 shadow-[0_-10px_30px_rgba(0,0,0,.16)] backdrop-blur">
@@ -115,9 +132,9 @@ export function Nav() {
           <div className="mx-auto mt-1 h-[2px] w-7 rounded-full bg-[#e3a925]" />
         </Link>
 
-        <Link href="/buscar" className="text-[#222]">
-          <Search size={30} className="mx-auto" />
-          <div className="mt-1 text-[12px]">Buscar</div>
+        <Link href={searchHref} className="text-[#222]">
+          <SearchIcon size={30} className="mx-auto" />
+          <div className="mt-1 text-[12px]">{searchLabel}</div>
         </Link>
 
         <Link href={centerHref} className="-mt-10">
@@ -134,9 +151,9 @@ export function Nav() {
           <div className="mt-1 text-[12px]">{quotesLabel}</div>
         </Link>
 
-        <Link href="/perfil" className="text-[#222]">
+        <Link href={perfilHref} className="text-[#222]">
           <User size={30} className="mx-auto" />
-          <div className="mt-1 text-[12px]">Perfil</div>
+          <div className="mt-1 text-[12px]">{perfilLabel}</div>
         </Link>
       </div>
     </nav>
