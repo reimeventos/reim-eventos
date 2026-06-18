@@ -178,6 +178,7 @@ export default function FotosFornecedorPage() {
         supplier_id: supplier.id,
         owner_id: supplier.owner_id,
         file_url: fileUrl,
+        type: kind,
         is_cover: medias.length === 0,
       });
 
