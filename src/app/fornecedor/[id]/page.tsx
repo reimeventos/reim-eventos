@@ -25,7 +25,19 @@ import {
   Share2,
   ShieldCheck,
   Star,
+  X,
 } from 'lucide-react';
+
+function isVideoUrl(url: string) {
+  const normalized = String(url || '').toLowerCase();
+
+  return (
+    normalized.includes('.mp4') ||
+    normalized.includes('.webm') ||
+    normalized.includes('.mov') ||
+    normalized.includes('video')
+  );
+}
 
 function getCoverImage(supplier: any) {
   const cover = supplier?.media?.find((item: any) => item.is_cover);
@@ -185,6 +197,7 @@ export default function FornecedorPage() {
   const [supplier, setSupplier] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  const [selectedMedia, setSelectedMedia] = useState('');
 
   const [targetCustomerId, setTargetCustomerId] = useState('');
   const [returnUrl, setReturnUrl] = useState('/buscar');
@@ -538,14 +551,45 @@ export default function FornecedorPage() {
             </div>
 
             <div className="grid grid-cols-3 gap-3">
-              {gallery.map((img: string) => (
-                <img
-                  key={img}
-                  src={img}
-                  alt="Galeria do fornecedor"
-                  className="h-28 w-full rounded-[20px] object-cover shadow-sm"
-                />
-              ))}
+              {gallery.map((img: string) => {
+                const isVideo = isVideoUrl(img);
+
+                return (
+                  <button
+                    key={img}
+                    type="button"
+                    onClick={() => setSelectedMedia(img)}
+                    className="group relative h-28 w-full overflow-hidden rounded-[20px] bg-[#151515] shadow-sm"
+                  >
+                    {isVideo ? (
+                      <video
+                        src={img}
+                        className="h-full w-full object-cover"
+                        muted
+                        playsInline
+                      />
+                    ) : (
+                      <img
+                        src={img}
+                        alt="Galeria do fornecedor"
+                        className="h-full w-full object-cover transition group-hover:scale-105"
+                      />
+                    )}
+
+                    <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/15" />
+
+                    <span className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-black/65 px-2 py-1 text-[9px] font-extrabold text-white">
+                      Ampliar
+                    </span>
+
+                    {isVideo && (
+                      <span className="absolute right-2 top-2 rounded-full bg-black/65 px-2 py-1 text-[9px] font-extrabold text-white">
+                        Vídeo
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -603,6 +647,45 @@ export default function FornecedorPage() {
           </div>
         </section>
       </div>
+
+        {selectedMedia && (
+          <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/90 px-4">
+            <button
+              type="button"
+              onClick={() => setSelectedMedia('')}
+              className="absolute right-5 top-5 flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur"
+            >
+              <X size={24} />
+            </button>
+
+            <div className="w-full max-w-[430px]">
+              <div className="overflow-hidden rounded-[28px] bg-[#151515] shadow-2xl">
+                {isVideoUrl(selectedMedia) ? (
+                  <video
+                    src={selectedMedia}
+                    className="max-h-[78vh] w-full object-contain"
+                    controls
+                    autoPlay
+                  />
+                ) : (
+                  <img
+                    src={selectedMedia}
+                    alt="Mídia ampliada"
+                    className="max-h-[78vh] w-full object-contain"
+                  />
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedMedia('')}
+                className="mt-4 flex w-full items-center justify-center rounded-[22px] bg-[#e3a925] py-4 text-sm font-extrabold text-white shadow-lg"
+              >
+                Fechar visualização
+              </button>
+            </div>
+          </div>
+        )}
     </main>
   );
 }
