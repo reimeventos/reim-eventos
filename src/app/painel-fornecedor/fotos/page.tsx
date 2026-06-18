@@ -73,7 +73,7 @@ export default function FotosFornecedorPage() {
 
       const { data: supplierData, error: supplierError } = await supabase
         .from('suppliers')
-        .select('id,business_name,plan,status,owner_id')
+        .select('id,business_name,status,owner_id')
         .eq('owner_id', user.id)
         .maybeSingle();
 
