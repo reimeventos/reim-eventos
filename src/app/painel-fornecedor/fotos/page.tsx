@@ -176,6 +176,7 @@ export default function FotosFornecedorPage() {
 
       const { error: insertError } = await supabase.from('media').insert({
         supplier_id: supplier.id,
+        owner_id: supplier.owner_id,
         file_url: fileUrl,
         is_cover: medias.length === 0,
       });
