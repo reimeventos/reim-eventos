@@ -11,6 +11,7 @@ import {
   Clock,
   FileText,
   MessageCircle,
+  Send,
   Search,
   ShieldCheck,
   Trash2,
@@ -172,6 +173,25 @@ export default function OrcamentosPage() {
     return 'bg-[#fff7e8] text-[#b97900]';
   }
 
+  function isBatchQuote(item: any) {
+    const role = String(item.created_by_role || '').toLowerCase();
+    const origin = String(
+      item.origin || item.request_origin || item.source || item.created_origin || ''
+    ).toLowerCase();
+    const notes = String(item.notes || '').toLowerCase();
+
+    return (
+      role === 'cliente_lote' ||
+      role === 'lote' ||
+      origin === 'lote' ||
+      origin === 'batch' ||
+      item.sent_in_batch === true ||
+      notes.includes('enviado em lote') ||
+      notes.includes('orçamento para todos') ||
+      notes.includes('orcamento para todos')
+    );
+  }
+
   function getOriginInfo(item: any) {
     const role = item.created_by_role || 'cliente';
     const name = item.created_by_name || '';
@@ -183,6 +203,15 @@ export default function OrcamentosPage() {
         detail: name || email || 'Cerimonialista',
         icon: ShieldCheck,
         className: 'bg-green-50 text-green-700 ring-green-100',
+      };
+    }
+
+    if (isBatchQuote(item)) {
+      return {
+        label: 'Origem: enviado em lote',
+        detail: 'Solicitado pelo botão “Solicitar orçamento para todos”',
+        icon: Send,
+        className: 'bg-blue-50 text-blue-700 ring-blue-100',
       };
     }
 
@@ -217,6 +246,8 @@ export default function OrcamentosPage() {
   const cerimonialistaCount = orcamentos.filter(
     (item) => item.created_by_role === 'cerimonialista'
   ).length;
+
+  const batchCount = orcamentos.filter((item) => isBatchQuote(item)).length;
 
   return (
     <main className="min-h-screen bg-black text-[#151515]">
@@ -288,6 +319,27 @@ export default function OrcamentosPage() {
                 </p>
                 <p className="mt-1 text-xs leading-5 text-green-700">
                   Esses pedidos foram enviados por uma cerimonialista autorizada no seu evento.
+                </p>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {batchCount > 0 && (
+          <section className="px-6 pt-4">
+            <div className="flex items-start gap-3 rounded-[22px] bg-blue-50 px-4 py-4 text-blue-800 ring-1 ring-blue-100">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-100">
+                <Send size={22} />
+              </div>
+
+              <div>
+                <p className="text-sm font-extrabold">
+                  {batchCount === 1
+                    ? '1 orçamento foi enviado em lote'
+                    : `${batchCount} orçamentos foram enviados em lote`}
+                </p>
+                <p className="mt-1 text-xs leading-5 text-blue-700">
+                  Esses pedidos vieram do botão “Solicitar orçamento para todos”.
                 </p>
               </div>
             </div>
