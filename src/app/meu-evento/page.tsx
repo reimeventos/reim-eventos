@@ -625,7 +625,7 @@ export default function MeuEventoPage() {
                           className="flex items-center justify-center gap-2 rounded-[20px] bg-[#fbf7f1] py-3 text-center text-sm font-extrabold text-[#151515] ring-1 ring-[#f1e7cf]"
                         >
                           <Eye size={17} className="text-[#d99200]" />
-                          {hasSupplier ? 'Ver cerimonialista' : 'Ver convite'}
+                          {hasSupplier ? 'Ver vitrine' : 'Ver convite'}
                         </Link>
 
                         <button
