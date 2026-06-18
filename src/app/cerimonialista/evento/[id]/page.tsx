@@ -4,17 +4,20 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import {
-  ArrowLeft,
   AlertCircle,
+  ArrowLeft,
   Building2,
   CalendarDays,
   Camera,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   Clock,
   FileText,
   Heart,
   MapPin,
   MessageCircle,
+  Plus,
   Search,
   ShieldCheck,
   Star,
@@ -117,8 +120,8 @@ function formatRating(value: any) {
 }
 
 function statusLabel(status?: string) {
-  if (status === 'aguardando_resposta') return 'Aguardando';
-  if (status === 'novo') return 'Aguardando';
+  if (status === 'aguardando_resposta') return 'Orçamento enviado';
+  if (status === 'novo') return 'Orçamento enviado';
   if (status === 'respondido') return 'Respondido';
   if (status === 'ajuste_solicitado') return 'Ajuste solicitado';
   if (status === 'aceito') return 'Aceito';
@@ -142,14 +145,6 @@ function statusClass(status?: string) {
   }
 
   return 'bg-gray-100 text-gray-600 ring-gray-200';
-}
-
-function statusIcon(status?: string) {
-  if (status === 'aceito' || status === 'fechado') return CheckCircle2;
-  if (status === 'ajuste_solicitado') return AlertCircle;
-  if (status === 'respondido') return FileText;
-  if (status === 'novo' || status === 'aguardando_resposta') return Clock;
-  return FileText;
 }
 
 function getStatusHelpText(status?: string) {
@@ -180,6 +175,7 @@ export default function CerimonialistaEventoPage() {
   const [inviteData, setInviteData] = useState<any>(null);
   const [savedSuppliers, setSavedSuppliers] = useState<any[]>([]);
   const [quoteRequests, setQuoteRequests] = useState<any[]>([]);
+  const [expandedSupplierId, setExpandedSupplierId] = useState('');
   const [loading, setLoading] = useState(true);
   const [removingSavedId, setRemovingSavedId] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -414,34 +410,116 @@ export default function CerimonialistaEventoPage() {
 
   return (
     <main className="min-h-screen bg-black text-[#151515]">
-      <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] pb-10 shadow-2xl">
+      <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] pb-32 shadow-2xl">
         <section className="relative overflow-hidden rounded-b-[34px] bg-black px-6 pb-8 pt-7 text-white">
           <div className="absolute inset-0 bg-[url('/layout01-fundo.png')] bg-cover bg-center opacity-45" />
           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/80 to-black" />
 
           <div className="relative z-10">
-            <Link
-              href="/cerimonialista/convites"
-              className="inline-flex items-center gap-2 text-sm font-bold text-[#e3a925]"
-            >
-              <ArrowLeft size={17} />
-              Voltar
-            </Link>
+            <div className="flex items-center justify-between">
+              <Link
+                href="/cerimonialista/convites"
+                className="inline-flex items-center gap-2 text-sm font-bold text-[#e3a925]"
+              >
+                <ArrowLeft size={17} />
+                Voltar
+              </Link>
 
-            <div className="mt-6 flex items-center gap-3">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#e3a925] text-white shadow-lg">
-                <ShieldCheck size={31} />
+              <Link
+                href={`/meu-evento/linha-do-tempo?evento=${eventId}`}
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-[#e3a925]"
+              >
+                <Clock size={19} />
+              </Link>
+            </div>
+
+            <div className="mt-6">
+              <p className="text-xs font-bold uppercase tracking-[0.25em] text-[#e3a925]">
+                Área da cerimonialista
+              </p>
+
+              <h1 className="mt-2 font-serif text-[31px] leading-tight">
+                {loading ? 'Carregando...' : title}
+              </h1>
+
+              <p className="mt-2 text-sm text-white/70">
+                Organize fornecedores e acompanhe orçamentos da cliente.
+              </p>
+            </div>
+
+            <div className="mt-6 overflow-hidden rounded-[28px] bg-white/10 backdrop-blur">
+              <div className="relative h-40">
+                <img
+                  src="/layout01-fundo.png"
+                  alt={title}
+                  className="h-full w-full object-cover opacity-75"
+                />
+
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+
+                <div className="absolute bottom-4 left-4 right-4">
+                  <h2 className="font-serif text-[23px] leading-tight text-white">
+                    {title}
+                  </h2>
+
+                  <p className="mt-1 flex items-center gap-2 text-xs font-bold text-white/75">
+                    <MapPin size={13} className="text-[#e3a925]" />
+                    {city}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-5 grid grid-cols-4 gap-2">
+              <div className="rounded-2xl bg-white/10 p-3 text-center">
+                <CalendarDays size={17} className="mx-auto text-[#e3a925]" />
+                <p className="mt-2 text-[10px] font-bold text-white/55">Data</p>
+                <p className="mt-1 text-[11px] font-extrabold">{eventDate}</p>
               </div>
 
-              <div>
-                <h1 className="font-serif text-[31px] leading-tight">
-                  {loading ? 'Carregando...' : title}
-                </h1>
-
-                <p className="mt-1 text-sm text-white/70">
-                  Área da cerimonialista
+              <div className="rounded-2xl bg-white/10 p-3 text-center">
+                <Users size={17} className="mx-auto text-[#e3a925]" />
+                <p className="mt-2 text-[10px] font-bold text-white/55">
+                  Convidados
+                </p>
+                <p className="mt-1 text-[11px] font-extrabold">
+                  {guests || 'N/I'}
                 </p>
               </div>
+
+              <div className="rounded-2xl bg-white/10 p-3 text-center">
+                <MapPin size={17} className="mx-auto text-[#e3a925]" />
+                <p className="mt-2 text-[10px] font-bold text-white/55">Cidade</p>
+                <p className="mt-1 line-clamp-1 text-[11px] font-extrabold">
+                  {city}
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-white/10 p-3 text-center">
+                <Building2 size={17} className="mx-auto text-[#e3a925]" />
+                <p className="mt-2 text-[10px] font-bold text-white/55">Espaço</p>
+                <p className="mt-1 line-clamp-1 text-[11px] font-extrabold">
+                  {eventSpace}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <Link
+                href={`/buscar?cliente=${ownerId}&voltar=${encodeURIComponent(returnUrl)}`}
+                className="flex items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-3 text-sm font-extrabold text-white shadow-lg"
+              >
+                <Search size={17} />
+                Buscar
+              </Link>
+
+              <Link
+                href="/orcamentos"
+                className="flex items-center justify-center gap-2 rounded-[22px] bg-white/10 py-3 text-sm font-extrabold text-white ring-1 ring-white/10"
+              >
+                <FileText size={17} className="text-[#e3a925]" />
+                Orçamentos
+              </Link>
             </div>
           </div>
         </section>
@@ -504,9 +582,7 @@ export default function CerimonialistaEventoPage() {
                   <p className="text-xl font-extrabold text-[#d99200]">
                     {savedSuppliers.length}
                   </p>
-                  <p className="mt-1 text-[10px] font-bold text-gray-600">
-                    Salvos
-                  </p>
+                  <p className="mt-1 text-[10px] font-bold text-gray-600">Salvos</p>
                 </div>
 
                 <div className="rounded-[20px] bg-white p-3 text-center shadow-sm ring-1 ring-[#f1e7cf]">
@@ -522,9 +598,7 @@ export default function CerimonialistaEventoPage() {
                   <p className="text-xl font-extrabold text-blue-600">
                     {respondedCount}
                   </p>
-                  <p className="mt-1 text-[10px] font-bold text-gray-600">
-                    Resp.
-                  </p>
+                  <p className="mt-1 text-[10px] font-bold text-gray-600">Resp.</p>
                 </div>
 
                 <div className="rounded-[20px] bg-white p-3 text-center shadow-sm ring-1 ring-[#f1e7cf]">
@@ -543,86 +617,29 @@ export default function CerimonialistaEventoPage() {
                     {withoutQuoteCount} fornecedor(es) ainda sem orçamento.
                   </p>
                   <p className="mt-1">
-                    Abra o card do fornecedor e toque em “Solicitar” para enviar o pedido.
+                    Toque no fornecedor e use “Solicitar” para enviar o pedido.
                   </p>
                 </div>
               )}
 
-              <div className="mt-5 grid grid-cols-2 gap-3">
-                <div className="rounded-[22px] bg-white p-4 shadow-sm ring-1 ring-[#f1e7cf]">
-                  <CalendarDays size={22} className="text-[#d99200]" />
-                  <p className="mt-2 text-xs font-bold text-gray-500">Data</p>
-                  <p className="mt-1 text-sm font-extrabold">{eventDate}</p>
-                </div>
-
-                <div className="rounded-[22px] bg-white p-4 shadow-sm ring-1 ring-[#f1e7cf]">
-                  <MapPin size={22} className="text-[#d99200]" />
-                  <p className="mt-2 text-xs font-bold text-gray-500">Cidade</p>
-                  <p className="mt-1 text-sm font-extrabold">{city}</p>
-                </div>
-
-                <div className="rounded-[22px] bg-white p-4 shadow-sm ring-1 ring-[#f1e7cf]">
-                  <Users size={22} className="text-[#d99200]" />
-                  <p className="mt-2 text-xs font-bold text-gray-500">Convidados</p>
-                  <p className="mt-1 text-sm font-extrabold">
-                    {guests || 'Não informado'}
-                  </p>
-                </div>
-
-                <div className="rounded-[22px] bg-white p-4 shadow-sm ring-1 ring-[#f1e7cf]">
-                  <Building2 size={22} className="text-[#d99200]" />
-                  <p className="mt-2 text-xs font-bold text-gray-500">Espaço</p>
-                  <p className="mt-1 line-clamp-1 text-sm font-extrabold">
-                    {eventSpace}
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-5 rounded-[28px] bg-[#151515] p-5 text-white shadow-lg">
-                <h2 className="text-lg font-extrabold">
-                  Ações da cerimonialista
-                </h2>
-
-                <p className="mt-2 text-sm leading-5 text-white/70">
-                  Ajude a cliente adicionando fornecedores e acompanhando os orçamentos deste evento.
-                </p>
-
-                <div className="mt-5 space-y-3">
-                  <a
-                    href={`/buscar?cliente=${ownerId}&voltar=${encodeURIComponent(returnUrl)}`}
-                    className="flex items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg"
-                  >
-                    <Search size={21} />
-                    Buscar mais fornecedores
-                  </a>
-
-                  <Link
-                    href="/orcamentos"
-                    className="flex items-center justify-center gap-2 rounded-[22px] bg-white py-4 text-center font-extrabold text-[#151515]"
-                  >
-                    <MessageCircle size={21} />
-                    Ver todos os orçamentos
-                  </Link>
-
-                  <Link
-                    href={`/meu-evento/linha-do-tempo?evento=${eventId}`}
-                    className="flex items-center justify-center gap-2 rounded-[22px] bg-white/10 py-4 text-center font-extrabold text-white ring-1 ring-white/10"
-                  >
-                    <Clock size={21} className="text-[#e3a925]" />
-                    Linha do tempo
-                  </Link>
-                </div>
-              </div>
-
               <section className="pt-6">
                 <div className="mb-4 flex items-center justify-between">
-                  <h2 className="text-lg font-extrabold">
-                    Fornecedores da cliente
-                  </h2>
+                  <div>
+                    <h2 className="text-lg font-extrabold">
+                      Fornecedores da cliente
+                    </h2>
 
-                  <span className="text-xs font-bold text-gray-500">
-                    {savedSuppliers.length} salvo(s)
-                  </span>
+                    <p className="mt-1 text-xs font-bold text-gray-500">
+                      Toque em um fornecedor para ver as ações.
+                    </p>
+                  </div>
+
+                  <Link
+                    href={`/buscar?cliente=${ownerId}&voltar=${encodeURIComponent(returnUrl)}`}
+                    className="flex h-10 w-10 items-center justify-center rounded-full bg-[#e3a925] text-white shadow-lg"
+                  >
+                    <Plus size={21} />
+                  </Link>
                 </div>
 
                 {savedSuppliers.length === 0 && (
@@ -637,17 +654,17 @@ export default function CerimonialistaEventoPage() {
                       Use a busca para ajudar a cliente a encontrar fornecedores.
                     </p>
 
-                    <a
+                    <Link
                       href={`/buscar?cliente=${ownerId}&voltar=${encodeURIComponent(returnUrl)}`}
                       className="mt-5 flex items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-3 text-sm font-extrabold text-white shadow-lg"
                     >
                       <Search size={18} />
                       Buscar fornecedores
-                    </a>
+                    </Link>
                   </div>
                 )}
 
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {savedSuppliers.map((item) => {
                     const supplier = getSupplierFromSaved(item);
 
@@ -663,161 +680,172 @@ export default function CerimonialistaEventoPage() {
                     const quote = getQuoteForSupplier(supplierId);
                     const quoteStatus = quote?.status || '';
                     const latestResponse = getLatestResponse(quote);
-                    const StatusIcon = statusIcon(quoteStatus);
                     const isAccepted = quoteStatus === 'aceito' || quoteStatus === 'fechado';
                     const hasQuote = Boolean(quote?.id);
+                    const isExpanded = expandedSupplierId === supplierId;
 
                     return (
                       <div
                         key={item.id}
                         className={
                           isAccepted
-                            ? 'overflow-hidden rounded-[28px] bg-white shadow-[0_10px_25px_rgba(0,0,0,.10)] ring-2 ring-green-300'
-                            : 'overflow-hidden rounded-[28px] bg-white shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]'
+                            ? 'rounded-[24px] bg-white p-3 shadow-sm ring-2 ring-green-200'
+                            : 'rounded-[24px] bg-white p-3 shadow-sm ring-1 ring-[#f1e7cf]'
                         }
                       >
-                        <div className="relative h-36">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedSupplierId(isExpanded ? '' : supplierId)
+                          }
+                          className="flex w-full items-center gap-3 text-left"
+                        >
                           <img
                             src={coverImage}
                             alt={supplierName}
-                            className="h-full w-full object-cover"
+                            className="h-[72px] w-[72px] shrink-0 rounded-[18px] object-cover"
                           />
 
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
+                          <div className="min-w-0 flex-1">
+                            <p className="line-clamp-1 text-sm font-extrabold">
+                              {supplierName}
+                            </p>
 
-                          {isAccepted && (
-                            <span className="absolute left-4 top-4 rounded-full bg-green-600 px-3 py-1 text-xs font-extrabold text-white">
-                              Aceito
-                            </span>
-                          )}
+                            <p className="mt-1 line-clamp-1 text-xs font-bold text-gray-500">
+                              {categoryName}
+                            </p>
 
-                          <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between text-white">
-                            <div>
-                              <p className="text-xs font-bold text-white/75">
-                                {categoryName}
-                              </p>
-
-                              <h3 className="text-xl font-extrabold">
-                                {supplierName}
-                              </h3>
-                            </div>
-
-                            <div className="flex items-center gap-1 rounded-full bg-black/45 px-3 py-1 text-sm font-bold">
-                              <Star
-                                size={15}
-                                fill="#e3a925"
-                                className="text-[#e3a925]"
-                              />
-                              {rating}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="p-5">
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <p className="flex items-center gap-1 text-sm font-bold text-gray-700">
-                                <MapPin size={15} className="text-[#d99200]" />
-                                {supplierCity}
-                              </p>
-
-                              <p className="mt-1 text-xs font-bold text-gray-500">
-                                {price === 'Sob consulta'
-                                  ? 'Valor sob consulta'
-                                  : `A partir de ${price}`}
-                              </p>
-                            </div>
-
-                            <span
-                              className={`flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-extrabold ring-1 ${statusClass(quoteStatus)}`}
-                            >
-                              <StatusIcon size={13} />
-                              {statusLabel(quoteStatus)}
-                            </span>
-                          </div>
-
-                          <div
-                            className={
-                              isAccepted
-                                ? 'mt-3 rounded-2xl bg-green-50 p-3 text-sm leading-5 text-green-800 ring-1 ring-green-100'
-                                : 'mt-3 rounded-2xl bg-[#fbf7f1] p-3 text-sm leading-5 text-gray-600 ring-1 ring-[#f1e7cf]'
-                            }
-                          >
-                            {getStatusHelpText(quoteStatus)}
-                          </div>
-
-                          {latestResponse && (
-                            <div className="mt-3 rounded-2xl bg-[#fff7e8] p-3 ring-1 ring-[#f1e7cf]">
-                              <p className="text-xs font-bold text-[#b97900]">
-                                Última proposta
-                              </p>
-
-                              <p className="mt-1 text-lg font-extrabold text-[#151515]">
-                                {latestResponse.proposal_value || 'Valor não informado'}
-                              </p>
-
-                              <p className="mt-1 text-xs font-bold text-gray-500">
-                                {latestResponse.payment_terms || 'Forma de pagamento não informada'}
-                              </p>
-                            </div>
-                          )}
-
-                          <div className="mt-4 grid grid-cols-2 gap-3">
-                            <a
-                              href={`/fornecedor/${supplierId}?cliente=${ownerId}&voltar=${encodeURIComponent(returnUrl)}`}
-                              className="flex items-center justify-center gap-2 rounded-[20px] bg-[#fbf7f1] py-3 text-center text-sm font-extrabold text-[#151515] ring-1 ring-[#f1e7cf]"
-                            >
-                              <Camera size={17} className="text-[#d99200]" />
-                              Ver vitrine
-                            </a>
-
-                            {hasQuote ? (
-                              <a
-                                href={`/orcamentos/${quote.id}`}
-                                className={
-                                  isAccepted
-                                    ? 'flex items-center justify-center gap-2 rounded-[20px] bg-green-600 py-3 text-center text-sm font-extrabold text-white shadow-lg'
-                                    : 'flex items-center justify-center gap-2 rounded-[20px] bg-black py-3 text-center text-sm font-extrabold text-white shadow-lg'
-                                }
+                            <div className="mt-2 flex items-center gap-2">
+                              <span
+                                className={`rounded-full px-2.5 py-1 text-[10px] font-extrabold ring-1 ${statusClass(quoteStatus)}`}
                               >
-                                <MessageCircle size={17} />
-                                Ver orçamento
-                              </a>
+                                {statusLabel(quoteStatus)}
+                              </span>
+
+                              <span className="flex items-center gap-1 text-[10px] font-bold text-gray-400">
+                                <Star
+                                  size={11}
+                                  fill="#e3a925"
+                                  className="text-[#e3a925]"
+                                />
+                                {rating}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="shrink-0">
+                            {isAccepted ? (
+                              <CheckCircle2 size={22} className="text-green-600" />
+                            ) : isExpanded ? (
+                              <ChevronDown size={22} className="text-[#d99200]" />
                             ) : (
-                              <a
-                                href={`/solicitar-orcamento?fornecedor=${supplierId}&cliente=${ownerId}&voltar=${encodeURIComponent(returnUrl)}`}
-                                className="flex items-center justify-center gap-2 rounded-[20px] bg-[#e3a925] py-3 text-center text-sm font-extrabold text-white shadow-lg"
-                              >
-                                <MessageCircle size={17} />
-                                Solicitar
-                              </a>
+                              <ChevronRight size={22} className="text-gray-400" />
                             )}
                           </div>
+                        </button>
 
-                          {hasQuote && (
-                            <a
-                              href={`/orcamentos/${quote.id}/chat`}
-                              className="mt-3 flex items-center justify-center gap-2 rounded-[20px] bg-white py-3 text-center text-sm font-extrabold text-[#151515] ring-1 ring-[#f1e7cf]"
-                            >
-                              <MessageCircle size={17} className="text-[#d99200]" />
-                              Abrir chat do orçamento
-                            </a>
-                          )}
+                        {isExpanded && (
+                          <div className="mt-4 rounded-[22px] bg-[#fbf7f1] p-4 ring-1 ring-[#f1e7cf]">
+                            <p className="text-sm leading-5 text-gray-600">
+                              {getStatusHelpText(quoteStatus)}
+                            </p>
 
-                          {!isAccepted && (
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveSavedSupplier(item.id, supplierName)}
-                              disabled={removingSavedId === item.id}
-                              className="mt-3 flex w-full items-center justify-center gap-2 rounded-[20px] bg-white py-3 text-center text-sm font-extrabold text-red-700 ring-1 ring-red-100 disabled:opacity-60"
-                            >
-                              <Trash2 size={17} />
-                              {removingSavedId === item.id
-                                ? 'Removendo...'
-                                : 'Remover do evento'}
-                            </button>
-                          )}
-                        </div>
+                            <div className="mt-4 grid grid-cols-2 gap-3">
+                              <div className="rounded-2xl bg-white p-3">
+                                <p className="flex items-center gap-1 text-xs font-bold text-gray-500">
+                                  <MapPin size={13} className="text-[#d99200]" />
+                                  Cidade
+                                </p>
+                                <p className="mt-1 line-clamp-1 text-sm font-extrabold">
+                                  {supplierCity}
+                                </p>
+                              </div>
+
+                              <div className="rounded-2xl bg-white p-3">
+                                <p className="text-xs font-bold text-gray-500">
+                                  Valor
+                                </p>
+                                <p className="mt-1 line-clamp-1 text-sm font-extrabold">
+                                  {price}
+                                </p>
+                              </div>
+                            </div>
+
+                            {latestResponse && (
+                              <div className="mt-3 rounded-2xl bg-[#fff7e8] p-3 ring-1 ring-[#f1e7cf]">
+                                <p className="text-xs font-bold text-[#b97900]">
+                                  Última proposta
+                                </p>
+
+                                <p className="mt-1 text-lg font-extrabold text-[#151515]">
+                                  {latestResponse.proposal_value || 'Valor não informado'}
+                                </p>
+
+                                <p className="mt-1 text-xs font-bold text-gray-500">
+                                  {latestResponse.payment_terms || 'Forma de pagamento não informada'}
+                                </p>
+                              </div>
+                            )}
+
+                            <div className="mt-4 grid grid-cols-2 gap-3">
+                              <Link
+                                href={`/fornecedor/${supplierId}?cliente=${ownerId}&voltar=${encodeURIComponent(returnUrl)}`}
+                                className="flex items-center justify-center gap-2 rounded-[18px] bg-white py-3 text-center text-sm font-extrabold text-[#151515] ring-1 ring-[#f1e7cf]"
+                              >
+                                <Camera size={16} className="text-[#d99200]" />
+                                Ver vitrine
+                              </Link>
+
+                              {hasQuote ? (
+                                <Link
+                                  href={`/orcamentos/${quote.id}`}
+                                  className={
+                                    isAccepted
+                                      ? 'flex items-center justify-center gap-2 rounded-[18px] bg-green-600 py-3 text-center text-sm font-extrabold text-white shadow-lg'
+                                      : 'flex items-center justify-center gap-2 rounded-[18px] bg-black py-3 text-center text-sm font-extrabold text-white shadow-lg'
+                                  }
+                                >
+                                  <FileText size={16} />
+                                  Ver orçamento
+                                </Link>
+                              ) : (
+                                <Link
+                                  href={`/solicitar-orcamento?fornecedor=${supplierId}&cliente=${ownerId}&voltar=${encodeURIComponent(returnUrl)}`}
+                                  className="flex items-center justify-center gap-2 rounded-[18px] bg-[#e3a925] py-3 text-center text-sm font-extrabold text-white shadow-lg"
+                                >
+                                  <MessageCircle size={16} />
+                                  Solicitar
+                                </Link>
+                              )}
+                            </div>
+
+                            {hasQuote && (
+                              <Link
+                                href={`/orcamentos/${quote.id}/chat`}
+                                className="mt-3 flex items-center justify-center gap-2 rounded-[18px] bg-white py-3 text-center text-sm font-extrabold text-[#151515] ring-1 ring-[#f1e7cf]"
+                              >
+                                <MessageCircle size={16} className="text-[#d99200]" />
+                                Abrir chat
+                              </Link>
+                            )}
+
+                            {!isAccepted && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleRemoveSavedSupplier(item.id, supplierName)
+                                }
+                                disabled={removingSavedId === item.id}
+                                className="mt-3 flex w-full items-center justify-center gap-2 rounded-[18px] bg-white py-3 text-center text-sm font-extrabold text-red-700 ring-1 ring-red-100 disabled:opacity-60"
+                              >
+                                <Trash2 size={16} />
+                                {removingSavedId === item.id
+                                  ? 'Removendo...'
+                                  : 'Remover do evento'}
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
