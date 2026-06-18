@@ -23,6 +23,7 @@ import {
   MessageCircle,
   Phone,
   Share2,
+  ShieldCheck,
   Star,
 } from 'lucide-react';
 
@@ -100,8 +101,39 @@ function formatWhatsAppLink(value: any) {
   return `https://wa.me/55${onlyNumbers}`;
 }
 
+function getCategoryName(supplier: any) {
+  if (!supplier) return 'Categoria não informada';
+
+  if (Array.isArray(supplier.categories)) {
+    return supplier.categories[0]?.name || 'Categoria não informada';
+  }
+
+  return supplier.categories?.name || 'Categoria não informada';
+}
+
+function isCerimonialistaCategory(categoryName: string) {
+  const normalized = categoryName.toLowerCase();
+
+  return (
+    normalized.includes('cerimonial') ||
+    normalized.includes('assessoria') ||
+    normalized.includes('cerimonialista')
+  );
+}
+
 function getServices(categoryName: string) {
   const normalized = categoryName.toLowerCase();
+
+  if (isCerimonialistaCategory(categoryName)) {
+    return [
+      'Organização do evento',
+      'Acompanhamento da cliente',
+      'Contato com fornecedores',
+      'Roteiro do evento',
+      'Cerimonial do dia',
+      'Assessoria personalizada',
+    ];
+  }
 
   if (normalized.includes('foto') || normalized.includes('film')) {
     return [
@@ -170,7 +202,7 @@ export default function FornecedorPage() {
         setErrorMessage('');
 
         if (!supplierId) {
-          setErrorMessage('Fornecedor não informado.');
+          setErrorMessage('Vitrine não informada.');
           return;
         }
 
@@ -184,7 +216,7 @@ export default function FornecedorPage() {
         const data = await getSupplier(supplierId);
 
         if (!data) {
-          setErrorMessage('Fornecedor não encontrado no Supabase.');
+          setErrorMessage('Vitrine não encontrada no Supabase.');
           return;
         }
 
@@ -282,7 +314,7 @@ export default function FornecedorPage() {
               Carregando vitrine
             </h1>
             <p className="mt-2 text-sm text-gray-500">
-              Buscando dados do fornecedor...
+              Buscando dados da vitrine...
             </p>
           </div>
         </div>
@@ -319,19 +351,27 @@ export default function FornecedorPage() {
     );
   }
 
-  const supplierName = supplier.business_name || 'Fornecedor';
-  const categoryName = supplier.categories?.name || 'Categoria não informada';
+  const categoryName = getCategoryName(supplier);
+  const isCerimonialista = isCerimonialistaCategory(categoryName);
+  const supplierName = supplier.business_name || (isCerimonialista ? 'Cerimonialista' : 'Fornecedor');
+  const publicTypeLabel = isCerimonialista ? 'Cerimonialista' : 'Fornecedor';
   const city = supplier.city || 'Cidade não informada';
   const rating = formatRating(supplier.rating_average);
   const price = formatPrice(supplier.average_price);
   const description =
     supplier.description ||
-    'Fornecedor cadastrado no REIM EVENTOS. Solicite um orçamento para saber mais detalhes sobre serviços, disponibilidade e valores.';
+    (isCerimonialista
+      ? 'Cerimonialista cadastrada no REIM EVENTOS. Solicite uma proposta para saber mais sobre acompanhamento, organização, disponibilidade e valores.'
+      : 'Fornecedor cadastrado no REIM EVENTOS. Solicite um orçamento para saber mais detalhes sobre serviços, disponibilidade e valores.');
   const coverImage = getCoverImage(supplier);
   const gallery = getGallery(supplier);
   const services = getServices(categoryName);
   const whatsappLink = formatWhatsAppLink(supplier.whatsapp);
-  const supplierTag = supplier.is_featured ? 'Destaque' : 'Premium';
+  const supplierTag = supplier.is_featured
+    ? 'Destaque'
+    : isCerimonialista
+      ? 'Cerimonialista'
+      : 'Premium';
 
   return (
     <main className="min-h-screen bg-black text-[#151515]">
@@ -384,7 +424,11 @@ export default function FornecedorPage() {
             </h1>
 
             <p className="mt-1 flex items-center gap-2 text-sm text-white/85">
-              <Camera size={16} className="text-[#e3a925]" />
+              {isCerimonialista ? (
+                <ShieldCheck size={16} className="text-[#e3a925]" />
+              ) : (
+                <Camera size={16} className="text-[#e3a925]" />
+              )}
               {categoryName}
             </p>
           </div>
@@ -419,6 +463,15 @@ export default function FornecedorPage() {
             </div>
           </div>
 
+          {isCerimonialista && !isCerimonialistaMode && (
+            <div className="mt-4 rounded-2xl bg-[#fff7e8] px-4 py-3 text-sm leading-5 text-[#7a5200] ring-1 ring-[#f1e7cf]">
+              <p className="font-extrabold">Perfil profissional de cerimonialista</p>
+              <p className="mt-1">
+                Essa vitrine mostra a profissional que pode acompanhar seu evento, organizar fornecedores e apoiar a cliente nos orçamentos.
+              </p>
+            </div>
+          )}
+
           {isCerimonialistaMode && (
             <div className="mt-4 rounded-2xl bg-[#151515] px-4 py-3 text-sm font-bold text-white">
               Modo cerimonialista: alterações serão salvas no evento da cliente.
@@ -443,14 +496,14 @@ export default function FornecedorPage() {
             <div className="mt-4 flex items-center gap-2 rounded-2xl bg-green-50 px-4 py-3 text-sm font-bold text-green-700">
               <CheckCircle2 size={18} />
               {isCerimonialistaMode
-                ? 'Este fornecedor está salvo no evento da cliente.'
-                : 'Este fornecedor está salvo no seu Meu Evento.'}
+                ? `${publicTypeLabel} salva no evento da cliente.`
+                : `${publicTypeLabel} salvo(a) no seu Meu Evento.`}
             </div>
           )}
 
           {/* DESCRIÇÃO */}
           <div className="mt-5">
-            <h2 className="text-lg font-extrabold">Sobre o fornecedor</h2>
+            <h2 className="text-lg font-extrabold">{isCerimonialista ? 'Sobre a cerimonialista' : 'Sobre o fornecedor'}</h2>
 
             <p className="mt-3 text-sm leading-6 text-gray-700">
               {description}
@@ -459,7 +512,7 @@ export default function FornecedorPage() {
 
           {/* SERVIÇOS */}
           <div className="mt-6">
-            <h2 className="text-lg font-extrabold">Serviços oferecidos</h2>
+            <h2 className="text-lg font-extrabold">{isCerimonialista ? 'Serviços da cerimonialista' : 'Serviços oferecidos'}</h2>
 
             <div className="mt-3 flex flex-wrap gap-2">
               {services.map((service) => (
@@ -503,7 +556,7 @@ export default function FornecedorPage() {
               className="flex items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg"
             >
               <MessageCircle size={22} />
-              Solicitar orçamento
+              {isCerimonialista ? 'Solicitar proposta' : 'Solicitar orçamento'}
             </Link>
 
             <button
@@ -520,14 +573,14 @@ export default function FornecedorPage() {
                 <>
                   <CheckCircle2 size={22} />
                   {isCerimonialistaMode
-                    ? 'Salvo no evento da cliente'
+                    ? `${publicTypeLabel} salva no evento`
                     : 'Salvo no Meu Evento'}
                 </>
               ) : (
                 <>
                   <CalendarDays size={22} />
                   {isCerimonialistaMode
-                    ? 'Salvar no evento da cliente'
+                    ? `Salvar ${publicTypeLabel.toLowerCase()} no evento`
                     : 'Salvar no Meu Evento'}
                 </>
               )}
