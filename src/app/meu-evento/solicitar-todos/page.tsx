@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
+  AlertCircle,
   ArrowLeft,
   Building2,
   CalendarDays,
@@ -71,6 +72,7 @@ export default function SolicitarTodosPage() {
   const [loadingUser, setLoadingUser] = useState(true);
 
   const [savedSuppliers, setSavedSuppliers] = useState<any[]>([]);
+  const [existingQuoteSupplierIds, setExistingQuoteSupplierIds] = useState<string[]>([]);
   const [loadingSuppliers, setLoadingSuppliers] = useState(true);
 
   const [customerName, setCustomerName] = useState('');
@@ -104,7 +106,41 @@ export default function SolicitarTodosPage() {
             listSavedSuppliers(),
           ]);
 
-          setSavedSuppliers(suppliersData || []);
+          const savedList = suppliersData || [];
+          setSavedSuppliers(savedList);
+
+          const supplierIds = savedList
+            .map((item: any) => getSupplierFromSaved(item)?.id)
+            .filter(Boolean);
+
+          if (supplierIds.length > 0) {
+            const { data: existingQuotes, error: existingQuotesError } =
+              await supabase
+                .from('quote_requests')
+                .select('supplier_id')
+                .eq('customer_id', currentUser.id)
+                .in('supplier_id', supplierIds);
+
+            if (existingQuotesError) {
+              console.error(
+                'Erro ao verificar orçamentos já enviados:',
+                existingQuotesError
+              );
+              setExistingQuoteSupplierIds([]);
+            } else {
+              setExistingQuoteSupplierIds(
+                Array.from(
+                  new Set(
+                    (existingQuotes || [])
+                      .map((quote: any) => quote.supplier_id)
+                      .filter(Boolean)
+                  )
+                )
+              );
+            }
+          } else {
+            setExistingQuoteSupplierIds([]);
+          }
 
           if (eventData) {
             setEventType(eventData.event_type || 'Casamento');
@@ -123,12 +159,14 @@ export default function SolicitarTodosPage() {
           }
         } else {
           setSavedSuppliers([]);
+          setExistingQuoteSupplierIds([]);
         }
       } catch (error) {
         console.error('Erro ao carregar dados:', error);
         setUser(null);
         setUserEmail('');
         setSavedSuppliers([]);
+        setExistingQuoteSupplierIds([]);
       } finally {
         setLoadingUser(false);
         setLoadingSuppliers(false);
@@ -177,9 +215,28 @@ export default function SolicitarTodosPage() {
     try {
       setLoading(true);
 
-      let totalSent = 0;
+      const suppliersToSend = savedSuppliers.filter((item) => {
+        const supplier = getSupplierFromSaved(item);
+        return supplier?.id && !existingQuoteSupplierIds.includes(supplier.id);
+      });
 
-      for (const item of savedSuppliers) {
+      if (suppliersToSend.length === 0) {
+        setErrorMessage(
+          'Todos os fornecedores salvos já possuem solicitação de orçamento.'
+        );
+        return;
+      }
+
+      const confirmed = window.confirm(
+        `Enviar solicitação para ${suppliersToSend.length} fornecedor(es)?`
+      );
+
+      if (!confirmed) return;
+
+      let totalSent = 0;
+      const sentSupplierIds: string[] = [];
+
+      for (const item of suppliersToSend) {
         const supplier = getSupplierFromSaved(item);
 
         if (!supplier?.id) continue;
@@ -204,6 +261,7 @@ export default function SolicitarTodosPage() {
         });
 
         totalSent += 1;
+        sentSupplierIds.push(supplier.id);
       }
 
       if (totalSent === 0) {
@@ -215,6 +273,10 @@ export default function SolicitarTodosPage() {
         totalSent === 1
           ? 'Solicitação enviada com sucesso para 1 fornecedor salvo.'
           : `Solicitações enviadas com sucesso para ${totalSent} fornecedores salvos.`
+      );
+
+      setExistingQuoteSupplierIds((current) =>
+        Array.from(new Set([...current, ...sentSupplierIds]))
       );
 
       setCustomerName('');
@@ -230,6 +292,11 @@ export default function SolicitarTodosPage() {
       setLoading(false);
     }
   }
+
+  const suppliersToSendCount = savedSuppliers.filter((item) => {
+    const supplier = getSupplierFromSaved(item);
+    return supplier?.id && !existingQuoteSupplierIds.includes(supplier.id);
+  }).length;
 
   return (
     <main className="min-h-screen bg-black text-[#151515]">
@@ -319,12 +386,19 @@ export default function SolicitarTodosPage() {
                     <p className="mt-1 text-sm leading-5 text-gray-600">
                       {loadingSuppliers
                         ? 'Carregando fornecedores...'
-                        : `${savedSuppliers.length} fornecedor(es) receberão esta solicitação.`}
+                        : `${suppliersToSendCount} de ${savedSuppliers.length} fornecedor(es) receberão esta solicitação.`}
                     </p>
 
                     <p className="mt-3 rounded-2xl bg-[#fbf7f1] px-4 py-3 text-xs font-bold text-gray-500">
                       Conta logada: {userEmail || 'cliente'}
                     </p>
+
+                    {existingQuoteSupplierIds.length > 0 && (
+                      <p className="mt-2 flex items-start gap-2 rounded-2xl bg-yellow-50 px-4 py-3 text-xs font-bold leading-5 text-yellow-800 ring-1 ring-yellow-100">
+                        <AlertCircle size={15} className="mt-0.5 shrink-0" />
+                        Fornecedores que já receberam orçamento não serão enviados novamente.
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -333,7 +407,7 @@ export default function SolicitarTodosPage() {
             {!loadingSuppliers && savedSuppliers.length > 0 && (
               <section className="px-6 pt-5">
                 <div className="mb-3 flex items-center justify-between">
-                  <h2 className="text-lg font-extrabold">Será enviado para</h2>
+                  <h2 className="text-lg font-extrabold">Lista de fornecedores</h2>
 
                   <Link
                     href="/meu-evento"
@@ -350,6 +424,9 @@ export default function SolicitarTodosPage() {
                     if (!supplier) return null;
 
                     const categoryName = getCategoryName(supplier);
+                    const isAlreadyRequested = existingQuoteSupplierIds.includes(
+                      supplier.id
+                    );
 
                     return (
                       <div
@@ -367,7 +444,15 @@ export default function SolicitarTodosPage() {
                             </p>
                           </div>
 
-                          <CheckCircle2 size={20} className="text-green-600" />
+                          {isAlreadyRequested ? (
+                            <span className="rounded-full bg-yellow-50 px-3 py-1 text-[11px] font-extrabold text-yellow-800 ring-1 ring-yellow-100">
+                              Já enviado
+                            </span>
+                          ) : (
+                            <span className="rounded-full bg-green-50 px-3 py-1 text-[11px] font-extrabold text-green-700 ring-1 ring-green-100">
+                              Vai receber
+                            </span>
+                          )}
                         </div>
                       </div>
                     );
@@ -535,15 +620,21 @@ export default function SolicitarTodosPage() {
                     </div>
                   )}
 
+                  {suppliersToSendCount === 0 && (
+                    <div className="rounded-2xl bg-yellow-50 px-4 py-3 text-sm font-bold leading-5 text-yellow-800 ring-1 ring-yellow-100">
+                      Todos os fornecedores salvos já possuem orçamento solicitado.
+                    </div>
+                  )}
+
                   <button
                     type="submit"
-                    disabled={loading}
+                    disabled={loading || suppliersToSendCount === 0}
                     className="mt-7 flex w-full items-center justify-center gap-2 rounded-[24px] bg-black py-4 text-center font-extrabold text-white shadow-lg disabled:opacity-60"
                   >
                     <Send size={21} />
                     {loading
                       ? 'Enviando...'
-                      : `Enviar para ${savedSuppliers.length} fornecedor(es)`}
+                      : `Enviar para ${suppliersToSendCount} fornecedor(es)`}
                   </button>
                 </form>
 
