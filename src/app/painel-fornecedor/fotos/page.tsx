@@ -498,21 +498,19 @@ export default function FotosFornecedorPage() {
                           className="relative block h-40 w-full bg-[#151515]"
                         >
                           {isVideo ? (
-                            <>
-                              <video
-                                src={getVideoPreviewUrl(item.file_url)}
-                                className="h-full w-full object-cover"
-                                muted
-                                playsInline
-                                preload="metadata"
-                              />
-
-                              <div className="absolute inset-0 flex items-center justify-center bg-black/25">
-                                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-[#d99200] shadow-lg">
-                                  <PlayCircle size={31} />
-                                </div>
+                            <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-[#151515] via-[#2a2110] to-[#d99200] px-3 text-center text-white">
+                              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/90 text-[#d99200] shadow-lg">
+                                <Video size={30} />
                               </div>
-                            </>
+
+                              <p className="mt-3 text-xs font-extrabold">
+                                Vídeo do portfólio
+                              </p>
+
+                              <p className="mt-1 text-[10px] font-bold text-white/70">
+                                Toque para assistir
+                              </p>
+                            </div>
                           ) : (
                             <img
                               src={item.file_url}
