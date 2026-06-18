@@ -258,6 +258,10 @@ export default function SolicitarTodosPage() {
             `Gostaria de orçamento para ${eventType.toLowerCase()} com ${
               guestsCount || 'quantidade de'
             } convidados.`,
+          created_by_user_id: user.id,
+          created_by_role: 'cliente_lote',
+          created_by_name: customerName,
+          created_by_email: userEmail || user.email || '',
         });
 
         totalSent += 1;
