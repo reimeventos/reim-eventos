@@ -13,6 +13,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Loader2,
+  X,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
@@ -52,6 +53,7 @@ export default function FotosFornecedorPage() {
   const [uploading, setUploading] = useState(false);
   const [removingId, setRemovingId] = useState('');
   const [settingCoverId, setSettingCoverId] = useState('');
+  const [selectedMedia, setSelectedMedia] = useState<any>(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
@@ -481,12 +483,17 @@ export default function FotosFornecedorPage() {
                             : 'overflow-hidden rounded-[24px] bg-white shadow-sm ring-1 ring-[#f1e7cf]'
                         }
                       >
-                        <div className="relative h-40 bg-[#151515]">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedMedia(item)}
+                          className="relative block h-40 w-full bg-[#151515]"
+                        >
                           {isVideo ? (
                             <video
                               src={item.file_url}
                               className="h-full w-full object-cover"
-                              controls
+                              muted
+                              playsInline
                             />
                           ) : (
                             <img
@@ -495,6 +502,8 @@ export default function FotosFornecedorPage() {
                               className="h-full w-full object-cover"
                             />
                           )}
+
+                          <div className="absolute inset-0 bg-black/0 transition hover:bg-black/10" />
 
                           {isCover && (
                             <span className="absolute left-3 top-3 rounded-full bg-[#e3a925] px-3 py-1 text-[10px] font-extrabold text-white">
@@ -505,7 +514,11 @@ export default function FotosFornecedorPage() {
                           <span className="absolute right-3 top-3 rounded-full bg-black/60 px-3 py-1 text-[10px] font-extrabold text-white">
                             {isVideo ? 'Vídeo' : 'Foto'}
                           </span>
-                        </div>
+
+                          <span className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/65 px-3 py-1 text-[10px] font-extrabold text-white">
+                            Toque para ampliar
+                          </span>
+                        </button>
 
                         <div className="space-y-2 p-3">
                           {!isVideo && (
@@ -543,6 +556,45 @@ export default function FotosFornecedorPage() {
           )}
         </section>
       </div>
+
+        {selectedMedia && (
+          <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/90 px-4">
+            <button
+              type="button"
+              onClick={() => setSelectedMedia(null)}
+              className="absolute right-5 top-5 flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur"
+            >
+              <X size={24} />
+            </button>
+
+            <div className="w-full max-w-[430px]">
+              <div className="overflow-hidden rounded-[28px] bg-[#151515] shadow-2xl">
+                {isVideoUrl(selectedMedia.file_url) ? (
+                  <video
+                    src={selectedMedia.file_url}
+                    className="max-h-[78vh] w-full object-contain"
+                    controls
+                    autoPlay
+                  />
+                ) : (
+                  <img
+                    src={selectedMedia.file_url}
+                    alt="Mídia ampliada"
+                    className="max-h-[78vh] w-full object-contain"
+                  />
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedMedia(null)}
+                className="mt-4 flex w-full items-center justify-center rounded-[22px] bg-[#e3a925] py-4 text-sm font-extrabold text-white shadow-lg"
+              >
+                Fechar visualização
+              </button>
+            </div>
+          </div>
+        )}
     </main>
   );
 }
