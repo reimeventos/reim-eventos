@@ -113,7 +113,6 @@ function formatRating(value: any) {
 export default function BuscarPage() {
   const [categories, setCategories] = useState<any[]>([]);
   const [suppliers, setSuppliers] = useState<any[]>([]);
-  const [allSuppliers, setAllSuppliers] = useState<any[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [loadingSuppliers, setLoadingSuppliers] = useState(true);
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
@@ -129,6 +128,7 @@ export default function BuscarPage() {
   const [errorMessage, setErrorMessage] = useState('');
 
   const isCerimonialistaMode = Boolean(targetCustomerId);
+  const hasActiveSearch = Boolean(appliedSearch.trim());
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -183,11 +183,9 @@ export default function BuscarPage() {
       });
 
       setSuppliers(data || []);
-      setAllSuppliers(data || []);
     } catch (error) {
       console.error('Erro ao carregar fornecedores:', error);
       setSuppliers([]);
-      setAllSuppliers([]);
     } finally {
       setLoadingSuppliers(false);
     }
@@ -237,7 +235,9 @@ export default function BuscarPage() {
     const nextCategoryId = selectedCategoryId === categoryId ? '' : categoryId;
 
     setSelectedCategoryId(nextCategoryId);
-    loadSuppliers(nextCategoryId, appliedSearch);
+    setAppliedSearch('');
+    setSearch('');
+    loadSuppliers(nextCategoryId, '');
   }
 
   function handleSearchSubmit(e: React.FormEvent) {
@@ -330,9 +330,7 @@ export default function BuscarPage() {
               <div className="mt-4 flex items-start gap-3 rounded-2xl bg-white/10 p-4 text-white ring-1 ring-white/10">
                 <ShieldCheck size={20} className="mt-0.5 text-[#e3a925]" />
                 <div>
-                  <p className="text-sm font-extrabold">
-                    Modo cerimonialista
-                  </p>
+                  <p className="text-sm font-extrabold">Modo cerimonialista</p>
                   <p className="mt-1 text-xs leading-5 text-white/70">
                     Ao tocar em “Adicionar ao evento”, o fornecedor será salvo no evento da cliente.
                   </p>
@@ -376,10 +374,11 @@ export default function BuscarPage() {
               </div>
             </form>
 
-            {appliedSearch && (
+            {hasActiveSearch && (
               <div className="mt-3 flex items-center justify-between rounded-2xl bg-white/10 px-4 py-3 text-xs font-bold text-white">
                 <span>
-                  Buscando por: <strong className="text-[#e3a925]">{appliedSearch}</strong>
+                  Buscando por:{' '}
+                  <strong className="text-[#e3a925]">{appliedSearch}</strong>
                 </span>
 
                 <button
@@ -416,84 +415,88 @@ export default function BuscarPage() {
           </section>
         )}
 
-        <section className="px-6 pt-6">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-extrabold">Categorias</h2>
-            <span className="text-xs font-bold text-[#d99200]">
-              {loadingCategories
-                ? 'Carregando...'
-                : `${categories.length + 1} categorias`}
-            </span>
-          </div>
+        {!hasActiveSearch && (
+          <section className="px-6 pt-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-extrabold">Categorias</h2>
+              <span className="text-xs font-bold text-[#d99200]">
+                {loadingCategories
+                  ? 'Carregando...'
+                  : `${categories.length + 1} categorias`}
+              </span>
+            </div>
 
-          <div className="flex gap-3 overflow-x-auto pb-2">
-            <button
-              type="button"
-              onClick={() => handleCategoryClick('')}
-              className={`min-w-[104px] rounded-[22px] p-3 text-center shadow-sm ring-1 transition ${
-                selectedCategoryId === ''
-                  ? 'bg-[#e3a925] text-white ring-[#e3a925]'
-                  : 'bg-white text-[#151515] ring-[#f1e7cf]'
-              }`}
-            >
-              <div
-                className={`mx-auto flex h-12 w-12 items-center justify-center rounded-full ${
+            <div className="flex gap-3 overflow-x-auto pb-2">
+              <button
+                type="button"
+                onClick={() => handleCategoryClick('')}
+                className={`min-w-[104px] rounded-[22px] p-3 text-center shadow-sm ring-1 transition ${
                   selectedCategoryId === ''
-                    ? 'bg-white/20 text-white'
-                    : 'bg-[#fff7e8] text-[#d99200]'
+                    ? 'bg-[#e3a925] text-white ring-[#e3a925]'
+                    : 'bg-white text-[#151515] ring-[#f1e7cf]'
                 }`}
               >
-                <Search size={25} strokeWidth={2.2} />
-              </div>
-
-              <p className="mt-2 line-clamp-2 text-[11px] font-extrabold leading-4">
-                Todos
-              </p>
-            </button>
-
-            {categories.map((cat) => {
-              const Icon = getCategoryIcon(cat.name || '');
-              const isSelected = selectedCategoryId === cat.id;
-
-              return (
-                <button
-                  type="button"
-                  onClick={() => handleCategoryClick(cat.id)}
-                  key={cat.id}
-                  className={`min-w-[104px] rounded-[22px] p-3 text-center shadow-sm ring-1 transition ${
-                    isSelected
-                      ? 'bg-[#e3a925] text-white ring-[#e3a925]'
-                      : 'bg-white text-[#151515] ring-[#f1e7cf]'
+                <div
+                  className={`mx-auto flex h-12 w-12 items-center justify-center rounded-full ${
+                    selectedCategoryId === ''
+                      ? 'bg-white/20 text-white'
+                      : 'bg-[#fff7e8] text-[#d99200]'
                   }`}
                 >
-                  <div
-                    className={`mx-auto flex h-12 w-12 items-center justify-center rounded-full ${
+                  <Search size={25} strokeWidth={2.2} />
+                </div>
+
+                <p className="mt-2 line-clamp-2 text-[11px] font-extrabold leading-4">
+                  Todos
+                </p>
+              </button>
+
+              {categories.map((cat) => {
+                const Icon = getCategoryIcon(cat.name || '');
+                const isSelected = selectedCategoryId === cat.id;
+
+                return (
+                  <button
+                    type="button"
+                    onClick={() => handleCategoryClick(cat.id)}
+                    key={cat.id}
+                    className={`min-w-[104px] rounded-[22px] p-3 text-center shadow-sm ring-1 transition ${
                       isSelected
-                        ? 'bg-white/20 text-white'
-                        : 'bg-[#fff7e8] text-[#d99200]'
+                        ? 'bg-[#e3a925] text-white ring-[#e3a925]'
+                        : 'bg-white text-[#151515] ring-[#f1e7cf]'
                     }`}
                   >
-                    <Icon size={25} strokeWidth={2.2} />
-                  </div>
+                    <div
+                      className={`mx-auto flex h-12 w-12 items-center justify-center rounded-full ${
+                        isSelected
+                          ? 'bg-white/20 text-white'
+                          : 'bg-[#fff7e8] text-[#d99200]'
+                      }`}
+                    >
+                      <Icon size={25} strokeWidth={2.2} />
+                    </div>
 
-                  <p className="mt-2 line-clamp-2 text-[11px] font-extrabold leading-4">
-                    {cat.name}
-                  </p>
-                </button>
-              );
-            })}
+                    <p className="mt-2 line-clamp-2 text-[11px] font-extrabold leading-4">
+                      {cat.name}
+                    </p>
+                  </button>
+                );
+              })}
 
-            {!loadingCategories && categories.length === 0 && (
-              <div className="rounded-[22px] bg-white p-4 text-sm font-bold text-gray-500 ring-1 ring-[#f1e7cf]">
-                Nenhuma categoria cadastrada.
-              </div>
-            )}
-          </div>
-        </section>
+              {!loadingCategories && categories.length === 0 && (
+                <div className="rounded-[22px] bg-white p-4 text-sm font-bold text-gray-500 ring-1 ring-[#f1e7cf]">
+                  Nenhuma categoria cadastrada.
+                </div>
+              )}
+            </div>
+          </section>
+        )}
 
-        <section className="px-6 pt-6">
+        <section className={hasActiveSearch ? 'px-6 pt-5' : 'px-6 pt-6'}>
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-extrabold">Resultados</h2>
+            <h2 className="text-lg font-extrabold">
+              {hasActiveSearch ? 'Resultado da busca' : 'Resultados'}
+            </h2>
             <span className="text-xs font-bold text-gray-500">
               {loadingSuppliers
                 ? 'Carregando...'
