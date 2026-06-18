@@ -490,13 +490,6 @@ export default function ConvitesCerimonialistaPage() {
                             Linha do tempo
                           </Link>
                         </div>
-
-                        <Link
-                          href={`/fornecedor/${supplierId}`}
-                          className="block rounded-[22px] bg-white py-4 text-center font-extrabold text-[#151515] shadow-sm ring-1 ring-[#f1e7cf]"
-                        >
-                          Ver minha vitrine profissional
-                        </Link>
                       </>
                     )}
 
