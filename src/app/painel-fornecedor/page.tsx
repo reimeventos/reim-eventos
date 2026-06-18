@@ -21,37 +21,6 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
-const shortcuts = [
-  {
-    title: 'Leads recebidos',
-    desc: 'Veja pedidos de orçamento dos clientes',
-    href: '/painel-fornecedor/leads',
-    icon: MessageCircle,
-    color: 'bg-[#e3a925]',
-  },
-  {
-    title: 'Editar vitrine',
-    desc: 'Atualize nome, descrição e serviços',
-    href: '/painel-fornecedor/editar',
-    icon: Pencil,
-    color: 'bg-black',
-  },
-  {
-    title: 'Enviar mídias',
-    desc: 'Adicione imagens na sua galeria',
-    href: '/painel-fornecedor/fotos',
-    icon: ImageIcon,
-    color: 'bg-black',
-  },
-  {
-    title: 'Planos',
-    desc: 'Gerencie seu plano premium',
-    href: '/planos',
-    icon: Crown,
-    color: 'bg-[#e3a925]',
-  },
-];
-
 function getCategoryName(supplier: any) {
   if (!supplier) return 'Categoria não informada';
 
@@ -81,6 +50,10 @@ function isCerimonialistaTestAccount(email: string) {
   return email.toLowerCase().startsWith('cerimonialista@');
 }
 
+function isPendingLead(status?: string) {
+  return status === 'novo' || status === 'aguardando_resposta' || !status;
+}
+
 export default function PainelFornecedorPage() {
   const router = useRouter();
 
@@ -88,6 +61,8 @@ export default function PainelFornecedorPage() {
   const [checkingRedirect, setCheckingRedirect] = useState(true);
   const [supplier, setSupplier] = useState<any>(null);
   const [leadsCount, setLeadsCount] = useState(0);
+  const [pendingLeadsCount, setPendingLeadsCount] = useState(0);
+  const [cerimonialistaLeadsCount, setCerimonialistaLeadsCount] = useState(0);
   const [answeredCount, setAnsweredCount] = useState(0);
   const [closedCount, setClosedCount] = useState(0);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -147,7 +122,7 @@ export default function PainelFornecedorPage() {
 
       const { data: requestsData, error: requestsError } = await supabase
         .from('quote_requests')
-        .select('id,status')
+        .select('id,status,created_by_role')
         .eq('supplier_id', supplierData.id);
 
       if (requestsError) {
@@ -157,20 +132,30 @@ export default function PainelFornecedorPage() {
       const requests = requestsData || [];
 
       setLeadsCount(requests.length);
+      setPendingLeadsCount(
+        requests.filter((item: any) => isPendingLead(item.status)).length
+      );
+      setCerimonialistaLeadsCount(
+        requests.filter((item: any) => item.created_by_role === 'cerimonialista')
+          .length
+      );
       setAnsweredCount(
         requests.filter((item: any) =>
-          ['respondido', 'revisado'].includes(item.status)
+          ['respondido', 'revisado', 'ajuste_solicitado'].includes(item.status)
         ).length
       );
       setClosedCount(
-        requests.filter((item: any) => item.status === 'aceito').length
+        requests.filter((item: any) =>
+          ['aceito', 'fechado'].includes(item.status)
+        ).length
       );
 
       const { data: messagesData, error: messagesError } = await supabase
         .from('quote_messages')
-        .select('id, quote_requests!inner(supplier_id)')
+        .select('id, sender_type, quote_requests!inner(supplier_id)')
         .eq('quote_requests.supplier_id', supplierData.id)
-        .eq('read_by_supplier', false);
+        .eq('read_by_supplier', false)
+        .in('sender_type', ['cliente', 'cerimonialista']);
 
       if (messagesError) {
         console.error('Erro ao buscar mensagens não lidas:', messagesError);
@@ -274,6 +259,51 @@ export default function PainelFornecedorPage() {
   const averagePrice = formatPrice(supplier.average_price);
   const planLabel = supplier.is_featured ? 'Plano Premium' : 'Plano gratuito';
   const publicPriceStatus = supplier.show_price ? 'Ativado' : 'Desativado';
+  const hasAttention = unreadCount > 0 || pendingLeadsCount > 0;
+
+  const shortcuts = [
+    {
+      title: 'Leads recebidos',
+      desc:
+        unreadCount > 0
+          ? `${unreadCount} mensagem(ns) nova(s) aguardando leitura`
+          : pendingLeadsCount > 0
+            ? `${pendingLeadsCount} lead(s) novo(s) aguardando resposta`
+            : 'Veja pedidos de orçamento dos clientes',
+      href: '/painel-fornecedor/leads',
+      icon: MessageCircle,
+      color: hasAttention ? 'bg-pink-500' : 'bg-[#e3a925]',
+      highlight: hasAttention,
+      badge: unreadCount > 0 ? unreadCount : pendingLeadsCount,
+    },
+    {
+      title: 'Editar vitrine',
+      desc: 'Atualize nome, descrição e serviços',
+      href: '/painel-fornecedor/editar',
+      icon: Pencil,
+      color: 'bg-black',
+      highlight: false,
+      badge: 0,
+    },
+    {
+      title: 'Enviar mídias',
+      desc: 'Adicione imagens na sua galeria',
+      href: '/painel-fornecedor/fotos',
+      icon: ImageIcon,
+      color: 'bg-black',
+      highlight: false,
+      badge: 0,
+    },
+    {
+      title: 'Planos',
+      desc: 'Gerencie seu plano premium',
+      href: '/planos',
+      icon: Crown,
+      color: 'bg-[#e3a925]',
+      highlight: false,
+      badge: 0,
+    },
+  ];
 
   return (
     <main className="min-h-screen bg-black text-[#151515]">
@@ -305,12 +335,16 @@ export default function PainelFornecedorPage() {
 
               <Link
                 href="/painel-fornecedor/leads"
-                className="relative flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-[#e3a925]"
+                className={
+                  unreadCount > 0
+                    ? 'relative flex h-12 w-12 items-center justify-center rounded-full bg-pink-500 text-white shadow-lg ring-4 ring-pink-500/25'
+                    : 'relative flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-[#e3a925]'
+                }
               >
                 <Bell size={24} />
 
                 {unreadCount > 0 && (
-                  <span className="absolute -right-1 -top-1 flex h-6 min-w-6 items-center justify-center rounded-full bg-pink-500 px-1 text-xs font-extrabold text-white">
+                  <span className="absolute -right-1 -top-1 flex h-6 min-w-6 items-center justify-center rounded-full bg-white px-1 text-xs font-extrabold text-pink-600">
                     {unreadCount}
                   </span>
                 )}
@@ -337,36 +371,77 @@ export default function PainelFornecedorPage() {
                 </div>
               </div>
             </div>
+
+            {hasAttention && (
+              <Link
+                href="/painel-fornecedor/leads"
+                className="mt-4 block rounded-[22px] bg-white p-4 text-[#151515] shadow-lg"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-pink-500 text-white">
+                    <Bell size={23} />
+                  </div>
+
+                  <div className="flex-1">
+                    <p className="text-sm font-extrabold">
+                      Atenção nos leads
+                    </p>
+
+                    <p className="mt-1 text-xs font-bold leading-5 text-gray-600">
+                      {unreadCount > 0
+                        ? `${unreadCount} mensagem(ns) nova(s) da cliente ou cerimonialista.`
+                        : `${pendingLeadsCount} lead(s) novo(s) aguardando resposta.`}
+                    </p>
+                  </div>
+                </div>
+              </Link>
+            )}
           </div>
         </section>
 
         {/* RESUMO */}
-        <section className="grid grid-cols-3 gap-3 px-6 pt-6">
-          <div className="rounded-[22px] bg-white p-4 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-            <p className="text-2xl font-extrabold text-[#d99200]">
+        <section className="grid grid-cols-4 gap-2 px-6 pt-6">
+          <div className="rounded-[20px] bg-white p-3 text-center shadow-sm ring-1 ring-[#f1e7cf]">
+            <p className="text-xl font-extrabold text-[#d99200]">
               {leadsCount}
             </p>
-            <p className="mt-1 text-[11px] font-bold text-gray-600">Leads</p>
+            <p className="mt-1 text-[10px] font-bold text-gray-600">Leads</p>
           </div>
 
-          <div className="rounded-[22px] bg-white p-4 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-            <p className="text-2xl font-extrabold text-blue-600">
+          <div className="rounded-[20px] bg-white p-3 text-center shadow-sm ring-1 ring-[#f1e7cf]">
+            <p className="text-xl font-extrabold text-pink-600">
+              {unreadCount}
+            </p>
+            <p className="mt-1 text-[10px] font-bold text-gray-600">Msgs</p>
+          </div>
+
+          <div className="rounded-[20px] bg-white p-3 text-center shadow-sm ring-1 ring-[#f1e7cf]">
+            <p className="text-xl font-extrabold text-blue-600">
               {answeredCount}
             </p>
-            <p className="mt-1 text-[11px] font-bold text-gray-600">
-              Respondido
-            </p>
+            <p className="mt-1 text-[10px] font-bold text-gray-600">Resp.</p>
           </div>
 
-          <div className="rounded-[22px] bg-white p-4 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-            <p className="text-2xl font-extrabold text-green-600">
+          <div className="rounded-[20px] bg-white p-3 text-center shadow-sm ring-1 ring-[#f1e7cf]">
+            <p className="text-xl font-extrabold text-green-600">
               {closedCount}
             </p>
-            <p className="mt-1 text-[11px] font-bold text-gray-600">
-              Fechado
-            </p>
+            <p className="mt-1 text-[10px] font-bold text-gray-600">Fechado</p>
           </div>
         </section>
+
+        {cerimonialistaLeadsCount > 0 && (
+          <section className="px-6 pt-4">
+            <div className="rounded-[22px] bg-[#fff7e8] p-4 text-sm leading-5 text-[#7a5200] ring-1 ring-[#f1e7cf]">
+              <p className="font-extrabold">
+                {cerimonialistaLeadsCount} lead(s) vieram de cerimonialista.
+              </p>
+              <p className="mt-1">
+                Na tela de leads você consegue ver a origem de cada solicitação.
+              </p>
+            </div>
+          </section>
+        )}
 
         {/* ATALHOS */}
         <section className="px-6 pt-6">
@@ -383,8 +458,18 @@ export default function PainelFornecedorPage() {
                 <Link
                   key={item.title}
                   href={item.href}
-                  className="rounded-[26px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]"
+                  className={
+                    item.highlight
+                      ? 'relative rounded-[26px] bg-white p-5 shadow-[0_10px_25px_rgba(219,39,119,.20)] ring-2 ring-pink-300'
+                      : 'relative rounded-[26px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]'
+                  }
                 >
+                  {item.badge > 0 && (
+                    <span className="absolute right-3 top-3 flex h-7 min-w-7 items-center justify-center rounded-full bg-pink-500 px-2 text-xs font-extrabold text-white">
+                      {item.badge}
+                    </span>
+                  )}
+
                   <div
                     className={`flex h-12 w-12 items-center justify-center rounded-2xl ${item.color} text-white`}
                   >
@@ -467,8 +552,9 @@ export default function PainelFornecedorPage() {
               <div className="flex-1">
                 <h2 className="text-lg font-extrabold">Resumo da semana</h2>
                 <p className="mt-2 text-sm leading-5 text-white/70">
-                  Sua vitrine recebeu novos pedidos de orçamento. Responda rápido
-                  para aumentar as chances de fechar contrato.
+                  {hasAttention
+                    ? 'Você tem leads ou mensagens novas aguardando atenção. Responda rápido para aumentar as chances de fechar contrato.'
+                    : 'Sua vitrine está pronta para receber novos pedidos de orçamento. Mantenha fotos e informações atualizadas.'}
                 </p>
 
                 <Link
