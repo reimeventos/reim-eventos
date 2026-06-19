@@ -46,10 +46,6 @@ function formatPrice(value: any) {
   return String(value);
 }
 
-function isCerimonialistaTestAccount(email: string) {
-  return email.toLowerCase().startsWith('cerimonialista@');
-}
-
 function isPendingLead(status?: string) {
   return status === 'novo' || status === 'aguardando_resposta' || !status;
 }
@@ -87,12 +83,12 @@ export default function PainelFornecedorPage() {
         return;
       }
 
-      const email = user.email || '';
-
-      if (isCerimonialistaTestAccount(email)) {
-        router.replace('/cerimonialista/convites');
-        return;
-      }
+      /*
+        Regra correta:
+        Cerimonialista com vitrine é fornecedor.
+        Portanto não redirecionamos cerimonialista@ direto para convites.
+        Primeiro verificamos se existe supplier.owner_id para esta conta.
+      */
 
       setCheckingRedirect(false);
 
