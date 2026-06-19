@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft,
+  AlertCircle,
   CheckCircle2,
   Crown,
   Loader2,
@@ -14,31 +15,33 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
-type PlanKey = 'gratuito' | 'premium' | 'profissional';
+type PlanKey = 'teste_7_dias' | 'premium' | 'profissional';
 
 const plans: {
   key: PlanKey;
   name: string;
   price: string;
   value: number;
+  statusOnRequest: 'teste' | 'pendente';
   highlight: string;
   icon: any;
   badge?: string;
   features: string[];
 }[] = [
   {
-    key: 'gratuito',
-    name: 'Gratuito',
-    price: 'R$ 0,00',
+    key: 'teste_7_dias',
+    name: 'Teste grátis',
+    price: '7 dias grátis',
     value: 0,
-    highlight: 'Para começar sua vitrine',
+    statusOnRequest: 'teste',
+    highlight: 'Para fornecedores conhecerem a plataforma',
     icon: Star,
     features: [
-      'Vitrine básica',
+      'Vitrine liberada por 7 dias',
       'Receber pedidos de orçamento',
       'Responder propostas',
       'Chat com clientes',
-      'Fotos limitadas na galeria',
+      'Fotos e vídeos para testar a vitrine',
     ],
   },
   {
@@ -46,6 +49,7 @@ const plans: {
     name: 'Premium',
     price: 'R$ 49,90/mês',
     value: 49.9,
+    statusOnRequest: 'pendente',
     highlight: 'Mais destaque para vender mais',
     icon: Crown,
     badge: 'Mais escolhido',
@@ -62,6 +66,7 @@ const plans: {
     name: 'Profissional',
     price: 'R$ 89,90/mês',
     value: 89.9,
+    statusOnRequest: 'pendente',
     highlight: 'Para fornecedores que querem prioridade',
     icon: Zap,
     features: [
@@ -77,20 +82,26 @@ const plans: {
 function getPlanLabel(plan?: string) {
   if (plan === 'premium') return 'Premium';
   if (plan === 'profissional') return 'Profissional';
-  return 'Gratuito';
+  if (plan === 'teste_7_dias' || plan === 'gratuito') return 'Teste grátis';
+  return 'Sem plano';
 }
 
 function getStatusLabel(status?: string) {
   if (status === 'ativo') return 'Ativo';
+  if (status === 'teste') return 'Teste 7 dias';
   if (status === 'pendente') return 'Pendente';
   if (status === 'cancelado') return 'Cancelado';
+  if (status === 'expirado') return 'Expirado';
   return 'Sem assinatura';
 }
 
 function getStatusClass(status?: string) {
   if (status === 'ativo') return 'bg-green-50 text-green-700 ring-green-100';
+  if (status === 'teste') return 'bg-blue-50 text-blue-700 ring-blue-100';
   if (status === 'pendente') return 'bg-yellow-50 text-yellow-800 ring-yellow-100';
-  if (status === 'cancelado') return 'bg-red-50 text-red-700 ring-red-100';
+  if (status === 'cancelado' || status === 'expirado') {
+    return 'bg-red-50 text-red-700 ring-red-100';
+  }
 
   return 'bg-gray-50 text-gray-600 ring-gray-100';
 }
@@ -99,6 +110,16 @@ function addDays(date: Date, days: number) {
   const copy = new Date(date);
   copy.setDate(copy.getDate() + days);
   return copy.toISOString().split('T')[0];
+}
+
+function formatDate(date?: string) {
+  if (!date) return 'Não informado';
+
+  const [year, month, day] = String(date).split('-');
+
+  if (!year || !month || !day) return date;
+
+  return `${day}/${month}/${year}`;
 }
 
 export default function PlanosFornecedorPage() {
@@ -177,9 +198,9 @@ export default function PlanosFornecedorPage() {
     if (!plan) return;
 
     const confirmed = window.confirm(
-      planKey === 'gratuito'
-        ? 'Deseja manter/ativar o plano gratuito?'
-        : `Deseja solicitar o plano ${plan.name}? Após o pagamento, o admin ativará sua assinatura.`
+      planKey === 'teste_7_dias'
+        ? 'Deseja iniciar o teste grátis de 7 dias para fornecedor?'
+        : `Deseja solicitar o plano ${plan.name}? Após o pagamento por PIX/link, o admin ativará sua assinatura.`
     );
 
     if (!confirmed) return;
@@ -190,10 +211,10 @@ export default function PlanosFornecedorPage() {
       const payload = {
         supplier_id: supplier.id,
         plan: plan.key,
-        status: plan.key === 'gratuito' ? 'ativo' : 'pendente',
+        status: plan.statusOnRequest,
         value: plan.value,
-        due_date: addDays(new Date(), 30),
-        is_featured: plan.key !== 'gratuito',
+        due_date: plan.key === 'teste_7_dias' ? addDays(new Date(), 7) : addDays(new Date(), 30),
+        is_featured: plan.key !== 'teste_7_dias',
       };
 
       if (subscription?.supplier_id) {
@@ -212,8 +233,8 @@ export default function PlanosFornecedorPage() {
       }
 
       setSuccessMessage(
-        plan.key === 'gratuito'
-          ? 'Plano gratuito ativado com sucesso.'
+        plan.key === 'teste_7_dias'
+          ? 'Teste grátis de 7 dias iniciado para este fornecedor.'
           : `Solicitação do plano ${plan.name} enviada. Aguarde a confirmação do pagamento pelo admin.`
       );
 
@@ -229,8 +250,10 @@ export default function PlanosFornecedorPage() {
     }
   }
 
-  const currentPlan = subscription?.plan || 'gratuito';
-  const currentStatus = subscription?.status || 'ativo';
+  const currentPlan = subscription?.plan || '';
+  const currentStatus = subscription?.status || '';
+  const dueDate = subscription?.due_date || '';
+  const hasSubscription = Boolean(subscription?.supplier_id);
 
   return (
     <main className="min-h-screen bg-black text-[#151515]">
@@ -258,7 +281,7 @@ export default function PlanosFornecedorPage() {
               </h1>
 
               <p className="mt-2 text-sm text-white/70">
-                Escolha como sua vitrine aparecerá para os clientes.
+                Clientes usam grátis. A cobrança é apenas para fornecedores.
               </p>
             </div>
 
@@ -269,11 +292,11 @@ export default function PlanosFornecedorPage() {
                   {supplier.business_name || 'Minha vitrine'}
                 </h2>
 
-                <div className="mt-4 grid grid-cols-2 gap-3">
+                <div className="mt-4 grid grid-cols-3 gap-2">
                   <div className="rounded-2xl bg-black/25 p-3 text-center">
                     <Crown size={18} className="mx-auto text-[#e3a925]" />
                     <p className="mt-1 text-[10px] font-bold text-white/50">
-                      Plano atual
+                      Plano
                     </p>
                     <p className="mt-1 text-[12px] font-extrabold">
                       {getPlanLabel(currentPlan)}
@@ -287,6 +310,16 @@ export default function PlanosFornecedorPage() {
                     </p>
                     <p className="mt-1 text-[12px] font-extrabold">
                       {getStatusLabel(currentStatus)}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl bg-black/25 p-3 text-center">
+                    <Sparkles size={18} className="mx-auto text-[#e3a925]" />
+                    <p className="mt-1 text-[10px] font-bold text-white/50">
+                      Vence
+                    </p>
+                    <p className="mt-1 text-[12px] font-extrabold">
+                      {formatDate(dueDate)}
                     </p>
                   </div>
                 </div>
@@ -322,16 +355,16 @@ export default function PlanosFornecedorPage() {
               <div className="rounded-[24px] bg-white p-4 shadow-sm ring-1 ring-[#f1e7cf]">
                 <div className="flex items-start gap-3">
                   <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]">
-                    <Sparkles size={23} />
+                    <AlertCircle size={23} />
                   </div>
 
                   <div>
                     <h2 className="text-base font-extrabold">
-                      Pagamento manual nesta primeira versão
+                      Modelo inicial para publicação
                     </h2>
 
                     <p className="mt-1 text-sm leading-5 text-gray-600">
-                      O fornecedor solicita o plano no app. Após pagamento via PIX ou link externo, o admin confirma e ativa o plano.
+                      Cliente não paga. Fornecedor tem 7 dias grátis para testar. Após isso, solicita Premium ou Profissional e o admin ativa após confirmar o pagamento.
                     </p>
                   </div>
                 </div>
@@ -343,6 +376,7 @@ export default function PlanosFornecedorPage() {
                   const isCurrent = currentPlan === plan.key;
                   const isPending = isCurrent && currentStatus === 'pendente';
                   const isActive = isCurrent && currentStatus === 'ativo';
+                  const isTest = isCurrent && currentStatus === 'teste';
 
                   return (
                     <div
@@ -437,7 +471,7 @@ export default function PlanosFornecedorPage() {
                       <button
                         type="button"
                         onClick={() => handleRequestPlan(plan.key)}
-                        disabled={requestingPlan === plan.key || isActive || isPending}
+                        disabled={requestingPlan === plan.key || isActive || isPending || isTest}
                         className={
                           plan.key === 'premium'
                             ? 'mt-5 flex w-full items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-sm font-extrabold text-white shadow-lg disabled:opacity-60'
@@ -453,8 +487,10 @@ export default function PlanosFornecedorPage() {
                           'Aguardando confirmação'
                         ) : isActive ? (
                           'Plano atual'
-                        ) : plan.key === 'gratuito' ? (
-                          'Usar plano gratuito'
+                        ) : isTest ? (
+                          'Teste em andamento'
+                        ) : plan.key === 'teste_7_dias' ? (
+                          hasSubscription ? 'Teste já utilizado' : 'Iniciar teste grátis'
                         ) : (
                           `Solicitar ${plan.name}`
                         )}
