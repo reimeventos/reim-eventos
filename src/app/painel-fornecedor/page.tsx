@@ -317,11 +317,11 @@ export default function PainelFornecedorPage() {
             <div className="flex items-center justify-between">
               <div>
                 <Link
-                  href="/perfil"
+                  href="/"
                   className="inline-flex items-center gap-2 text-sm font-bold text-[#e3a925]"
                 >
                   <ArrowLeft size={16} />
-                  Perfil
+                  Home
                 </Link>
 
                 <p className="mt-4 text-sm font-bold text-[#e3a925]">
