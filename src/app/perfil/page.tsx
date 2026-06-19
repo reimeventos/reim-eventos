@@ -6,11 +6,16 @@ import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
   Bell,
+  Briefcase,
   Building2,
+  Crown,
   Heart,
+  ImageIcon,
   LogIn,
   LogOut,
   Mail,
+  MessageSquare,
+  Pencil,
   ShieldCheck,
   User,
   Users,
@@ -36,6 +41,26 @@ function getTestAccountType(email: string) {
   return '';
 }
 
+function getCategoryName(supplier: any) {
+  if (!supplier) return '';
+
+  if (Array.isArray(supplier.categories)) {
+    return supplier.categories[0]?.name || '';
+  }
+
+  return supplier.categories?.name || '';
+}
+
+function isCerimonialistaCategory(categoryName: string) {
+  const normalized = String(categoryName || '').toLowerCase();
+
+  return (
+    normalized.includes('cerimonial') ||
+    normalized.includes('cerimonialista') ||
+    normalized.includes('assessoria')
+  );
+}
+
 export default function PerfilPage() {
   const router = useRouter();
 
@@ -43,8 +68,10 @@ export default function PerfilPage() {
   const [signingOut, setSigningOut] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [accountType, setAccountType] = useState('Cliente');
+  const [supplier, setSupplier] = useState<any>(null);
   const [supplierName, setSupplierName] = useState('');
   const [profileName, setProfileName] = useState('');
+  const [hasCollaboratorAccess, setHasCollaboratorAccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
   async function loadUser() {
@@ -64,6 +91,9 @@ export default function PerfilPage() {
 
       if (!currentUser) {
         setAccountType('Visitante');
+        setSupplier(null);
+        setSupplierName('');
+        setHasCollaboratorAccess(false);
         return;
       }
 
@@ -80,10 +110,48 @@ export default function PerfilPage() {
         setProfileName(profileData.full_name);
       }
 
-      if (testType) {
-        setAccountType(testType);
+      /*
+        Regra principal:
+        Cerimonialista com vitrine é fornecedor.
+        Portanto fornecedor precisa ter prioridade sobre event_collaborators.
+      */
+      const { data: suppliersData } = await supabase
+        .from('suppliers')
+        .select(`
+          id,
+          business_name,
+          owner_id,
+          categories(name, slug)
+        `)
+        .eq('owner_id', currentUser.id)
+        .limit(1);
+
+      const currentSupplier = suppliersData?.[0] || null;
+
+      if (currentSupplier) {
+        const categoryName = getCategoryName(currentSupplier);
+        const isCerimonialistaSupplier = isCerimonialistaCategory(categoryName);
+
+        setSupplier(currentSupplier);
+        setSupplierName(currentSupplier.business_name || '');
+        setAccountType(
+          isCerimonialistaSupplier
+            ? 'Fornecedor Cerimonialista'
+            : 'Fornecedor'
+        );
+
+        const { data: collaboratorData } = await supabase
+          .from('event_collaborators')
+          .select('id,status')
+          .ilike('collaborator_email', email)
+          .limit(1);
+
+        setHasCollaboratorAccess(Boolean(collaboratorData?.length));
         return;
       }
+
+      setSupplier(null);
+      setSupplierName('');
 
       const { data: collaboratorData } = await supabase
         .from('event_collaborators')
@@ -93,18 +161,24 @@ export default function PerfilPage() {
 
       if (collaboratorData && collaboratorData.length > 0) {
         setAccountType('Cerimonialista');
+        setHasCollaboratorAccess(true);
         return;
       }
 
-      const { data: suppliersData } = await supabase
-        .from('suppliers')
-        .select('business_name')
-        .eq('owner_id', currentUser.id)
-        .limit(1);
+      setHasCollaboratorAccess(false);
 
-      if (suppliersData && suppliersData.length > 0) {
+      if (testType === 'Fornecedor') {
         setAccountType('Fornecedor');
-        setSupplierName(suppliersData[0]?.business_name || '');
+        return;
+      }
+
+      if (testType === 'Cerimonialista') {
+        setAccountType('Cerimonialista');
+        return;
+      }
+
+      if (testType === 'Cliente') {
+        setAccountType('Cliente');
         return;
       }
 
@@ -137,11 +211,78 @@ export default function PerfilPage() {
   }
 
   const email = user?.email || '';
-  const displayName =
-    profileName ||
-    supplierName ||
-    email ||
-    'Usuário não logado';
+  const displayName = profileName || supplierName || email || 'Usuário não logado';
+
+  const isFornecedor = Boolean(supplier?.id) || accountType === 'Fornecedor';
+  const isFornecedorCerimonialista = accountType === 'Fornecedor Cerimonialista';
+  const isCerimonialistaOnly =
+    accountType === 'Cerimonialista' && !supplier?.id;
+  const isCliente = accountType === 'Cliente';
+
+  const supplierCards = [
+    {
+      title: 'Painel',
+      subtitle: 'Fornecedor',
+      href: '/painel-fornecedor',
+      icon: Briefcase,
+    },
+    {
+      title: 'Mídias',
+      subtitle: 'Fotos e vídeos',
+      href: '/painel-fornecedor/fotos',
+      icon: ImageIcon,
+    },
+    {
+      title: 'Leads',
+      subtitle: 'Pedidos recebidos',
+      href: '/painel-fornecedor/leads',
+      icon: MessageSquare,
+    },
+    {
+      title: 'Vitrine',
+      subtitle: 'Editar perfil',
+      href: '/painel-fornecedor/editar',
+      icon: Pencil,
+    },
+    {
+      title: 'Planos',
+      subtitle: 'Assinatura',
+      href: '/painel-fornecedor/planos',
+      icon: Crown,
+    },
+  ];
+
+  const clientCards = [
+    {
+      title: 'Meu Evento',
+      subtitle: 'Cliente',
+      href: '/meu-evento',
+      icon: Heart,
+    },
+    {
+      title: 'Orçamentos',
+      subtitle: 'Cliente',
+      href: '/orcamentos',
+      icon: Bell,
+    },
+  ];
+
+  const cerimonialCards = [
+    {
+      title: 'Convites',
+      subtitle: 'Eventos que atuo',
+      href: '/cerimonialista/convites',
+      icon: Users,
+    },
+  ];
+
+  const cards = isFornecedor
+    ? isFornecedorCerimonialista || hasCollaboratorAccess
+      ? [...supplierCards, ...cerimonialCards]
+      : supplierCards
+    : isCerimonialistaOnly
+      ? cerimonialCards
+      : clientCards;
 
   return (
     <main className="min-h-screen bg-black text-[#151515]">
@@ -169,7 +310,7 @@ export default function PerfilPage() {
                   Perfil
                 </h1>
                 <p className="mt-1 text-sm text-white/70">
-                  Veja sua conta e acesse os testes.
+                  Veja sua conta e acesse seus painéis.
                 </p>
               </div>
             </div>
@@ -195,7 +336,7 @@ export default function PerfilPage() {
               </h2>
 
               <p className="mt-2 text-sm leading-5 text-gray-500">
-                Faça login para solicitar orçamentos, salvar fornecedores e testar as contas.
+                Faça login para solicitar orçamentos, salvar fornecedores e acessar sua conta.
               </p>
 
               <Link
@@ -217,9 +358,7 @@ export default function PerfilPage() {
                   </div>
 
                   <div className="flex-1">
-                    <h2 className="text-lg font-extrabold">
-                      Conta logada
-                    </h2>
+                    <h2 className="text-lg font-extrabold">Conta logada</h2>
 
                     <p className="mt-2 text-sm font-extrabold text-[#151515]">
                       {displayName}
@@ -234,9 +373,37 @@ export default function PerfilPage() {
                       <ShieldCheck size={15} />
                       Tipo: {accountType}
                     </div>
+
+                    {supplierName && (
+                      <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-green-50 px-4 py-2 text-xs font-extrabold text-green-700">
+                        <Building2 size={15} />
+                        {supplierName}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
+
+              {isFornecedorCerimonialista && (
+                <div className="mt-4 rounded-[22px] bg-[#151515] p-4 text-white shadow-lg">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#e3a925]">
+                      <ShieldCheck size={23} />
+                    </div>
+
+                    <div>
+                      <p className="text-sm font-extrabold">
+                        Cerimonialista é fornecedor no REIM
+                      </p>
+
+                      <p className="mt-1 text-xs leading-5 text-white/70">
+                        Esta conta tem painel de fornecedor, vitrine, leads e planos.
+                        Além disso, pode atuar dentro do evento da cliente quando for autorizada.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {errorMessage && (
                 <div className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
@@ -245,50 +412,36 @@ export default function PerfilPage() {
               )}
 
               <div className="mt-5 grid grid-cols-2 gap-3">
-                <Link
-                  href="/meu-evento"
-                  className="rounded-[22px] bg-white p-4 shadow-sm ring-1 ring-[#f1e7cf]"
-                >
-                  <Heart size={24} className="text-[#d99200]" />
-                  <p className="mt-3 text-sm font-extrabold">Meu Evento</p>
-                  <p className="mt-1 text-xs font-bold text-gray-500">
-                    Cliente
-                  </p>
-                </Link>
+                {cards.map((card) => {
+                  const Icon = card.icon;
 
-                <Link
-                  href="/orcamentos"
-                  className="rounded-[22px] bg-white p-4 shadow-sm ring-1 ring-[#f1e7cf]"
-                >
-                  <Bell size={24} className="text-[#d99200]" />
-                  <p className="mt-3 text-sm font-extrabold">Orçamentos</p>
-                  <p className="mt-1 text-xs font-bold text-gray-500">
-                    Cliente
-                  </p>
-                </Link>
-
-                <Link
-                  href="/painel-fornecedor/leads"
-                  className="rounded-[22px] bg-white p-4 shadow-sm ring-1 ring-[#f1e7cf]"
-                >
-                  <Building2 size={24} className="text-[#d99200]" />
-                  <p className="mt-3 text-sm font-extrabold">Leads</p>
-                  <p className="mt-1 text-xs font-bold text-gray-500">
-                    Fornecedor
-                  </p>
-                </Link>
-
-                <Link
-                  href="/cerimonialista/convites"
-                  className="rounded-[22px] bg-white p-4 shadow-sm ring-1 ring-[#f1e7cf]"
-                >
-                  <Users size={24} className="text-[#d99200]" />
-                  <p className="mt-3 text-sm font-extrabold">Convites</p>
-                  <p className="mt-1 text-xs font-bold text-gray-500">
-                    Cerimonialista
-                  </p>
-                </Link>
+                  return (
+                    <Link
+                      key={`${card.title}-${card.href}`}
+                      href={card.href}
+                      className="rounded-[22px] bg-white p-4 shadow-sm ring-1 ring-[#f1e7cf]"
+                    >
+                      <Icon size={24} className="text-[#d99200]" />
+                      <p className="mt-3 text-sm font-extrabold">{card.title}</p>
+                      <p className="mt-1 text-xs font-bold text-gray-500">
+                        {card.subtitle}
+                      </p>
+                    </Link>
+                  );
+                })}
               </div>
+
+              {isCliente && (
+                <p className="mt-4 rounded-2xl bg-white px-4 py-3 text-center text-xs font-bold leading-5 text-gray-500 ring-1 ring-[#f1e7cf]">
+                  Clientes usam o REIM gratuitamente para organizar evento, salvar fornecedores e pedir orçamentos.
+                </p>
+              )}
+
+              {isCerimonialistaOnly && (
+                <p className="mt-4 rounded-2xl bg-white px-4 py-3 text-center text-xs font-bold leading-5 text-gray-500 ring-1 ring-[#f1e7cf]">
+                  Esta conta atua como cerimonialista convidada. Para ter vitrine pública e receber leads, é preciso ter cadastro de fornecedor.
+                </p>
+              )}
 
               <button
                 type="button"
@@ -299,10 +452,6 @@ export default function PerfilPage() {
                 <LogOut size={21} />
                 {signingOut ? 'Saindo...' : 'Sair da conta'}
               </button>
-
-              <p className="mt-4 rounded-2xl bg-white px-4 py-3 text-center text-xs font-bold leading-5 text-gray-500 ring-1 ring-[#f1e7cf]">
-                Use esta tela para conferir qual usuário está logado antes de testar cliente, fornecedor ou cerimonialista.
-              </p>
             </>
           )}
         </section>
