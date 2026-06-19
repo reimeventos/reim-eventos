@@ -45,36 +45,38 @@ const plans: {
     ],
   },
   {
-    key: 'premium',
-    name: 'Premium',
+    key: 'profissional',
+    name: 'Profissional',
     price: 'R$ 49,90/mês',
     value: 49.9,
     statusOnRequest: 'pendente',
-    highlight: 'Mais destaque para vender mais',
-    icon: Crown,
-    badge: 'Mais escolhido',
+    highlight: 'Plano pago de entrada para fornecedores',
+    icon: Zap,
     features: [
-      'Destaque na busca',
-      'Selo Premium na vitrine',
-      'Mais fotos e vídeos',
-      'Maior visibilidade para clientes',
-      'Aparece em fornecedores em destaque',
+      'Vitrine profissional ativa',
+      'Receber pedidos de orçamento',
+      'Responder propostas',
+      'Chat com clientes',
+      'Galeria com fotos e vídeos',
+      'Acesso ao painel de leads',
     ],
   },
   {
-    key: 'profissional',
-    name: 'Profissional',
+    key: 'premium',
+    name: 'Premium Destaque',
     price: 'R$ 89,90/mês',
     value: 89.9,
     statusOnRequest: 'pendente',
-    highlight: 'Para fornecedores que querem prioridade',
-    icon: Zap,
+    highlight: 'Plano top para ter mais visibilidade',
+    icon: Crown,
+    badge: 'Mais completo',
     features: [
-      'Tudo do Premium',
-      'Prioridade nos destaques',
-      'Mais espaço para portfólio',
-      'Melhor posicionamento comercial',
-      'Suporte prioritário',
+      'Tudo do plano Profissional',
+      'Destaque na busca',
+      'Selo Premium na vitrine',
+      'Aparece em fornecedores em destaque',
+      'Maior visibilidade para clientes',
+      'Prioridade em campanhas e chamadas futuras',
     ],
   },
 ];
@@ -364,7 +366,7 @@ export default function PlanosFornecedorPage() {
                     </h2>
 
                     <p className="mt-1 text-sm leading-5 text-gray-600">
-                      Cliente não paga. Fornecedor tem 7 dias grátis para testar. Após isso, solicita Premium ou Profissional e o admin ativa após confirmar o pagamento.
+                      Cliente não paga. Fornecedor tem 7 dias grátis para testar. Após isso, solicita Profissional ou Premium Destaque e o admin ativa após confirmar o pagamento.
                     </p>
                   </div>
                 </div>
