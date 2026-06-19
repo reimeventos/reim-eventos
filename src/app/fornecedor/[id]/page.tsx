@@ -25,6 +25,7 @@ import {
   Share2,
   ShieldCheck,
   Star,
+  Video,
   X,
 } from 'lucide-react';
 
@@ -562,12 +563,19 @@ export default function FornecedorPage() {
                     className="group relative h-28 w-full overflow-hidden rounded-[20px] bg-[#151515] shadow-sm"
                   >
                     {isVideo ? (
-                      <video
-                        src={img}
-                        className="h-full w-full object-cover"
-                        muted
-                        playsInline
-                      />
+                      <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-[#151515] via-[#2a2110] to-[#d99200] px-2 text-center text-white">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-[#d99200] shadow-lg">
+                          <Video size={22} />
+                        </div>
+
+                        <p className="mt-2 text-[10px] font-extrabold">
+                          Vídeo
+                        </p>
+
+                        <p className="mt-0.5 text-[9px] font-bold text-white/75">
+                          Assistir
+                        </p>
+                      </div>
                     ) : (
                       <img
                         src={img}
