@@ -257,7 +257,7 @@ export default function PainelFornecedorPage() {
   const categoryName = getCategoryName(supplier);
   const rating = supplier.rating_average || '4.9';
   const averagePrice = formatPrice(supplier.average_price);
-  const planLabel = supplier.is_featured ? 'Plano Premium' : 'Plano gratuito';
+  const planLabel = supplier.is_featured ? 'Plano Premium' : 'Teste/Profissional';
   const publicPriceStatus = supplier.show_price ? 'Ativado' : 'Desativado';
   const hasAttention = unreadCount > 0 || pendingLeadsCount > 0;
 
@@ -295,9 +295,9 @@ export default function PainelFornecedorPage() {
       badge: 0,
     },
     {
-      title: 'Planos',
-      desc: 'Gerencie seu plano premium',
-      href: '/planos',
+      title: 'Planos da vitrine',
+      desc: 'Teste grátis, Profissional e Premium',
+      href: '/painel-fornecedor/planos',
       icon: Crown,
       color: 'bg-[#e3a925]',
       highlight: false,
