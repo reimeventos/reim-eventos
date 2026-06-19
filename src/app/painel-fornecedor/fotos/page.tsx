@@ -243,7 +243,7 @@ export default function FotosFornecedorPage() {
 
       if (coverError) throw coverError;
 
-      setSuccessMessage('Foto de capa atualizada.');
+      setSuccessMessage('Capa atualizada.');
       await loadData();
     } catch (error: any) {
       console.error('Erro ao definir capa:', error);
@@ -427,31 +427,31 @@ export default function FotosFornecedorPage() {
                 />
               </div>
 
-              <section className="grid grid-cols-3 gap-3 pt-4">
-                <div className="rounded-[20px] bg-white p-3 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-                  <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-xl bg-[#fff7e8] text-[#d99200]">
-                    <ImageIcon size={19} />
+              <section className="pt-3">
+                <div className="flex items-center justify-between rounded-[20px] bg-white px-4 py-3 shadow-sm ring-1 ring-[#f1e7cf]">
+                  <div className="flex items-center gap-2">
+                    <ImageIcon size={17} className="text-[#d99200]" />
+                    <span className="text-xs font-bold text-gray-500">Fotos</span>
+                    <strong className="text-sm text-[#151515]">{photoCount}</strong>
                   </div>
-                  <p className="mt-2 text-lg font-extrabold">{photoCount}</p>
-                  <p className="text-[10px] font-bold text-gray-500">Fotos</p>
-                </div>
 
-                <div className="rounded-[20px] bg-white p-3 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-                  <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-xl bg-[#fff7e8] text-[#d99200]">
-                    <Video size={19} />
-                  </div>
-                  <p className="mt-2 text-lg font-extrabold">{videoCount}</p>
-                  <p className="text-[10px] font-bold text-gray-500">Vídeos</p>
-                </div>
+                  <div className="h-8 w-px bg-[#f1e7cf]" />
 
-                <div className="rounded-[20px] bg-white p-3 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-                  <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-xl bg-[#fff7e8] text-[#d99200]">
-                    <Star size={19} />
+                  <div className="flex items-center gap-2">
+                    <Video size={17} className="text-[#d99200]" />
+                    <span className="text-xs font-bold text-gray-500">Vídeos</span>
+                    <strong className="text-sm text-[#151515]">{videoCount}</strong>
                   </div>
-                  <p className="mt-2 text-lg font-extrabold">
-                    {coverMedia ? 'OK' : 'N/I'}
-                  </p>
-                  <p className="text-[10px] font-bold text-gray-500">Capa</p>
+
+                  <div className="h-8 w-px bg-[#f1e7cf]" />
+
+                  <div className="flex items-center gap-2">
+                    <Star size={17} className="text-[#d99200]" />
+                    <span className="text-xs font-bold text-gray-500">Capa</span>
+                    <strong className="text-sm text-[#151515]">
+                      {coverMedia ? 'OK' : 'N/I'}
+                    </strong>
+                  </div>
                 </div>
               </section>
 
@@ -486,7 +486,7 @@ export default function FotosFornecedorPage() {
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-3">
                   {medias.map((item) => {
                     const isVideo = isVideoUrl(item.file_url);
                     const isCover = item.is_cover;
@@ -496,27 +496,27 @@ export default function FotosFornecedorPage() {
                         key={item.id}
                         className={
                           isCover
-                            ? 'overflow-hidden rounded-[24px] bg-white shadow-sm ring-2 ring-[#e3a925]'
-                            : 'overflow-hidden rounded-[24px] bg-white shadow-sm ring-1 ring-[#f1e7cf]'
+                            ? 'overflow-hidden rounded-[18px] bg-white shadow-sm ring-2 ring-[#e3a925]'
+                            : 'overflow-hidden rounded-[18px] bg-white shadow-sm ring-1 ring-[#f1e7cf]'
                         }
                       >
                         <button
                           type="button"
                           onClick={() => setSelectedMedia(item)}
-                          className="relative block h-32 w-full bg-[#151515]"
+                          className="relative block h-24 w-full bg-[#151515]"
                         >
                           {isVideo ? (
                             <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-[#151515] via-[#2a2110] to-[#d99200] px-3 text-center text-white">
-                              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/90 text-[#d99200] shadow-lg">
-                                <Video size={30} />
+                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-[#d99200] shadow-lg">
+                                <Video size={22} />
                               </div>
 
                               <p className="mt-3 text-xs font-extrabold">
-                                Vídeo do portfólio
+                                Vídeo
                               </p>
 
                               <p className="mt-1 text-[10px] font-bold text-white/70">
-                                Toque para assistir
+                                Assistir
                               </p>
                             </div>
                           ) : (
@@ -530,34 +530,31 @@ export default function FotosFornecedorPage() {
                           <div className="absolute inset-0 bg-black/0 transition hover:bg-black/10" />
 
                           {isCover && (
-                            <span className="absolute left-3 top-3 rounded-full bg-[#e3a925] px-3 py-1 text-[10px] font-extrabold text-white">
+                            <span className="absolute left-2 top-2 rounded-full bg-[#e3a925] px-2 py-0.5 text-[9px] font-extrabold text-white">
                               Capa
                             </span>
                           )}
 
-                          <span className="absolute right-3 top-3 rounded-full bg-black/60 px-3 py-1 text-[10px] font-extrabold text-white">
+                          <span className="absolute right-2 top-2 rounded-full bg-black/60 px-2 py-0.5 text-[9px] font-extrabold text-white">
                             {isVideo ? 'Vídeo' : 'Foto'}
                           </span>
 
-                          <span className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/65 px-3 py-1 text-[10px] font-extrabold text-white">
-                            Toque para ampliar
-                          </span>
                         </button>
 
-                        <div className="space-y-2 p-3">
+                        <div className="space-y-1.5 p-2">
                           {!isVideo && (
                             <button
                               type="button"
                               onClick={() => handleSetCover(item.id)}
                               disabled={settingCoverId === item.id || isCover}
-                              className="flex w-full items-center justify-center gap-2 rounded-[18px] bg-[#fbf7f1] py-2 text-xs font-extrabold text-[#151515] ring-1 ring-[#f1e7cf] disabled:opacity-60"
+                              className="flex w-full items-center justify-center gap-2 rounded-[14px] bg-[#fbf7f1] py-1.5 text-[10px] font-extrabold text-[#151515] ring-1 ring-[#f1e7cf] disabled:opacity-60"
                             >
-                              <Star size={14} className="text-[#d99200]" />
+                              <Star size={12} className="text-[#d99200]" />
                               {settingCoverId === item.id
                                 ? 'Salvando...'
                                 : isCover
-                                  ? 'Foto de capa'
-                                  : 'Definir capa'}
+                                  ? 'Capa'
+                                  : 'Capa'}
                             </button>
                           )}
 
@@ -565,10 +562,10 @@ export default function FotosFornecedorPage() {
                             type="button"
                             onClick={() => handleRemoveMedia(item)}
                             disabled={removingId === item.id}
-                            className="flex w-full items-center justify-center gap-2 rounded-[18px] bg-white py-2 text-xs font-extrabold text-red-700 ring-1 ring-red-100 disabled:opacity-60"
+                            className="flex w-full items-center justify-center gap-2 rounded-[14px] bg-white py-1.5 text-[10px] font-extrabold text-red-700 ring-1 ring-red-100 disabled:opacity-60"
                           >
-                            <Trash2 size={14} />
-                            {removingId === item.id ? 'Removendo...' : 'Remover'}
+                            <Trash2 size={12} />
+                            {removingId === item.id ? 'Removendo...' : 'Excluir'}
                           </button>
                         </div>
                       </div>
