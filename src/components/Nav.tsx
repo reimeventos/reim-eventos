@@ -6,6 +6,7 @@ import {
   Briefcase,
   Heart,
   Home,
+  ImageIcon,
   MessageSquare,
   Search,
   ShieldCheck,
@@ -16,17 +17,9 @@ import { supabase } from '@/lib/supabase';
 function getTestAccountType(email: string) {
   const normalized = email.toLowerCase();
 
-  if (normalized.startsWith('cliente@')) {
-    return 'cliente';
-  }
-
-  if (normalized.startsWith('fornecedor@')) {
-    return 'fornecedor';
-  }
-
-  if (normalized.startsWith('cerimonialista@')) {
-    return 'cerimonialista';
-  }
+  if (normalized.startsWith('cliente@')) return 'cliente';
+  if (normalized.startsWith('fornecedor@')) return 'fornecedor';
+  if (normalized.startsWith('cerimonialista@')) return 'cerimonialista';
 
   return '';
 }
@@ -46,23 +39,8 @@ export function Nav() {
         }
 
         const email = user.email || '';
-        const testType = getTestAccountType(email);
 
-        if (testType) {
-          setAccountType(testType);
-          return;
-        }
-
-        /*
-          IMPORTANTE:
-          Verificamos fornecedor ANTES de cerimonialista.
-
-          Motivo:
-          Uma conta de fornecedor pode aparecer em event_collaborators
-          quando é cerimonialista aceita para atuar em um evento.
-          Se verificarmos colaborador primeiro, o menu mostra "Convites"
-          em vez de "Painel".
-        */
+        // Cerimonialista com vitrine é fornecedor. Fornecedor tem prioridade.
         const { data: supplierData } = await supabase
           .from('suppliers')
           .select('id')
@@ -82,6 +60,13 @@ export function Nav() {
 
         if (collaboratorData && collaboratorData.length > 0) {
           setAccountType('cerimonialista');
+          return;
+        }
+
+        const testType = getTestAccountType(email);
+
+        if (testType) {
+          setAccountType(testType);
           return;
         }
 
@@ -113,15 +98,12 @@ export function Nav() {
 
   const CenterIcon = isCliente ? Heart : isCerimonialista ? ShieldCheck : Briefcase;
 
-  const searchHref = isFornecedor ? '/painel-fornecedor/fotos' : '/buscar';
-  const searchLabel = isFornecedor ? 'Mídias' : 'Buscar';
-  const SearchIcon = isFornecedor ? Briefcase : Search;
+  const secondHref = isFornecedor ? '/painel-fornecedor/fotos' : '/buscar';
+  const secondLabel = isFornecedor ? 'Mídias' : 'Buscar';
+  const SecondIcon = isFornecedor ? ImageIcon : Search;
 
-  const quotesHref = isFornecedor ? '/painel-fornecedor/leads' : '/orcamentos';
-  const quotesLabel = isFornecedor ? 'Leads' : 'Orçamentos';
-
-  const perfilHref = isFornecedor ? '/painel-fornecedor/editar' : '/perfil';
-  const perfilLabel = isFornecedor ? 'Vitrine' : 'Perfil';
+  const fourthHref = isFornecedor ? '/painel-fornecedor/leads' : '/orcamentos';
+  const fourthLabel = isFornecedor ? 'Leads' : 'Orçamentos';
 
   return (
     <nav className="fixed bottom-0 left-1/2 z-50 w-full max-w-[430px] -translate-x-1/2 rounded-t-[34px] bg-white/95 px-6 pb-4 pt-3 shadow-[0_-10px_30px_rgba(0,0,0,.16)] backdrop-blur">
@@ -132,9 +114,9 @@ export function Nav() {
           <div className="mx-auto mt-1 h-[2px] w-7 rounded-full bg-[#e3a925]" />
         </Link>
 
-        <Link href={searchHref} className="text-[#222]">
-          <SearchIcon size={30} className="mx-auto" />
-          <div className="mt-1 text-[12px]">{searchLabel}</div>
+        <Link href={secondHref} className="text-[#222]">
+          <SecondIcon size={30} className="mx-auto" />
+          <div className="mt-1 text-[12px]">{secondLabel}</div>
         </Link>
 
         <Link href={centerHref} className="-mt-10">
@@ -146,14 +128,14 @@ export function Nav() {
           </div>
         </Link>
 
-        <Link href={quotesHref} className="text-[#222]">
+        <Link href={fourthHref} className="text-[#222]">
           <MessageSquare size={30} className="mx-auto" />
-          <div className="mt-1 text-[12px]">{quotesLabel}</div>
+          <div className="mt-1 text-[12px]">{fourthLabel}</div>
         </Link>
 
-        <Link href={perfilHref} className="text-[#222]">
+        <Link href="/perfil" className="text-[#222]">
           <User size={30} className="mx-auto" />
-          <div className="mt-1 text-[12px]">{perfilLabel}</div>
+          <div className="mt-1 text-[12px]">Perfil</div>
         </Link>
       </div>
     </nav>
