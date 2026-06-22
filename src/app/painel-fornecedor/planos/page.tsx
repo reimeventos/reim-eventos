@@ -16,12 +16,53 @@ import {
 import { supabase } from '@/lib/supabase';
 
 type PlanKey = 'teste_7_dias' | 'premium' | 'profissional';
+type BillingPeriod = 'mensal' | 'trimestral' | 'anual';
+
+const billingOptions: {
+  key: BillingPeriod;
+  label: string;
+  shortLabel: string;
+  days: number;
+}[] = [
+  {
+    key: 'mensal',
+    label: 'Mensal',
+    shortLabel: 'mês',
+    days: 30,
+  },
+  {
+    key: 'trimestral',
+    label: 'Trimestral',
+    shortLabel: '3 meses',
+    days: 90,
+  },
+  {
+    key: 'anual',
+    label: 'Anual',
+    shortLabel: 'ano',
+    days: 365,
+  },
+];
+
+const planPrices: Record<
+  Exclude<PlanKey, 'teste_7_dias'>,
+  Record<BillingPeriod, number>
+> = {
+  profissional: {
+    mensal: 49.9,
+    trimestral: 149.7,
+    anual: 598.8,
+  },
+  premium: {
+    mensal: 89.9,
+    trimestral: 269.7,
+    anual: 1078.8,
+  },
+};
 
 const plans: {
   key: PlanKey;
   name: string;
-  price: string;
-  value: number;
   statusOnRequest: 'teste' | 'pendente';
   highlight: string;
   icon: any;
@@ -31,8 +72,6 @@ const plans: {
   {
     key: 'teste_7_dias',
     name: 'Teste grátis',
-    price: '7 dias grátis',
-    value: 0,
     statusOnRequest: 'teste',
     highlight: 'Para fornecedores conhecerem a plataforma',
     icon: Star,
@@ -47,8 +86,6 @@ const plans: {
   {
     key: 'profissional',
     name: 'Profissional',
-    price: 'R$ 49,90/mês',
-    value: 49.9,
     statusOnRequest: 'pendente',
     highlight: 'Plano pago de entrada para fornecedores',
     icon: Zap,
@@ -64,8 +101,6 @@ const plans: {
   {
     key: 'premium',
     name: 'Premium Destaque',
-    price: 'R$ 89,90/mês',
-    value: 89.9,
     statusOnRequest: 'pendente',
     highlight: 'Plano top para ter mais visibilidade',
     icon: Crown,
@@ -82,7 +117,7 @@ const plans: {
 ];
 
 function getPlanLabel(plan?: string) {
-  if (plan === 'premium') return 'Premium';
+  if (plan === 'premium') return 'Premium Destaque';
   if (plan === 'profissional') return 'Profissional';
   if (plan === 'teste_7_dias' || plan === 'gratuito') return 'Teste grátis';
   return 'Sem plano';
@@ -95,6 +130,12 @@ function getStatusLabel(status?: string) {
   if (status === 'cancelado') return 'Cancelado';
   if (status === 'expirado') return 'Expirado';
   return 'Sem assinatura';
+}
+
+function getBillingLabel(period?: string) {
+  if (period === 'trimestral') return 'Trimestral';
+  if (period === 'anual') return 'Anual';
+  return 'Mensal';
 }
 
 function getStatusClass(status?: string) {
@@ -124,11 +165,36 @@ function formatDate(date?: string) {
   return `${day}/${month}/${year}`;
 }
 
+function formatMoney(value: number) {
+  return value.toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  });
+}
+
+function getBillingDays(period: BillingPeriod) {
+  return billingOptions.find((item) => item.key === period)?.days || 30;
+}
+
+function getPlanPrice(planKey: PlanKey, period: BillingPeriod) {
+  if (planKey === 'teste_7_dias') return 0;
+  return planPrices[planKey][period];
+}
+
+function getPlanPriceLabel(planKey: PlanKey, period: BillingPeriod) {
+  if (planKey === 'teste_7_dias') return '7 dias grátis';
+
+  const option = billingOptions.find((item) => item.key === period);
+
+  return `${formatMoney(getPlanPrice(planKey, period))} / ${option?.shortLabel || 'mês'}`;
+}
+
 export default function PlanosFornecedorPage() {
   const [supplier, setSupplier] = useState<any>(null);
   const [subscription, setSubscription] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [requestingPlan, setRequestingPlan] = useState('');
+  const [selectedBilling, setSelectedBilling] = useState<BillingPeriod>('mensal');
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
@@ -169,11 +235,22 @@ export default function PlanosFornecedorPage() {
         .from('supplier_subscriptions')
         .select('*')
         .eq('supplier_id', supplierData.id)
+        .order('created_at', { ascending: false })
         .limit(1);
 
       if (subscriptionError) throw subscriptionError;
 
-      setSubscription(subscriptionData?.[0] || null);
+      const currentSubscription = subscriptionData?.[0] || null;
+
+      setSubscription(currentSubscription);
+
+      if (
+        currentSubscription?.billing_period === 'mensal' ||
+        currentSubscription?.billing_period === 'trimestral' ||
+        currentSubscription?.billing_period === 'anual'
+      ) {
+        setSelectedBilling(currentSubscription.billing_period);
+      }
     } catch (error: any) {
       console.error('Erro ao carregar planos:', error);
       setErrorMessage(error?.message || 'Não foi possível carregar os planos.');
@@ -199,10 +276,20 @@ export default function PlanosFornecedorPage() {
 
     if (!plan) return;
 
+    const billingPeriod: BillingPeriod =
+      planKey === 'teste_7_dias' ? 'mensal' : selectedBilling;
+
+    const billingLabel = getBillingLabel(billingPeriod);
+    const value = getPlanPrice(planKey, billingPeriod);
+    const dueDate =
+      planKey === 'teste_7_dias'
+        ? addDays(new Date(), 7)
+        : addDays(new Date(), getBillingDays(billingPeriod));
+
     const confirmed = window.confirm(
       planKey === 'teste_7_dias'
         ? 'Deseja iniciar o teste grátis de 7 dias para fornecedor?'
-        : `Deseja solicitar o plano ${plan.name}? Após o pagamento por PIX/link, o admin ativará sua assinatura.`
+        : `Deseja solicitar o plano ${plan.name} no período ${billingLabel}? Após o pagamento por PIX/link, o admin ativará sua assinatura.`
     );
 
     if (!confirmed) return;
@@ -214,9 +301,11 @@ export default function PlanosFornecedorPage() {
         supplier_id: supplier.id,
         plan: plan.key,
         status: plan.statusOnRequest,
-        value: plan.value,
-        due_date: plan.key === 'teste_7_dias' ? addDays(new Date(), 7) : addDays(new Date(), 30),
-        is_featured: plan.key !== 'teste_7_dias',
+        value,
+        due_date: dueDate,
+        billing_period: billingPeriod,
+        is_featured: plan.key === 'premium',
+        updated_at: new Date().toISOString(),
       };
 
       if (subscription?.supplier_id) {
@@ -237,7 +326,7 @@ export default function PlanosFornecedorPage() {
       setSuccessMessage(
         plan.key === 'teste_7_dias'
           ? 'Teste grátis de 7 dias iniciado para este fornecedor.'
-          : `Solicitação do plano ${plan.name} enviada. Aguarde a confirmação do pagamento pelo admin.`
+          : `Solicitação do plano ${plan.name} ${billingLabel} enviada. Aguarde a confirmação do pagamento pelo admin.`
       );
 
       await loadData();
@@ -254,6 +343,7 @@ export default function PlanosFornecedorPage() {
 
   const currentPlan = subscription?.plan || '';
   const currentStatus = subscription?.status || '';
+  const currentBilling = subscription?.billing_period || 'mensal';
   const dueDate = subscription?.due_date || '';
   const hasSubscription = Boolean(subscription?.supplier_id);
 
@@ -294,7 +384,7 @@ export default function PlanosFornecedorPage() {
                   {supplier.business_name || 'Minha vitrine'}
                 </h2>
 
-                <div className="mt-4 grid grid-cols-3 gap-2">
+                <div className="mt-4 grid grid-cols-4 gap-2">
                   <div className="rounded-2xl bg-black/25 p-3 text-center">
                     <Crown size={18} className="mx-auto text-[#e3a925]" />
                     <p className="mt-1 text-[10px] font-bold text-white/50">
@@ -312,6 +402,16 @@ export default function PlanosFornecedorPage() {
                     </p>
                     <p className="mt-1 text-[12px] font-extrabold">
                       {getStatusLabel(currentStatus)}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl bg-black/25 p-3 text-center">
+                    <Sparkles size={18} className="mx-auto text-[#e3a925]" />
+                    <p className="mt-1 text-[10px] font-bold text-white/50">
+                      Período
+                    </p>
+                    <p className="mt-1 text-[12px] font-extrabold">
+                      {getBillingLabel(currentBilling)}
                     </p>
                   </div>
 
@@ -362,14 +462,41 @@ export default function PlanosFornecedorPage() {
 
                   <div>
                     <h2 className="text-base font-extrabold">
-                      Modelo inicial para publicação
+                      Escolha o plano e o período
                     </h2>
 
                     <p className="mt-1 text-sm leading-5 text-gray-600">
-                      Cliente não paga. Fornecedor tem 7 dias grátis para testar. Após isso, solicita Profissional ou Premium Destaque e o admin ativa após confirmar o pagamento.
+                      O período escolhido fica salvo para o admin aprovar e para relatórios de mensal, trimestral e anual.
                     </p>
                   </div>
                 </div>
+              </div>
+
+              <div className="mt-5 rounded-[24px] bg-white p-4 shadow-sm ring-1 ring-[#f1e7cf]">
+                <p className="text-sm font-extrabold">
+                  Período de cobrança
+                </p>
+
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  {billingOptions.map((option) => (
+                    <button
+                      key={option.key}
+                      type="button"
+                      onClick={() => setSelectedBilling(option.key)}
+                      className={
+                        selectedBilling === option.key
+                          ? 'rounded-[18px] bg-[#e3a925] px-2 py-3 text-xs font-extrabold text-white shadow-sm'
+                          : 'rounded-[18px] bg-[#fbf7f1] px-2 py-3 text-xs font-extrabold text-gray-500 ring-1 ring-[#f1e7cf]'
+                      }
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+
+                <p className="mt-3 text-xs leading-5 text-gray-500">
+                  Mensal vence em 30 dias, trimestral em 90 dias e anual em 365 dias.
+                </p>
               </div>
 
               <div className="mt-5 space-y-4">
@@ -379,6 +506,7 @@ export default function PlanosFornecedorPage() {
                   const isPending = isCurrent && currentStatus === 'pendente';
                   const isActive = isCurrent && currentStatus === 'ativo';
                   const isTest = isCurrent && currentStatus === 'teste';
+                  const selectedPrice = getPlanPrice(plan.key, selectedBilling);
 
                   return (
                     <div
@@ -434,8 +562,20 @@ export default function PlanosFornecedorPage() {
                                 : 'text-base font-extrabold text-[#151515]'
                             }
                           >
-                            {plan.price}
+                            {getPlanPriceLabel(plan.key, selectedBilling)}
                           </p>
+
+                          {plan.key !== 'teste_7_dias' && (
+                            <p
+                              className={
+                                plan.key === 'premium'
+                                  ? 'mt-1 text-[11px] font-bold text-white/50'
+                                  : 'mt-1 text-[11px] font-bold text-gray-500'
+                              }
+                            >
+                              {getBillingLabel(selectedBilling)}
+                            </p>
+                          )}
 
                           {isCurrent && (
                             <span
@@ -470,6 +610,18 @@ export default function PlanosFornecedorPage() {
                         ))}
                       </div>
 
+                      {plan.key !== 'teste_7_dias' && (
+                        <div
+                          className={
+                            plan.key === 'premium'
+                              ? 'mt-4 rounded-2xl bg-white/10 p-3 text-xs font-bold text-white/70'
+                              : 'mt-4 rounded-2xl bg-[#fbf7f1] p-3 text-xs font-bold text-gray-500'
+                          }
+                        >
+                          Valor solicitado: {formatMoney(selectedPrice)} • Período: {getBillingLabel(selectedBilling)}
+                        </div>
+                      )}
+
                       <button
                         type="button"
                         onClick={() => handleRequestPlan(plan.key)}
@@ -494,7 +646,7 @@ export default function PlanosFornecedorPage() {
                         ) : plan.key === 'teste_7_dias' ? (
                           hasSubscription ? 'Teste já utilizado' : 'Iniciar teste grátis'
                         ) : (
-                          `Solicitar ${plan.name}`
+                          `Solicitar ${plan.name} ${getBillingLabel(selectedBilling)}`
                         )}
                       </button>
                     </div>
