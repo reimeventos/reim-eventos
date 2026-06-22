@@ -50,12 +50,134 @@ function isPendingLead(status?: string) {
   return status === 'novo' || status === 'aguardando_resposta' || !status;
 }
 
+
+function formatDate(date?: string) {
+  if (!date) return 'Não informado';
+
+  const [year, month, day] = String(date).split('-');
+
+  if (!year || !month || !day) return date;
+
+  return `${day}/${month}/${year}`;
+}
+
+function getDaysUntil(date?: string) {
+  if (!date) return null;
+
+  const today = new Date();
+  const target = new Date(date);
+
+  today.setHours(0, 0, 0, 0);
+  target.setHours(0, 0, 0, 0);
+
+  const diff = target.getTime() - today.getTime();
+
+  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+}
+
+function getSubscriptionInfo(subscription: any) {
+  if (!subscription) {
+    return {
+      label: 'Sem plano ativo',
+      detail: 'Inicie o teste grátis de 7 dias ou escolha um plano.',
+      tone: 'warning',
+      planLabel: 'Sem plano',
+      statusLabel: 'Sem assinatura',
+      isExpired: true,
+      daysLeft: null as number | null,
+    };
+  }
+
+  const plan = subscription.plan || '';
+  const status = subscription.status || '';
+  const dueDate = subscription.due_date || '';
+  const trialEndsAt = subscription.trial_ends_at || '';
+  const daysLeft = getDaysUntil(dueDate || trialEndsAt);
+
+  const expiredByDate = daysLeft !== null && daysLeft < 0;
+  const isExpired =
+    status === 'expirado' ||
+    status === 'cancelado' ||
+    (status === 'teste' && expiredByDate);
+
+  if (status === 'teste' && !isExpired) {
+    return {
+      label: 'Teste grátis ativo',
+      detail:
+        daysLeft === 0
+          ? 'Seu teste vence hoje. Escolha um plano para continuar sem interrupção.'
+          : `Seu teste grátis vence em ${daysLeft} dia(s).`,
+      tone: 'info',
+      planLabel: 'Teste grátis',
+      statusLabel: 'Teste 7 dias',
+      isExpired: false,
+      daysLeft,
+    };
+  }
+
+  if (status === 'pendente') {
+    return {
+      label: 'Pagamento pendente',
+      detail: 'Aguarde a confirmação do pagamento pelo admin REIM.',
+      tone: 'warning',
+      planLabel:
+        plan === 'premium'
+          ? 'Premium Destaque'
+          : plan === 'profissional'
+            ? 'Profissional'
+            : 'Plano pendente',
+      statusLabel: 'Pendente',
+      isExpired: false,
+      daysLeft,
+    };
+  }
+
+  if (status === 'ativo') {
+    return {
+      label: 'Plano ativo',
+      detail:
+        daysLeft !== null
+          ? `Seu plano está ativo até ${formatDate(dueDate)}.`
+          : 'Seu plano está ativo.',
+      tone: 'success',
+      planLabel:
+        plan === 'premium'
+          ? 'Premium Destaque'
+          : plan === 'profissional'
+            ? 'Profissional'
+            : 'Plano ativo',
+      statusLabel: 'Ativo',
+      isExpired: false,
+      daysLeft,
+    };
+  }
+
+  return {
+    label: 'Assinatura expirada',
+    detail: 'Escolha o plano Profissional ou Premium para continuar recebendo leads.',
+    tone: 'danger',
+    planLabel:
+      plan === 'premium'
+        ? 'Premium Destaque'
+        : plan === 'profissional'
+          ? 'Profissional'
+          : plan === 'teste_7_dias'
+            ? 'Teste grátis'
+            : 'Sem plano',
+    statusLabel: status === 'cancelado' ? 'Cancelado' : 'Expirado',
+    isExpired: true,
+    daysLeft,
+  };
+}
+
+
 export default function PainelFornecedorPage() {
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
   const [checkingRedirect, setCheckingRedirect] = useState(true);
   const [supplier, setSupplier] = useState<any>(null);
+  const [subscription, setSubscription] = useState<any>(null);
   const [leadsCount, setLeadsCount] = useState(0);
   const [pendingLeadsCount, setPendingLeadsCount] = useState(0);
   const [cerimonialistaLeadsCount, setCerimonialistaLeadsCount] = useState(0);
@@ -110,11 +232,25 @@ export default function PainelFornecedorPage() {
 
       if (!supplierData) {
         setSupplier(null);
+        setSubscription(null);
         setErrorMessage('Nenhum fornecedor vinculado a esta conta.');
         return;
       }
 
       setSupplier(supplierData);
+
+      const { data: subscriptionData, error: subscriptionError } = await supabase
+        .from('supplier_subscriptions')
+        .select('*')
+        .eq('supplier_id', supplierData.id)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (subscriptionError) {
+        console.error('Erro ao buscar assinatura do fornecedor:', subscriptionError);
+      }
+
+      setSubscription(subscriptionData?.[0] || null);
 
       const { data: requestsData, error: requestsError } = await supabase
         .from('quote_requests')
@@ -253,7 +389,8 @@ export default function PainelFornecedorPage() {
   const categoryName = getCategoryName(supplier);
   const rating = supplier.rating_average || '4.9';
   const averagePrice = formatPrice(supplier.average_price);
-  const planLabel = supplier.is_featured ? 'Plano Premium' : 'Teste/Profissional';
+  const subscriptionInfo = getSubscriptionInfo(subscription);
+  const planLabel = subscriptionInfo.planLabel;
   const publicPriceStatus = supplier.show_price ? 'Ativado' : 'Desativado';
   const hasAttention = unreadCount > 0 || pendingLeadsCount > 0;
 
@@ -426,6 +563,56 @@ export default function PainelFornecedorPage() {
           </div>
         </section>
 
+        <section className="px-6 pt-4">
+          <div
+            className={
+              subscriptionInfo.tone === 'danger'
+                ? 'rounded-[22px] bg-red-50 p-4 text-sm leading-5 text-red-700 ring-1 ring-red-100'
+                : subscriptionInfo.tone === 'warning'
+                  ? 'rounded-[22px] bg-yellow-50 p-4 text-sm leading-5 text-yellow-800 ring-1 ring-yellow-100'
+                  : subscriptionInfo.tone === 'success'
+                    ? 'rounded-[22px] bg-green-50 p-4 text-sm leading-5 text-green-700 ring-1 ring-green-100'
+                    : 'rounded-[22px] bg-blue-50 p-4 text-sm leading-5 text-blue-700 ring-1 ring-blue-100'
+            }
+          >
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/70">
+                {subscriptionInfo.tone === 'danger' ? (
+                  <AlertCircle size={22} />
+                ) : (
+                  <Crown size={22} />
+                )}
+              </div>
+
+              <div className="flex-1">
+                <p className="font-extrabold">{subscriptionInfo.label}</p>
+                <p className="mt-1 text-xs font-bold opacity-80">
+                  {subscriptionInfo.detail}
+                </p>
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <span className="rounded-full bg-white/70 px-3 py-1 text-[10px] font-extrabold">
+                    {subscriptionInfo.planLabel}
+                  </span>
+
+                  <span className="rounded-full bg-white/70 px-3 py-1 text-[10px] font-extrabold">
+                    {subscriptionInfo.statusLabel}
+                  </span>
+                </div>
+
+                {subscriptionInfo.isExpired && (
+                  <Link
+                    href="/painel-fornecedor/planos"
+                    className="mt-3 inline-flex rounded-full bg-[#e3a925] px-4 py-2 text-xs font-extrabold text-white shadow-sm"
+                  >
+                    Escolher plano
+                  </Link>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+
         {cerimonialistaLeadsCount > 0 && (
           <section className="px-6 pt-4">
             <div className="rounded-[22px] bg-[#fff7e8] p-4 text-sm leading-5 text-[#7a5200] ring-1 ring-[#f1e7cf]">
@@ -548,9 +735,11 @@ export default function PainelFornecedorPage() {
               <div className="flex-1">
                 <h2 className="text-lg font-extrabold">Resumo da semana</h2>
                 <p className="mt-2 text-sm leading-5 text-white/70">
-                  {hasAttention
-                    ? 'Você tem leads ou mensagens novas aguardando atenção. Responda rápido para aumentar as chances de fechar contrato.'
-                    : 'Sua vitrine está pronta para receber novos pedidos de orçamento. Mantenha fotos e informações atualizadas.'}
+                  {subscriptionInfo.isExpired
+                    ? 'Seu teste ou assinatura está expirado. Escolha um plano para continuar usando todos os recursos do fornecedor.'
+                    : hasAttention
+                      ? 'Você tem leads ou mensagens novas aguardando atenção. Responda rápido para aumentar as chances de fechar contrato.'
+                      : 'Sua vitrine está pronta para receber novos pedidos de orçamento. Mantenha fotos e informações atualizadas.'}
                 </p>
 
                 <Link
