@@ -1,76 +1,25 @@
+'use client';
+
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import {
   ArrowLeft,
   BarChart3,
+  Bell,
   Briefcase,
   CheckCircle2,
   Crown,
   FileText,
+  Loader2,
   MessageCircle,
   Settings,
+  ShieldAlert,
   ShieldCheck,
   Star,
   Users,
   WalletCards,
 } from 'lucide-react';
-
-const stats = [
-  {
-    title: 'Fornecedores',
-    value: '127',
-    desc: 'cadastrados',
-    icon: Briefcase,
-    color: 'text-[#d99200]',
-  },
-  {
-    title: 'Assinaturas',
-    value: '84',
-    desc: 'ativas',
-    icon: Crown,
-    color: 'text-blue-600',
-  },
-  {
-    title: 'Orçamentos',
-    value: '483',
-    desc: 'solicitados',
-    icon: MessageCircle,
-    color: 'text-green-600',
-  },
-  {
-    title: 'MRR',
-    value: 'R$ 4.820',
-    desc: 'receita mensal',
-    icon: WalletCards,
-    color: 'text-[#d99200]',
-  },
-];
-
-const actions = [
-  {
-    title: 'Fornecedores',
-    desc: 'Aprovar, editar e destacar vitrines',
-    href: '/admin/fornecedores',
-    icon: Briefcase,
-  },
-  {
-    title: 'Assinaturas',
-    desc: 'Acompanhar planos ativos',
-    href: '/admin/assinaturas',
-    icon: Crown,
-  },
-  {
-    title: 'Orçamentos',
-    desc: 'Ver solicitações e respostas',
-    href: '/admin/orcamentos',
-    icon: FileText,
-  },
-  {
-    title: 'Categorias',
-    desc: 'Gerenciar tipos de serviço',
-    href: '/admin/categorias',
-    icon: Settings,
-  },
-];
+import { supabase } from '@/lib/supabase';
 
 const recentSuppliers = [
   {
@@ -93,7 +42,141 @@ const recentSuppliers = [
   },
 ];
 
+function formatMoney(value: number) {
+  return value.toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  });
+}
+
 export default function AdminPage() {
+  const [loading, setLoading] = useState(true);
+  const [suppliersCount, setSuppliersCount] = useState(0);
+  const [activeSubscriptionsCount, setActiveSubscriptionsCount] = useState(0);
+  const [pendingSubscriptionsCount, setPendingSubscriptionsCount] = useState(0);
+  const [quoteRequestsCount, setQuoteRequestsCount] = useState(0);
+  const [mrr, setMrr] = useState(0);
+
+  useEffect(() => {
+    loadAdminStats();
+  }, []);
+
+  async function loadAdminStats() {
+    try {
+      setLoading(true);
+
+      const [
+        suppliersResult,
+        subscriptionsResult,
+        pendingSubscriptionsResult,
+        quoteRequestsResult,
+        activeSubscriptionsResult,
+      ] = await Promise.all([
+        supabase.from('suppliers').select('id', { count: 'exact', head: true }),
+
+        supabase
+          .from('supplier_subscriptions')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'ativo'),
+
+        supabase
+          .from('supplier_subscriptions')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'pendente'),
+
+        supabase.from('quote_requests').select('id', { count: 'exact', head: true }),
+
+        supabase
+          .from('supplier_subscriptions')
+          .select('value')
+          .eq('status', 'ativo'),
+      ]);
+
+      setSuppliersCount(suppliersResult.count || 0);
+      setActiveSubscriptionsCount(subscriptionsResult.count || 0);
+      setPendingSubscriptionsCount(pendingSubscriptionsResult.count || 0);
+      setQuoteRequestsCount(quoteRequestsResult.count || 0);
+
+      const monthlyRevenue = (activeSubscriptionsResult.data || []).reduce(
+        (total, item: any) => total + Number(item.value || 0),
+        0
+      );
+
+      setMrr(monthlyRevenue);
+    } catch (error) {
+      console.error('Erro ao carregar indicadores do Admin:', error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const stats = [
+    {
+      title: 'Fornecedores',
+      value: loading ? '...' : String(suppliersCount),
+      desc: 'cadastrados',
+      icon: Briefcase,
+      color: 'text-[#d99200]',
+    },
+    {
+      title: 'Assinaturas',
+      value: loading ? '...' : String(activeSubscriptionsCount),
+      desc:
+        pendingSubscriptionsCount > 0
+          ? `${pendingSubscriptionsCount} pendente(s)`
+          : 'ativas',
+      icon: Crown,
+      color:
+        pendingSubscriptionsCount > 0 ? 'text-[#d99200]' : 'text-blue-600',
+      alert: pendingSubscriptionsCount > 0,
+    },
+    {
+      title: 'Orçamentos',
+      value: loading ? '...' : String(quoteRequestsCount),
+      desc: 'solicitados',
+      icon: MessageCircle,
+      color: 'text-green-600',
+    },
+    {
+      title: 'MRR',
+      value: loading ? '...' : formatMoney(mrr),
+      desc: 'receita mensal',
+      icon: WalletCards,
+      color: 'text-[#d99200]',
+    },
+  ];
+
+  const actions = [
+    {
+      title: 'Fornecedores',
+      desc: 'Aprovar, editar e destacar vitrines',
+      href: '/admin/fornecedores',
+      icon: Briefcase,
+    },
+    {
+      title: 'Assinaturas',
+      desc:
+        pendingSubscriptionsCount > 0
+          ? `${pendingSubscriptionsCount} plano(s) aguardando aprovação`
+          : 'Acompanhar planos ativos',
+      href: '/admin/assinaturas',
+      icon: Crown,
+      alert: pendingSubscriptionsCount > 0,
+    },
+    {
+      title: 'Orçamentos',
+      desc: 'Ver solicitações e respostas',
+      href: '/admin/orcamentos',
+      icon: FileText,
+    },
+    {
+      title: 'Categorias',
+      desc: 'Gerenciar tipos de serviço',
+      href: '/admin/categorias',
+      icon: Settings,
+    },
+  ];
+
   return (
     <main className="min-h-screen bg-black text-[#151515]">
       <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] pb-10 shadow-2xl">
@@ -130,6 +213,32 @@ export default function AdminPage() {
                 </p>
               </div>
             </div>
+
+            {pendingSubscriptionsCount > 0 && (
+              <Link
+                href="/admin/assinaturas"
+                className="mt-6 flex items-center gap-3 rounded-[24px] bg-[#fff7e8] p-4 text-[#151515] shadow-2xl ring-2 ring-[#e3a925]"
+              >
+                <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#e3a925] text-white">
+                  <Bell size={25} />
+                  <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-extrabold text-white">
+                    {pendingSubscriptionsCount}
+                  </span>
+                </div>
+
+                <div className="flex-1">
+                  <p className="text-sm font-extrabold">
+                    Plano aguardando aprovação
+                  </p>
+                  <p className="mt-1 text-xs leading-4 text-gray-600">
+                    {pendingSubscriptionsCount} assinatura(s) pendente(s) de
+                    pagamento/aprovação.
+                  </p>
+                </div>
+
+                <ShieldAlert size={22} className="text-[#d99200]" />
+              </Link>
+            )}
           </div>
         </section>
 
@@ -141,18 +250,38 @@ export default function AdminPage() {
             return (
               <div
                 key={item.title}
-                className="rounded-[26px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]"
+                className={
+                  item.alert
+                    ? 'relative rounded-[26px] bg-white p-5 shadow-[0_10px_25px_rgba(217,119,6,.20)] ring-2 ring-[#e3a925]'
+                    : 'rounded-[26px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]'
+                }
               >
+                {item.alert && (
+                  <span className="absolute right-3 top-3 flex h-6 min-w-6 items-center justify-center rounded-full bg-red-600 px-1 text-[11px] font-extrabold text-white">
+                    {pendingSubscriptionsCount}
+                  </span>
+                )}
+
                 <div className="flex items-center justify-between">
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#fff7e8]">
                     <Icon size={26} className={item.color} />
                   </div>
 
-                  <BarChart3 size={18} className="text-gray-300" />
+                  {loading ? (
+                    <Loader2 size={18} className="animate-spin text-gray-300" />
+                  ) : (
+                    <BarChart3 size={18} className="text-gray-300" />
+                  )}
                 </div>
 
                 <p className="mt-4 text-2xl font-extrabold">{item.value}</p>
-                <p className="mt-1 text-xs font-bold text-gray-500">
+                <p
+                  className={
+                    item.alert
+                      ? 'mt-1 text-xs font-extrabold text-[#b97900]'
+                      : 'mt-1 text-xs font-bold text-gray-500'
+                  }
+                >
                   {item.title} • {item.desc}
                 </p>
               </div>
@@ -175,9 +304,25 @@ export default function AdminPage() {
                 <Link
                   href={item.href}
                   key={item.title}
-                  className="rounded-[26px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]"
+                  className={
+                    item.alert
+                      ? 'relative rounded-[26px] bg-[#fff7e8] p-5 shadow-[0_10px_25px_rgba(217,119,6,.20)] ring-2 ring-[#e3a925]'
+                      : 'rounded-[26px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]'
+                  }
                 >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-black text-white">
+                  {item.alert && (
+                    <span className="absolute right-3 top-3 flex h-6 min-w-6 items-center justify-center rounded-full bg-red-600 px-1 text-[11px] font-extrabold text-white">
+                      {pendingSubscriptionsCount}
+                    </span>
+                  )}
+
+                  <div
+                    className={
+                      item.alert
+                        ? 'flex h-12 w-12 items-center justify-center rounded-2xl bg-[#e3a925] text-white'
+                        : 'flex h-12 w-12 items-center justify-center rounded-2xl bg-black text-white'
+                    }
+                  >
                     <Icon size={25} />
                   </div>
 
@@ -185,7 +330,13 @@ export default function AdminPage() {
                     {item.title}
                   </h3>
 
-                  <p className="mt-1 text-xs leading-4 text-gray-500">
+                  <p
+                    className={
+                      item.alert
+                        ? 'mt-1 text-xs font-bold leading-4 text-[#b97900]'
+                        : 'mt-1 text-xs leading-4 text-gray-500'
+                    }
+                  >
                     {item.desc}
                   </p>
                 </Link>
@@ -289,9 +440,18 @@ export default function AdminPage() {
 
                   <Link
                     href="/admin/assinaturas"
-                    className="rounded-full bg-white px-3 py-2 text-center text-[11px] font-extrabold text-[#151515]"
+                    className={
+                      pendingSubscriptionsCount > 0
+                        ? 'relative rounded-full bg-[#e3a925] px-3 py-2 text-center text-[11px] font-extrabold text-white'
+                        : 'rounded-full bg-white px-3 py-2 text-center text-[11px] font-extrabold text-[#151515]'
+                    }
                   >
                     Assinaturas
+                    {pendingSubscriptionsCount > 0 && (
+                      <span className="absolute -right-1 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-extrabold text-white">
+                        {pendingSubscriptionsCount}
+                      </span>
+                    )}
                   </Link>
 
                   <Link
