@@ -107,15 +107,37 @@ function getPlanLabel(plan?: string) {
   return 'Sem plano';
 }
 
-function getPlanValue(plan?: string) {
-  if (plan === 'premium') return 89.9;
-  if (plan === 'profissional') return 49.9;
+function getBillingLabel(period?: string) {
+  if (period === 'trimestral') return 'Trimestral';
+  if (period === 'anual') return 'Anual';
+  return 'Mensal';
+}
+
+function getBillingDays(period?: string) {
+  if (period === 'trimestral') return 90;
+  if (period === 'anual') return 365;
+  return 30;
+}
+
+function getPlanValue(plan?: string, period?: string) {
+  if (plan === 'premium') {
+    if (period === 'trimestral') return 269.7;
+    if (period === 'anual') return 1078.8;
+    return 89.9;
+  }
+
+  if (plan === 'profissional') {
+    if (period === 'trimestral') return 149.7;
+    if (period === 'anual') return 598.8;
+    return 49.9;
+  }
+
   return 0;
 }
 
-function getDueDateForPlan(plan?: string) {
+function getDueDateForPlan(plan?: string, period?: string) {
   if (plan === 'premium' || plan === 'profissional') {
-    return addDays(new Date(), 30);
+    return addDays(new Date(), getBillingDays(period));
   }
 
   if (plan === 'teste_7_dias') {
@@ -211,8 +233,8 @@ export default function AdminAssinaturasPage() {
         .from('supplier_subscriptions')
         .update({
           status: 'ativo',
-          value: getPlanValue(plan),
-          due_date: getDueDateForPlan(plan),
+          value: getPlanValue(plan, item.billing_period),
+          due_date: getDueDateForPlan(plan, item.billing_period),
           is_featured: isPremium,
           updated_at: new Date().toISOString(),
         })
@@ -358,6 +380,7 @@ export default function AdminAssinaturasPage() {
           status: 'ativo',
           value: 49.9,
           due_date: addDays(new Date(), 30),
+          billing_period: 'mensal',
           is_featured: false,
           updated_at: new Date().toISOString(),
         },
@@ -413,6 +436,9 @@ export default function AdminAssinaturasPage() {
   const activeCount = subscriptions.filter((item) => item.status === 'ativo').length;
   const pendingCount = subscriptions.filter((item) => item.status === 'pendente').length;
   const trialCount = subscriptions.filter((item) => item.status === 'teste').length;
+  const monthlyCount = subscriptions.filter((item) => item.billing_period === 'mensal').length;
+  const quarterlyCount = subscriptions.filter((item) => item.billing_period === 'trimestral').length;
+  const annualCount = subscriptions.filter((item) => item.billing_period === 'anual').length;
 
   const mrr = subscriptions
     .filter((item) => item.status === 'ativo')
@@ -513,6 +539,23 @@ export default function AdminAssinaturasPage() {
             </div>
           </section>
         )}
+
+        <section className="grid grid-cols-3 gap-2 px-6 pt-4">
+          <div className="rounded-[18px] bg-white p-3 text-center shadow-sm ring-1 ring-[#f1e7cf]">
+            <p className="text-lg font-extrabold text-[#151515]">{monthlyCount}</p>
+            <p className="mt-1 text-[10px] font-bold text-gray-600">Mensal</p>
+          </div>
+
+          <div className="rounded-[18px] bg-white p-3 text-center shadow-sm ring-1 ring-[#f1e7cf]">
+            <p className="text-lg font-extrabold text-[#151515]">{quarterlyCount}</p>
+            <p className="mt-1 text-[10px] font-bold text-gray-600">Trimestral</p>
+          </div>
+
+          <div className="rounded-[18px] bg-white p-3 text-center shadow-sm ring-1 ring-[#f1e7cf]">
+            <p className="text-lg font-extrabold text-[#151515]">{annualCount}</p>
+            <p className="mt-1 text-[10px] font-bold text-gray-600">Anual</p>
+          </div>
+        </section>
 
         <section className="px-6 pt-5">
           <div className="grid grid-cols-5 gap-2">
@@ -681,14 +724,26 @@ export default function AdminAssinaturasPage() {
                     </div>
                   </div>
 
-                  <div className="mt-3 rounded-2xl bg-[#fbf7f1] p-3">
-                    <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
-                      <CalendarDays size={14} className="text-[#d99200]" />
-                      Vencimento
-                    </p>
-                    <p className="mt-1 text-sm font-extrabold">
-                      {formatDate(item.due_date)}
-                    </p>
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <div className="rounded-2xl bg-[#fbf7f1] p-3">
+                      <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
+                        <CalendarDays size={14} className="text-[#d99200]" />
+                        Período
+                      </p>
+                      <p className="mt-1 text-sm font-extrabold">
+                        {getBillingLabel(item.billing_period)}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl bg-[#fbf7f1] p-3">
+                      <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
+                        <CalendarDays size={14} className="text-[#d99200]" />
+                        Vencimento
+                      </p>
+                      <p className="mt-1 text-sm font-extrabold">
+                        {formatDate(item.due_date)}
+                      </p>
+                    </div>
                   </div>
 
                   <div className="mt-4 flex items-center justify-between gap-3">
