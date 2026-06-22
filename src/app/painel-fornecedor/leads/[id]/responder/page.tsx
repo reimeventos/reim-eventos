@@ -20,6 +20,95 @@ import {
   RefreshCcw,
 } from 'lucide-react';
 import { createQuoteResponse, getSupplierLeadById } from '@/lib/suppliers';
+import { supabase } from '@/lib/supabase';
+
+
+function getDaysUntil(date?: string) {
+  if (!date) return null;
+
+  const today = new Date();
+  const target = new Date(date);
+
+  today.setHours(0, 0, 0, 0);
+  target.setHours(0, 0, 0, 0);
+
+  const diff = target.getTime() - today.getTime();
+
+  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+}
+
+function getSubscriptionAccess(subscription: any) {
+  if (!subscription) {
+    return {
+      blocked: true,
+      label: 'Assinatura não encontrada',
+      description:
+        'Escolha o plano Profissional ou Premium para responder orçamentos.',
+      tone: 'danger',
+    };
+  }
+
+  const status = subscription.status || '';
+  const dueDate = subscription.due_date || '';
+  const trialEndsAt = subscription.trial_ends_at || '';
+  const daysLeft = getDaysUntil(dueDate || trialEndsAt);
+
+  const expiredByDate = daysLeft !== null && daysLeft < 0;
+  const blocked =
+    status === 'expirado' ||
+    status === 'cancelado' ||
+    (status === 'teste' && expiredByDate);
+
+  if (blocked) {
+    return {
+      blocked: true,
+      label: 'Teste ou assinatura expirada',
+      description:
+        'Para responder este orçamento, escolha o plano Profissional ou Premium.',
+      tone: 'danger',
+    };
+  }
+
+  if (status === 'pendente') {
+    return {
+      blocked: true,
+      label: 'Pagamento pendente',
+      description:
+        'Aguarde a confirmação do pagamento pelo admin REIM para responder orçamentos.',
+      tone: 'warning',
+    };
+  }
+
+  if (status === 'teste') {
+    return {
+      blocked: false,
+      label: 'Teste grátis ativo',
+      description:
+        daysLeft === 0
+          ? 'Seu teste vence hoje. Você ainda pode responder, mas escolha um plano para continuar.'
+          : `Seu teste grátis vence em ${daysLeft} dia(s).`,
+      tone: 'info',
+    };
+  }
+
+  if (status === 'ativo') {
+    return {
+      blocked: false,
+      label: 'Plano ativo',
+      description: 'Você pode responder normalmente os orçamentos recebidos.',
+      tone: 'success',
+    };
+  }
+
+  return {
+    blocked: true,
+    label: 'Assinatura necessária',
+    description:
+      'Escolha o plano Profissional ou Premium para responder orçamentos.',
+    tone: 'danger',
+  };
+}
+
 
 export default function ResponderOrcamentoPage() {
   const params = useParams();
@@ -27,6 +116,7 @@ export default function ResponderOrcamentoPage() {
 
   const [lead, setLead] = useState<any>(null);
   const [latestResponse, setLatestResponse] = useState<any>(null);
+  const [subscription, setSubscription] = useState<any>(null);
   const [loadingLead, setLoadingLead] = useState(true);
 
   const [serviceOffered, setServiceOffered] = useState('');
@@ -44,7 +134,7 @@ export default function ResponderOrcamentoPage() {
     if (!leadId) return;
 
     getSupplierLeadById(leadId)
-      .then((data) => {
+      .then(async (data) => {
         setLead(data);
 
         const responses = data?.quote_responses || [];
@@ -64,6 +154,22 @@ export default function ResponderOrcamentoPage() {
         setPaymentTerms(last?.payment_terms || '');
         setProposalValidity(last?.proposal_validity || '');
         setObservations(last?.observations || '');
+
+        if (data?.supplier_id) {
+          const { data: subscriptionData, error: subscriptionError } =
+            await supabase
+              .from('supplier_subscriptions')
+              .select('*')
+              .eq('supplier_id', data.supplier_id)
+              .order('created_at', { ascending: false })
+              .limit(1);
+
+          if (subscriptionError) {
+            console.error('Erro ao carregar assinatura:', subscriptionError);
+          }
+
+          setSubscription(subscriptionData?.[0] || null);
+        }
       })
       .catch((error) => {
         console.error('Erro ao carregar pedido:', error);
@@ -162,6 +268,13 @@ export default function ResponderOrcamentoPage() {
       return;
     }
 
+    const access = getSubscriptionAccess(subscription);
+
+    if (access.blocked) {
+      setErrorMessage(access.description);
+      return;
+    }
+
     if (!serviceOffered.trim()) {
       setErrorMessage('Informe o serviço oferecido.');
       return;
@@ -218,6 +331,7 @@ export default function ResponderOrcamentoPage() {
 
   const originInfo = getOriginInfo(lead);
   const OriginIcon = originInfo.icon;
+  const subscriptionAccess = getSubscriptionAccess(subscription);
 
   return (
     <main className="min-h-screen bg-black text-[#151515]">
@@ -426,6 +540,40 @@ export default function ResponderOrcamentoPage() {
                 </div>
               </div>
 
+              <div
+                className={
+                  subscriptionAccess.tone === 'danger'
+                    ? 'mt-4 rounded-[24px] bg-red-50 p-4 text-sm leading-5 text-red-700 ring-1 ring-red-100'
+                    : subscriptionAccess.tone === 'warning'
+                      ? 'mt-4 rounded-[24px] bg-yellow-50 p-4 text-sm leading-5 text-yellow-800 ring-1 ring-yellow-100'
+                      : subscriptionAccess.tone === 'success'
+                        ? 'mt-4 rounded-[24px] bg-green-50 p-4 text-sm leading-5 text-green-700 ring-1 ring-green-100'
+                        : 'mt-4 rounded-[24px] bg-blue-50 p-4 text-sm leading-5 text-blue-700 ring-1 ring-blue-100'
+                }
+              >
+                <div className="flex items-start gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/70">
+                    <ShieldCheck size={22} />
+                  </div>
+
+                  <div className="flex-1">
+                    <p className="font-extrabold">{subscriptionAccess.label}</p>
+                    <p className="mt-1 text-xs font-bold opacity-80">
+                      {subscriptionAccess.description}
+                    </p>
+
+                    {subscriptionAccess.blocked && (
+                      <Link
+                        href="/painel-fornecedor/planos"
+                        className="mt-3 inline-flex rounded-full bg-[#e3a925] px-4 py-2 text-xs font-extrabold text-white shadow-sm"
+                      >
+                        Escolher plano
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               <section className="pt-6">
                 <div className="mb-4">
                   <h2 className="text-lg font-extrabold">
@@ -529,7 +677,7 @@ export default function ResponderOrcamentoPage() {
                   <div className="sticky bottom-4 z-30 mt-7 rounded-[28px] bg-[#fbf7f1]/95 p-3 shadow-[0_-10px_30px_rgba(0,0,0,.10)] backdrop-blur">
                     <button
                       type="submit"
-                      disabled={sending}
+                      disabled={sending || subscriptionAccess.blocked}
                       className="flex w-full items-center justify-center gap-2 rounded-[24px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg disabled:opacity-60"
                     >
                       {isAdjustmentRequested ? (
@@ -537,11 +685,13 @@ export default function ResponderOrcamentoPage() {
                       ) : (
                         <Send size={21} />
                       )}
-                      {sending
-                        ? 'Enviando...'
-                        : isAdjustmentRequested
-                          ? 'Enviar proposta revisada'
-                          : 'Enviar orçamento'}
+                      {subscriptionAccess.blocked
+                        ? 'Plano necessário para responder'
+                        : sending
+                          ? 'Enviando...'
+                          : isAdjustmentRequested
+                            ? 'Enviar proposta revisada'
+                            : 'Enviar orçamento'}
                     </button>
 
                     <Link
