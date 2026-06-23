@@ -594,7 +594,9 @@ function AdminIcon({
         {icon}
       </div>
 
-      <p className="mt-2 text-[11px] font-black leading-4">{title}</p>
+      <p className={disabled ? 'mt-2 pb-4 text-[11px] font-black leading-4' : 'mt-2 text-[11px] font-black leading-4'}>
+        {title}
+      </p>
 
       {badge > 0 && (
         <span className="absolute right-2 top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-black text-white">
@@ -603,7 +605,7 @@ function AdminIcon({
       )}
 
       {disabled && (
-        <span className="absolute bottom-2 rounded-full bg-[#fbf7f1] px-2 py-0.5 text-[9px] font-black text-gray-400 ring-1 ring-[#f1e7cf]">
+        <span className="absolute bottom-2 rounded-full bg-[#fbf7f1] px-2 py-0.5 text-[8px] font-black text-gray-400 ring-1 ring-[#f1e7cf]">
           em breve
         </span>
       )}
