@@ -13,6 +13,7 @@ import {
   ImageIcon,
   LogIn,
   LogOut,
+  LayoutDashboard,
   Mail,
   MessageSquare,
   Pencil,
@@ -108,6 +109,16 @@ export default function PerfilPage() {
 
       if (profileData?.full_name) {
         setProfileName(profileData.full_name);
+      }
+
+      const profileRole = String(profileData?.role || '').toLowerCase();
+
+      if (profileRole === 'admin' || profileRole === 'administrador') {
+        setSupplier(null);
+        setSupplierName('');
+        setHasCollaboratorAccess(false);
+        setAccountType('Admin');
+        return;
       }
 
       /*
@@ -218,6 +229,46 @@ export default function PerfilPage() {
   const isCerimonialistaOnly =
     accountType === 'Cerimonialista' && !supplier?.id;
   const isCliente = accountType === 'Cliente';
+  const isAdmin = accountType === 'Admin';
+
+  const adminCards = [
+    {
+      title: 'Área Admin',
+      subtitle: 'Painel principal',
+      href: '/admin',
+      icon: LayoutDashboard,
+    },
+    {
+      title: 'Aprovações',
+      subtitle: 'Liberar planos',
+      href: '/admin/assinaturas',
+      icon: Crown,
+    },
+    {
+      title: 'Fornecedores',
+      subtitle: 'Cadastros',
+      href: '/admin/fornecedores',
+      icon: Building2,
+    },
+    {
+      title: 'Clientes',
+      subtitle: 'Usuários',
+      href: '/admin/clientes',
+      icon: Users,
+    },
+    {
+      title: 'Orçamentos',
+      subtitle: 'Solicitações',
+      href: '/admin/orcamentos',
+      icon: Bell,
+    },
+    {
+      title: 'Segurança',
+      subtitle: 'LGPD',
+      href: '/seguranca',
+      icon: ShieldCheck,
+    },
+  ];
 
   const supplierCards = [
     {
@@ -276,13 +327,15 @@ export default function PerfilPage() {
     },
   ];
 
-  const cards = isFornecedor
-    ? isFornecedorCerimonialista || hasCollaboratorAccess
-      ? [...supplierCards, ...cerimonialCards]
-      : supplierCards
-    : isCerimonialistaOnly
-      ? cerimonialCards
-      : clientCards;
+  const cards = isAdmin
+    ? adminCards
+    : isFornecedor
+      ? isFornecedorCerimonialista || hasCollaboratorAccess
+        ? [...supplierCards, ...cerimonialCards]
+        : supplierCards
+      : isCerimonialistaOnly
+        ? cerimonialCards
+        : clientCards;
 
   return (
     <main className="min-h-screen bg-black text-[#151515]">
@@ -384,6 +437,35 @@ export default function PerfilPage() {
                 </div>
               </div>
 
+              {isAdmin && (
+                <div className="mt-4 rounded-[24px] bg-[#151515] p-5 text-white shadow-lg">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#e3a925]">
+                      <ShieldCheck size={25} />
+                    </div>
+
+                    <div>
+                      <p className="text-base font-extrabold">
+                        Administração do REIM
+                      </p>
+
+                      <p className="mt-1 text-xs leading-5 text-white/70">
+                        Esta conta tem acesso à área administrativa para aprovar assinaturas,
+                        consultar cadastros, acompanhar orçamentos e gerenciar a plataforma.
+                      </p>
+
+                      <Link
+                        href="/admin"
+                        className="mt-4 flex items-center justify-center gap-2 rounded-[20px] bg-[#e3a925] px-4 py-3 text-sm font-extrabold text-white"
+                      >
+                        <LayoutDashboard size={19} />
+                        Entrar na Área Administrativa
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {isFornecedorCerimonialista && (
                 <div className="mt-4 rounded-[22px] bg-[#151515] p-4 text-white shadow-lg">
                   <div className="flex items-start gap-3">
@@ -456,7 +538,7 @@ export default function PerfilPage() {
           )}
         </section>
 
-        <Nav />
+        {!isAdmin && <Nav />}
       </div>
     </main>
   );
