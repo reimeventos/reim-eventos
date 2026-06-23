@@ -211,6 +211,7 @@ export default function LoginPage() {
                     type="button"
                     onClick={() => setShowPassword((value) => !value)}
                     className="ml-3 text-gray-500"
+                    aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
                   >
                     {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
                   </button>
@@ -232,6 +233,18 @@ export default function LoginPage() {
                 {loading ? 'Entrando...' : 'Entrar'}
               </button>
 
+              <div className="mt-4 rounded-[20px] bg-[#fbf7f1] px-4 py-3 text-center text-[11px] font-bold leading-5 text-gray-500 ring-1 ring-[#f1e7cf]">
+                Ao entrar, você concorda com os{' '}
+                <Link href="/termos" className="font-extrabold text-[#d99200] underline">
+                  Termos de Uso
+                </Link>{' '}
+                e com a{' '}
+                <Link href="/privacidade" className="font-extrabold text-[#d99200] underline">
+                  Política de Privacidade
+                </Link>{' '}
+                do REIM EVENTOS.
+              </div>
+
               <Link
                 href={getCadastroHref()}
                 className="mt-4 block text-center text-sm font-bold text-[#d99200]"
@@ -242,6 +255,20 @@ export default function LoginPage() {
 
             <div className="mt-5 rounded-[24px] bg-white px-4 py-4 text-center text-xs font-bold leading-5 text-gray-500 shadow-sm ring-1 ring-[#f1e7cf]">
               Após entrar, você será levado para a tela correta conforme sua conta.
+            </div>
+
+            <div className="mt-4 flex items-center justify-center gap-4 text-[11px] font-extrabold text-gray-500">
+              <Link href="/termos" className="text-[#d99200]">
+                Termos
+              </Link>
+              <span>•</span>
+              <Link href="/privacidade" className="text-[#d99200]">
+                Privacidade
+              </Link>
+              <span>•</span>
+              <Link href="/seguranca" className="text-[#d99200]">
+                Segurança
+              </Link>
             </div>
           </div>
         </section>
