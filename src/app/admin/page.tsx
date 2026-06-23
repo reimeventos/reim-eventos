@@ -358,7 +358,7 @@ export default function AdminPage() {
                 />
                 <MiniStat label="Ativas" value={stats.activeSubscriptions} />
                 <MiniStat label="Fornec." value={stats.suppliers} />
-                <MiniStat label="Orçam." value={stats.quotes} />
+                <MiniStat label="Clientes" value={stats.clients} />
               </div>
 
               <SectionTitle title="Menu administrativo" />
@@ -385,10 +385,9 @@ export default function AdminPage() {
                 />
 
                 <AdminIcon
-                  href="#clientes"
+                  href="/admin/clientes"
                   icon={<Users size={24} />}
                   title="Clientes"
-                  disabled
                 />
 
                 <AdminIcon
@@ -496,7 +495,7 @@ export default function AdminPage() {
         </section>
 
         <nav className="fixed bottom-0 left-1/2 z-40 w-full max-w-[430px] -translate-x-1/2 border-t border-[#f1e7cf] bg-white/95 px-4 py-3 shadow-[0_-8px_25px_rgba(0,0,0,.08)] backdrop-blur">
-          <div className="grid grid-cols-4 gap-2 text-center text-[10px] font-extrabold text-gray-500">
+          <div className="grid grid-cols-5 gap-1 text-center text-[10px] font-extrabold text-gray-500">
             <Link href="/admin" className="rounded-2xl bg-[#151515] px-2 py-2 text-white">
               Admin
             </Link>
@@ -510,6 +509,10 @@ export default function AdminPage() {
 
             <Link href="/admin/fornecedores" className="rounded-2xl px-2 py-2">
               Fornec.
+            </Link>
+
+            <Link href="/admin/clientes" className="rounded-2xl px-2 py-2">
+              Clientes
             </Link>
 
             <button
