@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { ArrowLeft, Building2, Heart, ShieldCheck, UserPlus } from 'lucide-react';
 import { registerClient, registerSupplier } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
@@ -18,6 +19,7 @@ export default function CadastroPage() {
   const [password, setPassword] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [city, setCity] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const [redirectTo, setRedirectTo] = useState('/perfil');
   const [loading, setLoading] = useState(false);
@@ -97,6 +99,9 @@ export default function CadastroPage() {
         full_name: input.fullName,
         whatsapp: input.whatsapp,
         city: input.city,
+        terms_accepted_at: new Date().toISOString(),
+        terms_version: '2026-06-23',
+        privacy_accepted_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
       {
@@ -283,6 +288,13 @@ export default function CadastroPage() {
 
     if (!city.trim()) {
       setErrorMessage('Informe a cidade.');
+      return;
+    }
+
+    if (!acceptedTerms) {
+      setErrorMessage(
+        'Para criar a conta, confirme que você leu e aceita os Termos de Uso e a Política de Privacidade.'
+      );
       return;
     }
 
@@ -498,6 +510,47 @@ export default function CadastroPage() {
               value={city}
               onChange={(e) => setCity(e.target.value)}
             />
+
+            <label className="mb-3 flex cursor-pointer items-start gap-3 rounded-[22px] bg-[#fbf7f1] p-4 text-xs font-bold leading-5 text-gray-600 ring-1 ring-[#f1e7cf]">
+              <input
+                type="checkbox"
+                checked={acceptedTerms}
+                onChange={(event) => setAcceptedTerms(event.target.checked)}
+                className="mt-1 h-4 w-4 shrink-0 accent-[#e3a925]"
+              />
+
+              <span>
+                Li e aceito os{' '}
+                <Link
+                  href="/termos"
+                  target="_blank"
+                  className="font-extrabold text-[#d99200] underline"
+                >
+                  Termos de Uso
+                </Link>{' '}
+                e a{' '}
+                <Link
+                  href="/privacidade"
+                  target="_blank"
+                  className="font-extrabold text-[#d99200] underline"
+                >
+                  Política de Privacidade
+                </Link>{' '}
+                do REIM EVENTOS.
+              </span>
+            </label>
+
+            <div className="mb-3 rounded-[20px] bg-white px-4 py-3 text-[11px] font-bold leading-5 text-gray-500 ring-1 ring-[#f1e7cf]">
+              Também recomendamos ler a página de{' '}
+              <Link
+                href="/seguranca"
+                target="_blank"
+                className="font-extrabold text-[#d99200] underline"
+              >
+                Segurança
+              </Link>{' '}
+              para entender boas práticas de acesso e proteção de dados.
+            </div>
 
             {errorMessage && (
               <div className="mb-3 rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
