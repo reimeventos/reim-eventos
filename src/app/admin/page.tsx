@@ -400,10 +400,9 @@ export default function AdminPage() {
                 />
 
                 <AdminIcon
-                  href="#vitrines"
+                  href="/admin/vitrines"
                   icon={<Gem size={24} />}
                   title="Vitrines"
-                  disabled
                 />
 
                 <AdminIcon
@@ -494,7 +493,7 @@ export default function AdminPage() {
         <nav className="fixed bottom-0 left-1/2 z-40 w-full max-w-[430px] -translate-x-1/2 border-t border-[#f1e7cf] bg-white/95 px-4 py-3 shadow-[0_-8px_25px_rgba(0,0,0,.08)] backdrop-blur">
           <div className="grid grid-cols-5 gap-1 text-center text-[10px] font-extrabold text-gray-500">
             <Link href="/admin" className="rounded-2xl bg-[#151515] px-2 py-2 text-white">
-              Admin
+              Home
             </Link>
 
             <Link href="/admin/assinaturas" className="relative rounded-2xl px-2 py-2">
@@ -512,13 +511,9 @@ export default function AdminPage() {
               Clientes
             </Link>
 
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="rounded-2xl px-2 py-2"
-            >
-              Sair
-            </button>
+            <Link href="/admin/vitrines" className="rounded-2xl px-2 py-2">
+              Vitrines
+            </Link>
           </div>
         </nav>
       </div>
