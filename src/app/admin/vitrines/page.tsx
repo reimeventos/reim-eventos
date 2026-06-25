@@ -34,7 +34,7 @@ type SupplierItem = {
   } | null;
   media?: {
     id: string;
-    url: string | null;
+    file_url: string | null;
     type: string | null;
     is_cover: boolean | null;
   }[];
@@ -61,7 +61,7 @@ function getCoverImage(supplier: SupplierItem) {
   const cover = media.find((item) => item.is_cover && item.type !== 'video');
   const firstPhoto = media.find((item) => item.type !== 'video');
 
-  return cover?.url || firstPhoto?.url || '';
+  return cover?.file_url || firstPhoto?.file_url || '';
 }
 
 export default function AdminVitrinesPage() {
@@ -98,7 +98,7 @@ export default function AdminVitrinesPage() {
           ),
           media (
             id,
-            url,
+            file_url,
             type,
             is_cover
           )
