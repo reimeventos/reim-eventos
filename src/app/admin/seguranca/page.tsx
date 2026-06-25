@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   ArrowLeft,
   CheckCircle2,
+  ClipboardList,
+  ChevronRight,
   Database,
   Eye,
   FileText,
@@ -35,6 +37,7 @@ type SecurityStats = {
   quoteResponses: number;
   quoteMessages: number;
   subscriptions: number;
+  auditLogs: number;
 };
 
 const initialStats: SecurityStats = {
@@ -46,6 +49,7 @@ const initialStats: SecurityStats = {
   quoteResponses: 0,
   quoteMessages: 0,
   subscriptions: 0,
+  auditLogs: 0,
 };
 
 function formatDate(value?: string | null) {
@@ -106,6 +110,7 @@ export default function AdminSegurancaPage() {
         quoteResponsesCount,
         quoteMessagesCount,
         subscriptionsCount,
+        auditLogsCount,
       ] = await Promise.all([
         getCount('profiles', (query) => query.eq('role', 'admin')),
         getCount('profiles'),
@@ -115,6 +120,7 @@ export default function AdminSegurancaPage() {
         getCount('quote_responses'),
         getCount('quote_messages'),
         getCount('supplier_subscriptions'),
+        getCount('admin_audit_logs'),
       ]);
 
       const { data: adminData, error: adminError } = await supabase
@@ -136,6 +142,7 @@ export default function AdminSegurancaPage() {
         quoteResponses: quoteResponsesCount,
         quoteMessages: quoteMessagesCount,
         subscriptions: subscriptionsCount,
+        auditLogs: auditLogsCount,
       });
 
       setAdmins((adminData || []) as AdminProfile[]);
@@ -178,8 +185,8 @@ export default function AdminSegurancaPage() {
       },
       {
         title: 'Auditoria de ações',
-        description: 'Próxima etapa: registrar aprovações, cancelamentos e ações críticas.',
-        status: 'pendente',
+        description: 'Registro de aprovações, cancelamentos, expirações e ações críticas do Admin.',
+        status: 'ativo',
       },
     ],
     []
@@ -266,6 +273,29 @@ export default function AdminSegurancaPage() {
                   </div>
                 </div>
               </div>
+
+              <Link
+                href="/admin/auditoria"
+                className="mt-4 flex items-center gap-3 rounded-[24px] border border-[#e3a925] bg-[#fff7e8] p-4 shadow-sm"
+              >
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#e3a925] text-white">
+                  <ClipboardList size={22} />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-black">Auditoria administrativa</p>
+                  <p className="mt-1 text-[11px] font-bold leading-4 text-[#8a6100]">
+                    Ver histórico de aprovações, cancelamentos, expirações e ações críticas.
+                  </p>
+                </div>
+
+                <div className="text-right">
+                  <p className="text-lg font-black text-[#d99200]">{stats.auditLogs}</p>
+                  <p className="text-[9px] font-black uppercase text-[#8a6100]">logs</p>
+                </div>
+
+                <ChevronRight className="shrink-0 text-[#d99200]" size={20} />
+              </Link>
 
               <SectionTitle title="Contas Admin" />
 
@@ -369,6 +399,7 @@ export default function AdminSegurancaPage() {
                 <DataCard icon={<Database size={18} />} title="Leads" value={stats.quoteRequests} />
                 <DataCard icon={<FileText size={18} />} title="Respostas" value={stats.quoteResponses} />
                 <DataCard icon={<Eye size={18} />} title="Mensagens" value={stats.quoteMessages} />
+                <DataCard icon={<ClipboardList size={18} />} title="Auditoria" value={stats.auditLogs} />
               </div>
 
               <div className="mt-5 rounded-[24px] bg-[#fff7e8] p-4 text-[#8a6100] ring-1 ring-[#f1e7cf]">
@@ -378,8 +409,8 @@ export default function AdminSegurancaPage() {
                 </p>
 
                 <p className="mt-2 text-xs font-bold leading-5">
-                  Implementar 2FA para Admin e criar tabela de auditoria para registrar
-                  ativações, cancelamentos, expiração de plano e alterações críticas.
+                  Implementar 2FA para Admin e reforçar a revisão das políticas RLS do Supabase
+                  nas tabelas de orçamentos, mensagens, fornecedores e assinaturas.
                 </p>
               </div>
             </>
