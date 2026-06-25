@@ -159,7 +159,7 @@ export default function AdminRelatoriosPage() {
 
             <div className="mt-5 flex items-center gap-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#e3a925] text-white shadow-lg">
-                <BarChart3 size={27} />
+                <BarChart3 size={23} />
               </div>
 
               <div>
@@ -167,7 +167,7 @@ export default function AdminRelatoriosPage() {
                   Área Administrativa
                 </p>
                 <h1 className="font-serif text-[28px] leading-tight">Relatórios</h1>
-                <p className="mt-1 text-xs font-bold text-white/65">
+                <p className="mt-1 text-[11px] font-bold text-white/65">
                   Visão geral do crescimento do REIM.
                 </p>
               </div>
@@ -191,49 +191,49 @@ export default function AdminRelatoriosPage() {
 
           {!loading && !errorMessage && (
             <>
-              <div className="rounded-[28px] bg-[#151515] p-5 text-white shadow-lg">
+              <div className="rounded-[24px] bg-[#151515] p-4 text-white shadow-lg">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#e3a925]">
                       Receita mensal
                     </p>
-                    <h2 className="mt-2 text-3xl font-black">{formatCurrency(stats.mrr)}</h2>
-                    <p className="mt-1 text-xs font-bold text-white/55">
+                    <h2 className="mt-2 text-2xl font-black">{formatCurrency(stats.mrr)}</h2>
+                    <p className="mt-1 text-[11px] font-bold text-white/55">
                       MRR estimado com planos ativos.
                     </p>
                   </div>
 
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#e3a925]">
-                    <TrendingUp size={30} />
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#e3a925]">
+                    <TrendingUp size={24} />
                   </div>
                 </div>
               </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                <ReportCard icon={<Users size={22} />} title="Clientes" value={stats.clients} subtitle="perfis cadastrados" />
-                <ReportCard icon={<Building2 size={22} />} title="Fornecedores" value={stats.suppliers} subtitle="vitrines cadastradas" />
-                <ReportCard icon={<FileText size={22} />} title="Orçamentos" value={stats.quotes} subtitle="solicitações criadas" />
-                <ReportCard icon={<Crown size={22} />} title="Planos ativos" value={stats.activeSubscriptions} subtitle="assinaturas liberadas" />
-                <ReportCard icon={<Bell size={22} />} title="Pendentes" value={stats.pendingSubscriptions} subtitle="aguardando aprovação" highlight={stats.pendingSubscriptions > 0} />
-                <ReportCard icon={<CalendarCheck size={22} />} title="Testes grátis" value={stats.trialSubscriptions} subtitle="fornecedores em teste" />
-                <ReportCard icon={<Gem size={22} />} title="Destaques" value={stats.featuredSuppliers} subtitle="vitrines premium" />
-                <ReportCard icon={<Grid3X3 size={22} />} title="Categorias" value={stats.categories} subtitle="áreas do marketplace" />
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <ReportCard icon={<Users size={18} />} title="Clientes" value={stats.clients} subtitle="perfis cadastrados" />
+                <ReportCard icon={<Building2 size={18} />} title="Fornecedores" value={stats.suppliers} subtitle="vitrines cadastradas" />
+                <ReportCard icon={<FileText size={18} />} title="Orçamentos" value={stats.quotes} subtitle="solicitações criadas" />
+                <ReportCard icon={<Crown size={18} />} title="Planos ativos" value={stats.activeSubscriptions} subtitle="assinaturas liberadas" />
+                <ReportCard icon={<Bell size={18} />} title="Pendentes" value={stats.pendingSubscriptions} subtitle="aguardando aprovação" highlight={stats.pendingSubscriptions > 0} />
+                <ReportCard icon={<CalendarCheck size={18} />} title="Testes grátis" value={stats.trialSubscriptions} subtitle="fornecedores em teste" />
+                <ReportCard icon={<Gem size={18} />} title="Destaques" value={stats.featuredSuppliers} subtitle="vitrines premium" />
+                <ReportCard icon={<Grid3X3 size={18} />} title="Categorias" value={stats.categories} subtitle="áreas do marketplace" />
               </div>
 
-              <div className="mt-5 rounded-[26px] bg-white p-5 shadow-sm ring-1 ring-[#f1e7cf]">
+              <div className="mt-5 rounded-[24px] bg-white p-4 shadow-sm ring-1 ring-[#f1e7cf]">
                 <p className="text-sm font-black">Conversão de fornecedores</p>
                 <div className="mt-4 flex items-end justify-between gap-3">
                   <div>
-                    <p className="text-3xl font-black text-[#d99200]">{conversionText}</p>
-                    <p className="mt-1 text-xs font-bold leading-5 text-gray-500">
+                    <p className="text-2xl font-black text-[#d99200]">{conversionText}</p>
+                    <p className="mt-1 text-[11px] font-bold leading-5 text-gray-500">
                       Fornecedores com plano ativo sobre o total cadastrado.
                     </p>
                   </div>
-                  <Crown size={34} className="shrink-0 text-[#d99200]" />
+                  <Crown size={28} className="shrink-0 text-[#d99200]" />
                 </div>
               </div>
 
-              <div className="mt-5 rounded-[26px] bg-[#fff7e8] p-5 text-[#8a6100] ring-1 ring-[#f1e7cf]">
+              <div className="mt-5 rounded-[24px] bg-[#fff7e8] p-4 text-[#8a6100] ring-1 ring-[#f1e7cf]">
                 <p className="text-sm font-black">Próximas melhorias</p>
                 <ul className="mt-3 space-y-2 text-xs font-bold leading-5">
                   <li>• gráfico mensal de novos clientes</li>
@@ -278,24 +278,24 @@ function ReportCard({
     <div
       className={
         highlight
-          ? 'rounded-[24px] border border-[#e3a925] bg-[#fff7e8] p-4 shadow-sm'
-          : 'rounded-[24px] bg-white p-4 shadow-sm ring-1 ring-[#f1e7cf]'
+          ? 'rounded-[22px] border border-[#e3a925] bg-[#fff7e8] p-3 shadow-sm'
+          : 'rounded-[22px] bg-white p-3 shadow-sm ring-1 ring-[#f1e7cf]'
       }
     >
       <div
         className={
           highlight
-            ? 'flex h-11 w-11 items-center justify-center rounded-2xl bg-[#e3a925] text-white'
-            : 'flex h-11 w-11 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]'
+            ? 'flex h-9 w-9 items-center justify-center rounded-2xl bg-[#e3a925] text-white'
+            : 'flex h-9 w-9 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]'
         }
       >
         {icon}
       </div>
-      <p className={highlight ? 'mt-4 text-2xl font-black text-red-600' : 'mt-4 text-2xl font-black'}>
+      <p className={highlight ? 'mt-3 text-xl font-black text-red-600' : 'mt-3 text-xl font-black'}>
         {value}
       </p>
-      <p className="mt-1 text-xs font-black">{title}</p>
-      <p className="mt-0.5 text-[11px] font-bold leading-4 text-gray-500">{subtitle}</p>
+      <p className="mt-1 text-[11px] font-black">{title}</p>
+      <p className="mt-0.5 text-[10px] font-bold leading-4 text-gray-500">{subtitle}</p>
     </div>
   );
 }
