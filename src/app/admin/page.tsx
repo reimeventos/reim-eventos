@@ -412,7 +412,7 @@ export default function AdminPage() {
                 />
 
                 <AdminIcon
-                  href="/seguranca"
+                  href="/admin/seguranca"
                   icon={<LockKeyhole size={24} />}
                   title="Segurança"
                 />
