@@ -406,10 +406,9 @@ export default function AdminPage() {
                 />
 
                 <AdminIcon
-                  href="#relatorios"
+                  href="/admin/relatorios"
                   icon={<BarChart3 size={24} />}
                   title="Relatórios"
-                  disabled
                 />
 
                 <AdminIcon
@@ -511,8 +510,8 @@ export default function AdminPage() {
               Clientes
             </Link>
 
-            <Link href="/admin/vitrines" className="rounded-2xl px-2 py-2">
-              Vitrines
+            <Link href="/admin/relatorios" className="rounded-2xl px-2 py-2">
+              Relat.
             </Link>
           </div>
         </nav>
