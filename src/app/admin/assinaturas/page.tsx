@@ -213,6 +213,37 @@ export default function AdminAssinaturasPage() {
     }
   }
 
+
+  async function logAdminAction(input: {
+    action: string;
+    entityType: string;
+    entityId?: string | null;
+    supplierId?: string | null;
+    subscriptionId?: string | null;
+    description: string;
+    oldData?: any;
+    newData?: any;
+  }) {
+    try {
+      const { error } = await supabase.rpc('log_admin_action', {
+        p_action: input.action,
+        p_entity_type: input.entityType,
+        p_entity_id: input.entityId || null,
+        p_supplier_id: input.supplierId || null,
+        p_subscription_id: input.subscriptionId || null,
+        p_description: input.description,
+        p_old_data: input.oldData || null,
+        p_new_data: input.newData || null,
+      });
+
+      if (error) {
+        console.error('Erro ao registrar auditoria:', error);
+      }
+    } catch (error) {
+      console.error('Erro inesperado ao registrar auditoria:', error);
+    }
+  }
+
   async function activateSubscription(item: any) {
     const plan = item.plan || 'profissional';
     const supplierId = item.supplier_id;
@@ -245,6 +276,24 @@ export default function AdminAssinaturasPage() {
       if (supplierId) {
         await updateSupplierFeatured(supplierId, isPremium);
       }
+
+      await logAdminAction({
+        action: 'subscription_approved',
+        entityType: 'supplier_subscriptions',
+        entityId: item.id,
+        supplierId,
+        subscriptionId: item.id,
+        description: `Assinatura ${getPlanLabel(plan)} (${getBillingLabel(
+          item.billing_period
+        )}) ativada para ${item.suppliers?.business_name || 'fornecedor'}.`,
+        oldData: item,
+        newData: {
+          status: 'ativo',
+          value: getPlanValue(plan, item.billing_period),
+          due_date: getDueDateForPlan(plan, item.billing_period),
+          is_featured: isPremium,
+        },
+      });
 
       setSuccessMessage('Plano ativado com sucesso.');
       await loadData();
@@ -282,6 +331,22 @@ export default function AdminAssinaturasPage() {
       if (item.supplier_id) {
         await updateSupplierFeatured(item.supplier_id, false);
       }
+
+      await logAdminAction({
+        action: 'subscription_cancelled',
+        entityType: 'supplier_subscriptions',
+        entityId: item.id,
+        supplierId: item.supplier_id,
+        subscriptionId: item.id,
+        description: `Assinatura cancelada para ${
+          item.suppliers?.business_name || 'fornecedor'
+        }.`,
+        oldData: item,
+        newData: {
+          status: 'cancelado',
+          is_featured: false,
+        },
+      });
 
       setSuccessMessage('Assinatura cancelada com sucesso.');
       await loadData();
@@ -325,6 +390,23 @@ export default function AdminAssinaturasPage() {
         await updateSupplierFeatured(item.supplier_id, false);
       }
 
+      await logAdminAction({
+        action: 'subscription_expired',
+        entityType: 'supplier_subscriptions',
+        entityId: item.id,
+        supplierId: item.supplier_id,
+        subscriptionId: item.id,
+        description: `Assinatura expirada para ${
+          item.suppliers?.business_name || 'fornecedor'
+        }.`,
+        oldData: item,
+        newData: {
+          status: 'expirado',
+          due_date: addDays(new Date(), -1),
+          is_featured: false,
+        },
+      });
+
       setSuccessMessage('Assinatura marcada como expirada.');
       await loadData();
     } catch (error) {
@@ -355,6 +437,21 @@ export default function AdminAssinaturasPage() {
         await updateSupplierFeatured(item.supplier_id, featured);
       }
 
+      await logAdminAction({
+        action: featured ? 'subscription_featured_on' : 'subscription_featured_off',
+        entityType: 'supplier_subscriptions',
+        entityId: item.id,
+        supplierId: item.supplier_id,
+        subscriptionId: item.id,
+        description: featured
+          ? `Destaque ativado para ${item.suppliers?.business_name || 'fornecedor'}.`
+          : `Destaque removido de ${item.suppliers?.business_name || 'fornecedor'}.`,
+        oldData: item,
+        newData: {
+          is_featured: featured,
+        },
+      });
+
       setSuccessMessage(
         featured ? 'Destaque ativado.' : 'Destaque removido.'
       );
@@ -373,22 +470,47 @@ export default function AdminAssinaturasPage() {
       setErrorMessage('');
       setSuccessMessage('');
 
-      const { error } = await supabase.from('supplier_subscriptions').insert([
-        {
-          supplier_id: supplierId,
-          plan: 'profissional',
-          status: 'ativo',
-          value: 49.9,
-          due_date: addDays(new Date(), 30),
-          billing_period: 'mensal',
-          is_featured: false,
-          updated_at: new Date().toISOString(),
-        },
-      ]);
+      const { data: createdSubscription, error } = await supabase
+        .from('supplier_subscriptions')
+        .insert([
+          {
+            supplier_id: supplierId,
+            plan: 'profissional',
+            status: 'ativo',
+            value: 49.9,
+            due_date: addDays(new Date(), 30),
+            billing_period: 'mensal',
+            is_featured: false,
+            updated_at: new Date().toISOString(),
+          },
+        ])
+        .select('id')
+        .single();
 
       if (error) throw error;
 
       await updateSupplierFeatured(supplierId, false);
+
+      const supplierName =
+        suppliers.find((supplier) => supplier.id === supplierId)?.business_name ||
+        'fornecedor';
+
+      await logAdminAction({
+        action: 'subscription_created',
+        entityType: 'supplier_subscriptions',
+        entityId: createdSubscription?.id || null,
+        supplierId,
+        subscriptionId: createdSubscription?.id || null,
+        description: `Plano Profissional mensal criado manualmente para ${supplierName}.`,
+        oldData: null,
+        newData: {
+          plan: 'profissional',
+          status: 'ativo',
+          value: 49.9,
+          billing_period: 'mensal',
+          is_featured: false,
+        },
+      });
 
       setSuccessMessage('Plano Profissional criado com sucesso.');
       await loadData();
