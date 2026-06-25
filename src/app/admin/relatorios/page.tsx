@@ -209,7 +209,7 @@ export default function AdminRelatoriosPage() {
                 </div>
               </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-2">
+              <div className="mt-4 grid grid-cols-1 gap-2">
                 <ReportCard icon={<Users size={18} />} title="Clientes" value={stats.clients} subtitle="perfis cadastrados" />
                 <ReportCard icon={<Building2 size={18} />} title="Fornecedores" value={stats.suppliers} subtitle="vitrines cadastradas" />
                 <ReportCard icon={<FileText size={18} />} title="Orçamentos" value={stats.quotes} subtitle="solicitações criadas" />
@@ -278,24 +278,33 @@ function ReportCard({
     <div
       className={
         highlight
-          ? 'rounded-[22px] border border-[#e3a925] bg-[#fff7e8] p-3 shadow-sm'
-          : 'rounded-[22px] bg-white p-3 shadow-sm ring-1 ring-[#f1e7cf]'
+          ? 'flex min-h-[82px] items-center gap-3 rounded-[20px] border border-[#e3a925] bg-[#fff7e8] p-3 shadow-sm'
+          : 'flex min-h-[82px] items-center gap-3 rounded-[20px] bg-white p-3 shadow-sm ring-1 ring-[#f1e7cf]'
       }
     >
       <div
         className={
           highlight
-            ? 'flex h-9 w-9 items-center justify-center rounded-2xl bg-[#e3a925] text-white'
-            : 'flex h-9 w-9 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]'
+            ? 'flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#e3a925] text-white'
+            : 'flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]'
         }
       >
         {icon}
       </div>
-      <p className={highlight ? 'mt-3 text-xl font-black text-red-600' : 'mt-3 text-xl font-black'}>
-        {value}
-      </p>
-      <p className="mt-1 text-[11px] font-black">{title}</p>
-      <p className="mt-0.5 text-[10px] font-bold leading-4 text-gray-500">{subtitle}</p>
+
+      <div className="min-w-0 flex-1">
+        <div className="flex items-end gap-2">
+          <p className={highlight ? 'text-xl font-black leading-none text-red-600' : 'text-xl font-black leading-none'}>
+            {value}
+          </p>
+          <p className="truncate text-[11px] font-black leading-4">{title}</p>
+        </div>
+
+        <p className="mt-1 truncate text-[10px] font-bold leading-4 text-gray-500">
+          {subtitle}
+        </p>
+      </div>
     </div>
   );
 }
+
