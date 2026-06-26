@@ -191,11 +191,29 @@ function getServices(categoryName: string) {
   ];
 }
 
+function getPublicSupplierTag(visibility: any, supplier: any, isCerimonialista: boolean) {
+  if (visibility?.public_badge === 'novo_no_reim') {
+    return 'Novo no REIM';
+  }
+
+  if (visibility?.public_badge === 'premium' || supplier?.is_featured) {
+    return '♛ Premium';
+  }
+
+  if (visibility?.public_badge === 'ativo') {
+    return 'Ativo';
+  }
+
+  return isCerimonialista ? 'Cerimonialista' : 'Indisponível';
+}
+
+
 export default function FornecedorPage() {
   const params = useParams();
   const supplierId = String(params?.id || '');
 
   const [supplier, setSupplier] = useState<any>(null);
+  const [publicVisibility, setPublicVisibility] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [selectedMedia, setSelectedMedia] = useState('');
@@ -234,6 +252,19 @@ export default function FornecedorPage() {
           return;
         }
 
+        const { data: visibilityData, error: visibilityError } = await supabase
+          .from('supplier_public_visibility')
+          .select(
+            'supplier_id, can_appear_public, can_receive_quote, public_badge, public_label, public_notice'
+          )
+          .eq('supplier_id', supplierId)
+          .maybeSingle();
+
+        if (visibilityError) {
+          console.error('Erro ao carregar visibilidade da vitrine:', visibilityError);
+        }
+
+        setPublicVisibility(visibilityData || null);
         setSupplier(data);
 
         if (customerIdFromUrl) {
@@ -381,11 +412,12 @@ export default function FornecedorPage() {
   const gallery = getGallery(supplier);
   const services = getServices(categoryName);
   const whatsappLink = formatWhatsAppLink(supplier.whatsapp);
-  const supplierTag = supplier.is_featured
-    ? 'Destaque'
-    : isCerimonialista
-      ? 'Cerimonialista'
-      : 'Premium';
+  const canReceiveQuote = Boolean(publicVisibility?.can_receive_quote);
+  const supplierTag = getPublicSupplierTag(
+    publicVisibility,
+    supplier,
+    isCerimonialista
+  );
 
   return (
     <main className="min-h-screen bg-black text-[#151515]">
@@ -430,7 +462,7 @@ export default function FornecedorPage() {
 
           <div className="absolute bottom-8 left-6 right-6 z-10">
             <span className="rounded-full bg-[#e3a925] px-3 py-1 text-xs font-extrabold text-white">
-              ♛ {supplierTag}
+              {supplierTag}
             </span>
 
             <h1 className="mt-3 font-serif text-[36px] leading-tight">
@@ -476,6 +508,24 @@ export default function FornecedorPage() {
               </div>
             </div>
           </div>
+
+          {publicVisibility?.public_badge === 'novo_no_reim' && (
+            <div className="mt-4 rounded-2xl bg-[#fff7e8] px-4 py-3 text-sm leading-5 text-[#7a5200] ring-1 ring-[#f1e7cf]">
+              <p className="font-extrabold">Novo fornecedor no REIM</p>
+              <p className="mt-1">
+                Este fornecedor está em fase inicial na plataforma. Aguarde a confirmação de disponibilidade após solicitar o orçamento.
+              </p>
+            </div>
+          )}
+
+          {!canReceiveQuote && (
+            <div className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm leading-5 text-red-700 ring-1 ring-red-100">
+              <p className="font-extrabold">Fornecedor indisponível no momento</p>
+              <p className="mt-1">
+                Esta vitrine não está recebendo novas solicitações de orçamento agora.
+              </p>
+            </div>
+          )}
 
           {isCerimonialista && !isCerimonialistaMode && (
             <div className="mt-4 rounded-2xl bg-[#fff7e8] px-4 py-3 text-sm leading-5 text-[#7a5200] ring-1 ring-[#f1e7cf]">
@@ -603,13 +653,24 @@ export default function FornecedorPage() {
 
           {/* CTA PRINCIPAL */}
           <div className="mt-7 space-y-3">
-            <Link
-              href={getQuoteLink()}
-              className="flex items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg"
-            >
-              <MessageCircle size={22} />
-              {isCerimonialista ? 'Solicitar proposta' : 'Solicitar orçamento'}
-            </Link>
+            {canReceiveQuote ? (
+              <Link
+                href={getQuoteLink()}
+                className="flex items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg"
+              >
+                <MessageCircle size={22} />
+                {isCerimonialista ? 'Solicitar proposta' : 'Solicitar orçamento'}
+              </Link>
+            ) : (
+              <button
+                type="button"
+                disabled
+                className="flex w-full items-center justify-center gap-2 rounded-[22px] bg-gray-300 py-4 text-center font-extrabold text-gray-600 shadow-sm"
+              >
+                <MessageCircle size={22} />
+                Solicitação indisponível
+              </button>
+            )}
 
             <button
               type="button"
