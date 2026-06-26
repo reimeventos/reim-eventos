@@ -110,9 +110,22 @@ function formatRating(value: any) {
   return numberValue.toFixed(1);
 }
 
+function getPublicTag(visibility: any, supplier: any) {
+  if (visibility?.public_badge === 'novo_no_reim') {
+    return 'Novo no REIM';
+  }
+
+  if (visibility?.public_badge === 'premium' || supplier?.is_featured) {
+    return 'Premium';
+  }
+
+  return 'Ativo';
+}
+
 export default function BuscarPage() {
   const [categories, setCategories] = useState<any[]>([]);
   const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [visibilityBySupplier, setVisibilityBySupplier] = useState<Record<string, any>>({});
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [loadingSuppliers, setLoadingSuppliers] = useState(true);
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
@@ -177,15 +190,57 @@ export default function BuscarPage() {
     try {
       setLoadingSuppliers(true);
 
+      /*
+        Regra pública:
+        Só aparecem fornecedores que podem receber orçamento:
+        - plano ativo
+        - ou teste ativo dentro do prazo
+        - e supplier.status = ativo
+        A regra vem da view supplier_public_visibility.
+      */
+      const { data: visibilityData, error: visibilityError } = await supabase
+        .from('supplier_public_visibility')
+        .select(
+          'supplier_id, public_badge, public_label, public_notice, can_appear_public, can_receive_quote'
+        )
+        .eq('can_appear_public', true)
+        .eq('can_receive_quote', true);
+
+      if (visibilityError) {
+        throw visibilityError;
+      }
+
+      const visibleRows = visibilityData || [];
+      const visibleIds = visibleRows
+        .map((item: any) => item.supplier_id)
+        .filter(Boolean);
+
+      const visibilityMap = visibleRows.reduce((acc: any, item: any) => {
+        acc[item.supplier_id] = item;
+        return acc;
+      }, {});
+
+      setVisibilityBySupplier(visibilityMap);
+
+      if (visibleIds.length === 0) {
+        setSuppliers([]);
+        return;
+      }
+
       const data = await listSuppliers({
         categoryId: categoryId || undefined,
         search: searchText || undefined,
       });
 
-      setSuppliers(data || []);
+      const onlyVisibleSuppliers = (data || []).filter((supplier: any) =>
+        visibleIds.includes(supplier.id)
+      );
+
+      setSuppliers(onlyVisibleSuppliers);
     } catch (error) {
       console.error('Erro ao carregar fornecedores:', error);
       setSuppliers([]);
+      setVisibilityBySupplier({});
     } finally {
       setLoadingSuppliers(false);
     }
@@ -533,7 +588,8 @@ export default function BuscarPage() {
               const price = formatPrice(supplier.average_price);
               const coverImage = getCoverImage(supplier);
               const supplierId = supplier.id || 'demo';
-              const tag = supplier.is_featured ? 'Destaque' : 'Premium';
+              const visibility = visibilityBySupplier[supplierId] || null;
+              const tag = getPublicTag(visibility, supplier);
               const isSavedForCustomer = savedSupplierIds.includes(supplierId);
 
               return (
@@ -552,7 +608,7 @@ export default function BuscarPage() {
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
 
                       <span className="absolute left-4 top-4 rounded-full bg-[#e3a925] px-3 py-1 text-xs font-extrabold text-white">
-                        ♛ {tag}
+                        {tag === 'Premium' ? '♛ Premium' : tag}
                       </span>
 
                       {isSavedForCustomer && (
@@ -605,6 +661,15 @@ export default function BuscarPage() {
                         Ver vitrine
                       </Link>
                     </div>
+
+                    {visibility?.public_badge === 'novo_no_reim' && (
+                      <div className="mt-4 rounded-[18px] bg-[#fff7e8] px-4 py-3 text-xs font-bold leading-5 text-[#8a6100] ring-1 ring-[#f1e7cf]">
+                        <p className="font-extrabold">Novo fornecedor no REIM</p>
+                        <p className="mt-1">
+                          Este fornecedor está em fase inicial na plataforma. Aguarde a confirmação de disponibilidade após solicitar o orçamento.
+                        </p>
+                      </div>
+                    )}
 
                     {isCerimonialistaMode && (
                       <button
