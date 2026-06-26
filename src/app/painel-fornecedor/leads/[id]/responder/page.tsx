@@ -37,7 +37,67 @@ function getDaysUntil(date?: string) {
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
 }
 
-function getSubscriptionAccess(subscription: any) {
+function getSubscriptionAccess(subscription: any, visibility?: any) {
+  if (visibility && visibility.can_receive_quote === false) {
+    if (visibility.public_badge === 'novo_no_reim') {
+      return {
+        blocked: true,
+        label: 'Perfil do fornecedor pendente',
+        description:
+          'Seu teste está ativo, mas a vitrine ainda precisa estar com perfil ativo para responder orçamentos.',
+        tone: 'warning',
+      };
+    }
+
+    if (visibility.public_badge === 'pendente') {
+      return {
+        blocked: true,
+        label: 'Pagamento pendente',
+        description:
+          'Aguarde a confirmação do pagamento pelo admin REIM para responder orçamentos.',
+        tone: 'warning',
+      };
+    }
+
+    if (visibility.public_badge === 'expirado') {
+      return {
+        blocked: true,
+        label: 'Teste ou assinatura expirada',
+        description:
+          'Para responder este orçamento, escolha o plano Profissional ou Premium.',
+        tone: 'danger',
+      };
+    }
+
+    if (visibility.public_badge === 'cancelado') {
+      return {
+        blocked: true,
+        label: 'Assinatura cancelada',
+        description:
+          'Escolha um novo plano para voltar a responder orçamentos.',
+        tone: 'danger',
+      };
+    }
+
+    if (visibility.public_badge === 'sem_assinatura') {
+      return {
+        blocked: true,
+        label: 'Assinatura não encontrada',
+        description:
+          'Escolha o plano Profissional ou Premium para responder orçamentos.',
+        tone: 'danger',
+      };
+    }
+
+    return {
+      blocked: true,
+      label: 'Fornecedor indisponível',
+      description:
+        'Sua vitrine não está habilitada para responder orçamentos neste momento.',
+      tone: 'danger',
+    };
+  }
+
   if (!subscription) {
     return {
       blocked: true,
@@ -117,6 +177,7 @@ export default function ResponderOrcamentoPage() {
   const [lead, setLead] = useState<any>(null);
   const [latestResponse, setLatestResponse] = useState<any>(null);
   const [subscription, setSubscription] = useState<any>(null);
+  const [publicVisibility, setPublicVisibility] = useState<any>(null);
   const [loadingLead, setLoadingLead] = useState(true);
 
   const [serviceOffered, setServiceOffered] = useState('');
@@ -156,6 +217,21 @@ export default function ResponderOrcamentoPage() {
         setObservations(last?.observations || '');
 
         if (data?.supplier_id) {
+          const { data: visibilityData, error: visibilityError } =
+            await supabase
+              .from('supplier_public_visibility')
+              .select(
+                'supplier_id, supplier_status, subscription_status, plan, trial_active, plan_active, can_appear_public, can_receive_quote, public_badge, public_label, public_notice'
+              )
+              .eq('supplier_id', data.supplier_id)
+              .maybeSingle();
+
+          if (visibilityError) {
+            console.error('Erro ao carregar visibilidade do fornecedor:', visibilityError);
+          }
+
+          setPublicVisibility(visibilityData || null);
+
           const { data: subscriptionData, error: subscriptionError } =
             await supabase
               .from('supplier_subscriptions')
@@ -268,7 +344,7 @@ export default function ResponderOrcamentoPage() {
       return;
     }
 
-    const access = getSubscriptionAccess(subscription);
+    const access = getSubscriptionAccess(subscription, publicVisibility);
 
     if (access.blocked) {
       setErrorMessage(access.description);
@@ -331,7 +407,7 @@ export default function ResponderOrcamentoPage() {
 
   const originInfo = getOriginInfo(lead);
   const OriginIcon = originInfo.icon;
-  const subscriptionAccess = getSubscriptionAccess(subscription);
+  const subscriptionAccess = getSubscriptionAccess(subscription, publicVisibility);
 
   return (
     <main className="min-h-screen bg-black text-[#151515]">
@@ -561,6 +637,13 @@ export default function ResponderOrcamentoPage() {
                     <p className="mt-1 text-xs font-bold opacity-80">
                       {subscriptionAccess.description}
                     </p>
+
+                    {publicVisibility?.public_badge === 'novo_no_reim' &&
+                      !subscriptionAccess.blocked && (
+                        <p className="mt-2 rounded-2xl bg-white/70 px-3 py-2 text-xs font-bold opacity-90">
+                          Novo fornecedor no REIM: mantenha seu plano ativo para continuar recebendo e respondendo leads após o teste.
+                        </p>
+                      )}
 
                     {subscriptionAccess.blocked && (
                       <Link
