@@ -75,7 +75,88 @@ function getDaysUntil(date?: string) {
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
 }
 
-function getSubscriptionInfo(subscription: any) {
+function getSubscriptionInfo(subscription: any, visibility?: any) {
+  if (visibility && visibility.can_receive_quote === false) {
+    if (visibility.public_badge === 'novo_no_reim') {
+      return {
+        label: 'Perfil pendente',
+        detail:
+          'Seu teste grátis está ativo, mas sua vitrine ainda precisa estar com perfil ativo para aparecer e responder leads.',
+        tone: 'warning',
+        planLabel: 'Teste grátis',
+        statusLabel: 'Perfil pendente',
+        isExpired: true,
+        isBlocked: true,
+        daysLeft: null as number | null,
+      };
+    }
+
+    if (visibility.public_badge === 'pendente') {
+      return {
+        label: 'Pagamento pendente',
+        detail: 'Aguarde a confirmação do pagamento pelo admin REIM.',
+        tone: 'warning',
+        planLabel:
+          subscription?.plan === 'premium'
+            ? 'Premium Destaque'
+            : subscription?.plan === 'profissional'
+              ? 'Profissional'
+              : 'Plano pendente',
+        statusLabel: 'Pendente',
+        isExpired: false,
+        isBlocked: true,
+        daysLeft: null as number | null,
+      };
+    }
+
+    if (visibility.public_badge === 'sem_assinatura') {
+      return {
+        label: 'Sem plano ativo',
+        detail: 'Inicie o teste grátis de 7 dias ou escolha um plano para receber e responder leads.',
+        tone: 'warning',
+        planLabel: 'Sem plano',
+        statusLabel: 'Sem assinatura',
+        isExpired: true,
+        isBlocked: true,
+        daysLeft: null as number | null,
+      };
+    }
+
+    if (visibility.public_badge === 'expirado' || visibility.public_badge === 'cancelado') {
+      return {
+        label:
+          visibility.public_badge === 'cancelado'
+            ? 'Assinatura cancelada'
+            : 'Assinatura expirada',
+        detail: 'Escolha o plano Profissional ou Premium para continuar recebendo leads.',
+        tone: 'danger',
+        planLabel:
+          subscription?.plan === 'premium'
+            ? 'Premium Destaque'
+            : subscription?.plan === 'profissional'
+              ? 'Profissional'
+              : subscription?.plan === 'teste_7_dias'
+                ? 'Teste grátis'
+                : 'Sem plano',
+        statusLabel: visibility.public_badge === 'cancelado' ? 'Cancelado' : 'Expirado',
+        isExpired: true,
+        isBlocked: true,
+        daysLeft: null as number | null,
+      };
+    }
+
+    return {
+      label: 'Vitrine indisponível',
+      detail: 'Sua vitrine não está habilitada para aparecer nas buscas ou responder leads neste momento.',
+      tone: 'danger',
+      planLabel: 'Indisponível',
+      statusLabel: 'Bloqueado',
+      isExpired: true,
+      isBlocked: true,
+      daysLeft: null as number | null,
+    };
+  }
+
   if (!subscription) {
     return {
       label: 'Sem plano ativo',
@@ -84,6 +165,7 @@ function getSubscriptionInfo(subscription: any) {
       planLabel: 'Sem plano',
       statusLabel: 'Sem assinatura',
       isExpired: true,
+      isBlocked: true,
       daysLeft: null as number | null,
     };
   }
@@ -111,6 +193,7 @@ function getSubscriptionInfo(subscription: any) {
       planLabel: 'Teste grátis',
       statusLabel: 'Teste 7 dias',
       isExpired: false,
+      isBlocked: false,
       daysLeft,
     };
   }
@@ -128,6 +211,7 @@ function getSubscriptionInfo(subscription: any) {
             : 'Plano pendente',
       statusLabel: 'Pendente',
       isExpired: false,
+      isBlocked: true,
       daysLeft,
     };
   }
@@ -148,6 +232,7 @@ function getSubscriptionInfo(subscription: any) {
             : 'Plano ativo',
       statusLabel: 'Ativo',
       isExpired: false,
+      isBlocked: false,
       daysLeft,
     };
   }
@@ -166,6 +251,7 @@ function getSubscriptionInfo(subscription: any) {
             : 'Sem plano',
     statusLabel: status === 'cancelado' ? 'Cancelado' : 'Expirado',
     isExpired: true,
+    isBlocked: true,
     daysLeft,
   };
 }
@@ -178,6 +264,7 @@ export default function PainelFornecedorPage() {
   const [checkingRedirect, setCheckingRedirect] = useState(true);
   const [supplier, setSupplier] = useState<any>(null);
   const [subscription, setSubscription] = useState<any>(null);
+  const [publicVisibility, setPublicVisibility] = useState<any>(null);
   const [leadsCount, setLeadsCount] = useState(0);
   const [pendingLeadsCount, setPendingLeadsCount] = useState(0);
   const [cerimonialistaLeadsCount, setCerimonialistaLeadsCount] = useState(0);
@@ -238,6 +325,20 @@ export default function PainelFornecedorPage() {
       }
 
       setSupplier(supplierData);
+
+      const { data: visibilityData, error: visibilityError } = await supabase
+        .from('supplier_public_visibility')
+        .select(
+          'supplier_id, supplier_status, subscription_status, plan, trial_active, plan_active, can_appear_public, can_receive_quote, public_badge, public_label, public_notice'
+        )
+        .eq('supplier_id', supplierData.id)
+        .maybeSingle();
+
+      if (visibilityError) {
+        console.error('Erro ao buscar visibilidade do fornecedor:', visibilityError);
+      }
+
+      setPublicVisibility(visibilityData || null);
 
       const { data: subscriptionData, error: subscriptionError } = await supabase
         .from('supplier_subscriptions')
@@ -389,20 +490,24 @@ export default function PainelFornecedorPage() {
   const categoryName = getCategoryName(supplier);
   const rating = supplier.rating_average || '4.9';
   const averagePrice = formatPrice(supplier.average_price);
-  const subscriptionInfo = getSubscriptionInfo(subscription);
+  const subscriptionInfo = getSubscriptionInfo(subscription, publicVisibility);
   const planLabel = subscriptionInfo.planLabel;
   const publicPriceStatus = supplier.show_price ? 'Ativado' : 'Desativado';
   const hasAttention = unreadCount > 0 || pendingLeadsCount > 0;
+  const canReceiveQuote = Boolean(publicVisibility?.can_receive_quote);
+  const canAppearPublic = Boolean(publicVisibility?.can_appear_public);
 
   const shortcuts = [
     {
       title: 'Leads recebidos',
       desc:
-        unreadCount > 0
-          ? `${unreadCount} mensagem(ns) nova(s) aguardando leitura`
-          : pendingLeadsCount > 0
-            ? `${pendingLeadsCount} lead(s) novo(s) aguardando resposta`
-            : 'Veja pedidos de orçamento dos clientes',
+        !canReceiveQuote
+          ? 'Regularize sua vitrine para responder leads'
+          : unreadCount > 0
+            ? `${unreadCount} mensagem(ns) nova(s) aguardando leitura`
+            : pendingLeadsCount > 0
+              ? `${pendingLeadsCount} lead(s) novo(s) aguardando resposta`
+              : 'Veja pedidos de orçamento dos clientes',
       href: '/painel-fornecedor/leads',
       icon: MessageCircle,
       color: hasAttention ? 'bg-pink-500' : 'bg-[#e3a925]',
@@ -600,7 +705,7 @@ export default function PainelFornecedorPage() {
                   </span>
                 </div>
 
-                {subscriptionInfo.isExpired && (
+                {subscriptionInfo.isBlocked && (
                   <Link
                     href="/painel-fornecedor/planos"
                     className="mt-3 inline-flex rounded-full bg-[#e3a925] px-4 py-2 text-xs font-extrabold text-white shadow-sm"
@@ -610,6 +715,60 @@ export default function PainelFornecedorPage() {
                 )}
               </div>
             </div>
+          </div>
+        </section>
+
+        <section className="px-6 pt-4">
+          <div
+            className={
+              canAppearPublic && canReceiveQuote
+                ? 'rounded-[22px] bg-green-50 p-4 text-sm leading-5 text-green-700 ring-1 ring-green-100'
+                : 'rounded-[22px] bg-red-50 p-4 text-sm leading-5 text-red-700 ring-1 ring-red-100'
+            }
+          >
+            <p className="font-extrabold">Status público da vitrine</p>
+
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <div className="rounded-2xl bg-white/70 p-3">
+                <p className="text-[10px] font-extrabold uppercase opacity-70">
+                  Nas buscas
+                </p>
+                <p className="mt-1 text-sm font-extrabold">
+                  {canAppearPublic ? 'Aparecendo' : 'Oculta'}
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-white/70 p-3">
+                <p className="text-[10px] font-extrabold uppercase opacity-70">
+                  Orçamentos
+                </p>
+                <p className="mt-1 text-sm font-extrabold">
+                  {canReceiveQuote ? 'Recebendo' : 'Bloqueado'}
+                </p>
+              </div>
+            </div>
+
+            {!canReceiveQuote && (
+              <p className="mt-3 text-xs font-bold opacity-90">
+                Sua vitrine não aparece para clientes e não recebe/responde novos orçamentos até regularizar perfil ou assinatura.
+              </p>
+            )}
+
+            {publicVisibility?.public_badge === 'novo_no_reim' &&
+              canReceiveQuote && (
+                <p className="mt-3 text-xs font-bold opacity-90">
+                  Você está em fase inicial no REIM. Após o teste, escolha um plano para continuar aparecendo nas buscas.
+                </p>
+              )}
+
+            {!canReceiveQuote && (
+              <Link
+                href="/painel-fornecedor/planos"
+                className="mt-4 inline-flex rounded-full bg-[#e3a925] px-4 py-2 text-xs font-extrabold text-white shadow-sm"
+              >
+                Escolher plano
+              </Link>
+            )}
           </div>
         </section>
 
@@ -735,8 +894,8 @@ export default function PainelFornecedorPage() {
               <div className="flex-1">
                 <h2 className="text-lg font-extrabold">Resumo da semana</h2>
                 <p className="mt-2 text-sm leading-5 text-white/70">
-                  {subscriptionInfo.isExpired
-                    ? 'Seu teste ou assinatura está expirado. Escolha um plano para continuar usando todos os recursos do fornecedor.'
+                  {subscriptionInfo.isBlocked
+                    ? 'Sua vitrine está bloqueada para aparecer nas buscas ou responder leads. Regularize perfil ou assinatura para continuar usando todos os recursos do fornecedor.'
                     : hasAttention
                       ? 'Você tem leads ou mensagens novas aguardando atenção. Responda rápido para aumentar as chances de fechar contrato.'
                       : 'Sua vitrine está pronta para receber novos pedidos de orçamento. Mantenha fotos e informações atualizadas.'}
