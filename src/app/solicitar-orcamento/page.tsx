@@ -65,6 +65,7 @@ function SolicitarOrcamentoContent() {
   const isCerimonialistaMode = Boolean(targetCustomerId);
 
   const [supplier, setSupplier] = useState<any>(null);
+  const [publicVisibility, setPublicVisibility] = useState<any>(null);
   const [loadingSupplier, setLoadingSupplier] = useState(true);
 
   const [user, setUser] = useState<any>(null);
@@ -96,6 +97,8 @@ function SolicitarOrcamentoContent() {
 
   const supplierCategory = formatCategoryName(supplier);
   const supplierName = supplier?.business_name || 'Fornecedor';
+  const canReceiveQuote = Boolean(publicVisibility?.can_receive_quote);
+  const isNewSupplierOnReim = publicVisibility?.public_badge === 'novo_no_reim';
 
   const isEventSpaceSupplier =
     isSpaceCategory(supplierCategory) || isSpaceCategory(serviceNeeded);
@@ -178,6 +181,19 @@ function SolicitarOrcamentoContent() {
         const data = await getSupplier(supplierId);
 
         if (data) {
+          const { data: visibilityData, error: visibilityError } = await supabase
+            .from('supplier_public_visibility')
+            .select(
+              'supplier_id, can_appear_public, can_receive_quote, public_badge, public_label, public_notice'
+            )
+            .eq('supplier_id', supplierId)
+            .maybeSingle();
+
+          if (visibilityError) {
+            console.error('Erro ao carregar visibilidade do fornecedor:', visibilityError);
+          }
+
+          setPublicVisibility(visibilityData || null);
           setSupplier(data);
           setServiceNeeded(formatCategoryName(data));
         }
@@ -366,6 +382,13 @@ function SolicitarOrcamentoContent() {
       return;
     }
 
+    if (!canReceiveQuote) {
+      setErrorMessage(
+        'Este fornecedor não está recebendo novas solicitações de orçamento no momento.'
+      );
+      return;
+    }
+
     if (!customerName.trim()) {
       setErrorMessage('Informe o nome da cliente.');
       return;
@@ -516,6 +539,35 @@ function SolicitarOrcamentoContent() {
           </div>
         </section>
 
+        {isNewSupplierOnReim && (
+          <section className="px-6 pt-4">
+            <div className="rounded-[22px] bg-[#fff7e8] px-4 py-3 text-sm leading-5 text-[#7a5200] ring-1 ring-[#f1e7cf]">
+              <p className="font-extrabold">Novo fornecedor no REIM</p>
+              <p className="mt-1">
+                Este fornecedor está em fase inicial na plataforma. Aguarde a confirmação de disponibilidade após solicitar o orçamento.
+              </p>
+            </div>
+          </section>
+        )}
+
+        {!loadingSupplier && supplierId && !canReceiveQuote && (
+          <section className="px-6 pt-4">
+            <div className="rounded-[22px] bg-red-50 px-4 py-3 text-sm leading-5 text-red-700 ring-1 ring-red-100">
+              <p className="font-extrabold">Fornecedor indisponível no momento</p>
+              <p className="mt-1">
+                Esta vitrine não está recebendo novas solicitações de orçamento agora.
+              </p>
+
+              <Link
+                href={backHref}
+                className="mt-4 flex items-center justify-center rounded-[20px] bg-red-600 py-3 text-sm font-extrabold text-white"
+              >
+                Voltar para a vitrine
+              </Link>
+            </div>
+          </section>
+        )}
+
         {loadingUser && (
           <section className="px-6 pt-6">
             <div className="rounded-[28px] bg-white p-6 text-center shadow-sm ring-1 ring-[#f1e7cf]">
@@ -623,7 +675,7 @@ function SolicitarOrcamentoContent() {
           </section>
         )}
 
-        {!loadingUser && user && !isSupplierAccount && (
+        {!loadingUser && user && !isSupplierAccount && canReceiveQuote && (
           <section className="px-6 pt-6">
             {isCerimonialistaMode && checkingCerimonialista && (
               <div className="mb-4 rounded-[24px] bg-white p-4 text-sm font-bold text-gray-600 ring-1 ring-[#f1e7cf]">
@@ -829,6 +881,7 @@ function SolicitarOrcamentoContent() {
                   loading ||
                   loadingSupplier ||
                   checkingCerimonialista ||
+                  !canReceiveQuote ||
                   (isCerimonialistaMode && !cerimonialistaAllowed)
                 }
                 className="mt-7 flex w-full items-center justify-center gap-2 rounded-[24px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg disabled:opacity-60"
