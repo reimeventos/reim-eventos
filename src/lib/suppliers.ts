@@ -1,528 +1,608 @@
-import { supabase } from './supabase';
+"use client";
 
-async function getMySupplierProfiles() {
-  const user = (await supabase.auth.getUser()).data.user;
-  if (!user) throw new Error('Login necessário');
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  Bell,
+  Crown,
+  Edit3,
+  Eye,
+  FileText,
+  Loader2,
+  LogOut,
+  MessageCircle,
+  Search,
+  Star,
+  Store,
+  User,
+} from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
-  const { data, error } = await supabase
-    .from('suppliers')
-    .select('*, categories(id, name, slug), media(*)')
-    .eq('owner_id', user.id)
-    .order('created_at', { ascending: true });
+type Supplier = {
+  id: string;
+  owner_id?: string | null;
+  status?: string | null;
+  is_featured?: boolean | null;
+  created_at?: string | null;
+  business_name?: string | null;
+  company_name?: string | null;
+  fantasy_name?: string | null;
+  name?: string | null;
+  title?: string | null;
+  category?: string | null;
+  city?: string | null;
+  state?: string | null;
+};
 
-  if (error) throw error;
+type Subscription = {
+  id?: string;
+  supplier_id?: string;
+  status?: string | null;
+  plan_name?: string | null;
+  plan?: string | null;
+  public_label?: string | null;
+  current_period_end?: string | null;
+  ends_at?: string | null;
+  trial_ends_at?: string | null;
+  created_at?: string | null;
+};
 
-  return data ?? [];
-}
+type DashboardStats = {
+  totalLeads: number;
+  unansweredLeads: number;
+  totalResponses: number;
+  closedQuotes: number;
+  unreadMessages: number;
+};
 
-async function getMySupplierIds() {
-  const suppliers = await getMySupplierProfiles();
+function getSupplierName(supplier: Supplier | null) {
+  if (!supplier) return "Fornecedor";
 
-  if (suppliers.length === 0) {
-    throw new Error('Nenhum fornecedor vinculado a esta conta.');
-  }
-
-  return suppliers.map((supplier: any) => supplier.id);
-}
-
-export async function getMySupplierProfile() {
-  const suppliers = await getMySupplierProfiles();
-
-  if (suppliers.length === 0) {
-    throw new Error('Nenhum fornecedor vinculado a esta conta.');
-  }
-
-  return suppliers[0];
-}
-
-export async function updateMySupplierProfile(payload: {
-  business_name: string;
-  description?: string;
-  city: string;
-  whatsapp: string;
-  instagram?: string;
-  website?: string;
-  average_price?: string;
-  category_id?: string;
-}) {
-  const supplier = await getMySupplierProfile();
-
-  const hasMinimumProfile = Boolean(
-    payload.business_name &&
-      payload.city &&
-      payload.whatsapp &&
-      payload.category_id
+  return (
+    supplier.business_name ||
+    supplier.company_name ||
+    supplier.fantasy_name ||
+    supplier.name ||
+    supplier.title ||
+    "Minha vitrine"
   );
-
-  const { data, error } = await supabase
-    .from('suppliers')
-    .update({
-      ...payload,
-      status: hasMinimumProfile ? 'ativo' : 'pendente_perfil',
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', supplier.id)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
 }
 
-export async function uploadSupplierPhoto(file: File, isCover = false) {
-  const user = (await supabase.auth.getUser()).data.user;
-  if (!user) throw new Error('Login necessário');
+function formatDateBR(dateValue?: string | null) {
+  if (!dateValue) return null;
 
-  const supplier = await getMySupplierProfile();
+  const date = new Date(dateValue);
 
-  const allowed = ['image/jpeg', 'image/png', 'image/webp'];
-  if (!allowed.includes(file.type)) {
-    throw new Error('Envie JPG, PNG ou WEBP.');
-  }
+  if (Number.isNaN(date.getTime())) return null;
 
-  if (file.size > 5 * 1024 * 1024) {
-    throw new Error('A imagem deve ter no máximo 5MB.');
-  }
-
-  const ext = file.name.split('.').pop();
-  const filePath = `${supplier.id}/${crypto.randomUUID()}.${ext}`;
-
-  const { error: uploadError } = await supabase.storage
-    .from('supplier-media')
-    .upload(filePath, file, {
-      cacheControl: '3600',
-      upsert: false,
-    });
-
-  if (uploadError) throw uploadError;
-
-  const { data: urlData } = supabase.storage
-    .from('supplier-media')
-    .getPublicUrl(filePath);
-
-  if (isCover) {
-    await supabase
-      .from('media')
-      .update({ is_cover: false })
-      .eq('supplier_id', supplier.id);
-  }
-
-  const { data, error } = await supabase
-    .from('media')
-    .insert({
-      supplier_id: supplier.id,
-      owner_id: user.id,
-      type: 'foto',
-      file_url: urlData.publicUrl,
-      is_cover: isCover,
-    })
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
+  return date.toLocaleDateString("pt-BR");
 }
 
-/* FAVORITOS / FORNECEDORES SALVOS */
-
-export async function saveSupplier(supplierId: string) {
-  const user = (await supabase.auth.getUser()).data.user;
-
-  if (!user) {
-    throw new Error('Para salvar fornecedor, faça login como cliente.');
+function getPlanName(subscription: Subscription | null, supplier: Supplier | null) {
+  if (!subscription) {
+    if (supplier?.is_featured) return "Premium Destaque";
+    return "Plano gratuito";
   }
 
-  const { data, error } = await supabase
-    .from('saved_suppliers')
-    .upsert(
-      {
-        customer_id: user.id,
-        supplier_id: supplierId,
-      },
-      {
-        onConflict: 'customer_id,supplier_id',
+  return (
+    subscription.plan_name ||
+    subscription.plan ||
+    subscription.public_label ||
+    (supplier?.is_featured ? "Premium Destaque" : "Plano ativo")
+  );
+}
+
+function isActiveSubscription(subscription: Subscription | null) {
+  if (!subscription) return false;
+
+  const status = String(subscription.status || "").toLowerCase();
+
+  return ["active", "ativo", "trialing", "teste", "paid", "pago"].includes(status);
+}
+
+export default function PainelFornecedorPage() {
+  const router = useRouter();
+
+  const [loading, setLoading] = useState(true);
+  const [supplier, setSupplier] = useState<Supplier | null>(null);
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
+
+  const [stats, setStats] = useState<DashboardStats>({
+    totalLeads: 0,
+    unansweredLeads: 0,
+    totalResponses: 0,
+    closedQuotes: 0,
+    unreadMessages: 0,
+  });
+
+  const supplierName = getSupplierName(supplier);
+  const planName = getPlanName(subscription, supplier);
+  const planActive = isActiveSubscription(subscription);
+
+  const planEndDate =
+    formatDateBR(subscription?.current_period_end) ||
+    formatDateBR(subscription?.ends_at) ||
+    formatDateBR(subscription?.trial_ends_at);
+
+  async function loadDashboard() {
+    try {
+      setLoading(true);
+
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        router.push("/login");
+        return;
       }
-    )
-    .select()
-    .single();
 
-  if (error) {
-    console.error('Erro ao salvar fornecedor:', error);
-    throw error;
-  }
+      const { data: supplierData, error: supplierError } = await supabase
+        .from("suppliers")
+        .select("*")
+        .eq("owner_id", user.id)
+        .maybeSingle();
 
-  return data;
-}
-
-export async function unsaveSupplier(supplierId: string) {
-  const user = (await supabase.auth.getUser()).data.user;
-
-  if (!user) {
-    throw new Error('Login necessário.');
-  }
-
-  const { error } = await supabase
-    .from('saved_suppliers')
-    .delete()
-    .eq('customer_id', user.id)
-    .eq('supplier_id', supplierId);
-
-  if (error) {
-    console.error('Erro ao remover fornecedor salvo:', error);
-    throw error;
-  }
-
-  return true;
-}
-
-export async function isSupplierSaved(supplierId: string) {
-  const user = (await supabase.auth.getUser()).data.user;
-
-  if (!user) {
-    return false;
-  }
-
-  const { data, error } = await supabase
-    .from('saved_suppliers')
-    .select('id')
-    .eq('customer_id', user.id)
-    .eq('supplier_id', supplierId)
-    .maybeSingle();
-
-  if (error) {
-    console.error('Erro ao verificar fornecedor salvo:', error);
-    return false;
-  }
-
-  return Boolean(data);
-}
-
-export async function listSavedSuppliers() {
-  const user = (await supabase.auth.getUser()).data.user;
-
-  if (!user) {
-    return [];
-  }
-
-  const { data, error } = await supabase
-    .from('saved_suppliers')
-    .select(`
-      id,
-      created_at,
-      supplier_id,
-      suppliers(
-        id,
-        business_name,
-        description,
-        city,
-        whatsapp,
-        average_price,
-        rating_average,
-        is_featured,
-        categories(name, slug),
-        media(file_url, is_cover)
-      )
-    `)
-    .eq('customer_id', user.id)
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    console.error('Erro ao listar fornecedores salvos:', error);
-    throw error;
-  }
-
-  return data ?? [];
-}
-
-export async function saveSupplierForCustomer(customerId: string, supplierId: string) {
-  const user = (await supabase.auth.getUser()).data.user;
-
-  if (!user) {
-    throw new Error('Login necessário.');
-  }
-
-  const { data, error } = await supabase
-    .from('saved_suppliers')
-    .upsert(
-      {
-        customer_id: customerId,
-        supplier_id: supplierId,
-      },
-      {
-        onConflict: 'customer_id,supplier_id',
+      if (supplierError) {
+        console.error("Erro ao buscar fornecedor:", supplierError);
       }
-    )
-    .select()
-    .single();
 
-  if (error) {
-    console.error('Erro ao salvar fornecedor para cliente:', error);
-    throw error;
+      if (!supplierData) {
+        setSupplier(null);
+        setLoading(false);
+        return;
+      }
+
+      const currentSupplier = supplierData as Supplier;
+      setSupplier(currentSupplier);
+
+      const supplierId = currentSupplier.id;
+
+      const { data: subscriptionData, error: subscriptionError } = await supabase
+        .from("supplier_subscriptions")
+        .select("*")
+        .eq("supplier_id", supplierId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (subscriptionError) {
+        console.error("Erro ao buscar assinatura:", subscriptionError);
+      }
+
+      setSubscription((subscriptionData as Subscription) || null);
+
+      const { count: totalLeadsCount, error: totalLeadsError } = await supabase
+        .from("quote_requests")
+        .select("id", { count: "exact", head: true })
+        .eq("supplier_id", supplierId);
+
+      if (totalLeadsError) {
+        console.error("Erro ao contar leads:", totalLeadsError);
+      }
+
+      const { count: unansweredLeadsCount, error: unansweredLeadsError } =
+        await supabase
+          .from("supplier_unanswered_quote_requests")
+          .select("id", { count: "exact", head: true })
+          .eq("supplier_owner_id", user.id);
+
+      if (unansweredLeadsError) {
+        console.error("Erro ao contar leads sem resposta:", unansweredLeadsError);
+      }
+
+      const { count: responsesCount, error: responsesError } = await supabase
+        .from("quote_responses")
+        .select("id", { count: "exact", head: true })
+        .eq("supplier_id", supplierId);
+
+      if (responsesError) {
+        console.error("Erro ao contar respostas:", responsesError);
+      }
+
+      const { count: closedQuotesCount, error: closedQuotesError } =
+        await supabase
+          .from("quote_requests")
+          .select("id", { count: "exact", head: true })
+          .eq("supplier_id", supplierId)
+          .in("status", ["aceito", "accepted", "fechado", "closed"]);
+
+      if (closedQuotesError) {
+        console.error("Erro ao contar fechados:", closedQuotesError);
+      }
+
+      let unreadMessagesCount = 0;
+
+      try {
+        const { data: supplierQuotes, error: supplierQuotesError } = await supabase
+          .from("quote_requests")
+          .select("id")
+          .eq("supplier_id", supplierId);
+
+        if (supplierQuotesError) {
+          console.error("Erro ao buscar orçamentos do fornecedor:", supplierQuotesError);
+        }
+
+        const quoteIds =
+          supplierQuotes?.map((item: { id: string }) => item.id) || [];
+
+        if (quoteIds.length > 0) {
+          const { count: messagesCount, error: messagesError } = await supabase
+            .from("quote_messages")
+            .select("id", { count: "exact", head: true })
+            .in("quote_request_id", quoteIds)
+            .eq("read_by_supplier", false);
+
+          if (messagesError) {
+            console.error("Erro ao contar mensagens:", messagesError);
+          }
+
+          unreadMessagesCount = messagesCount || 0;
+        }
+      } catch (messageError) {
+        console.error("Erro geral ao buscar mensagens:", messageError);
+      }
+
+      setStats({
+        totalLeads: totalLeadsCount || 0,
+        unansweredLeads: unansweredLeadsCount || 0,
+        totalResponses: responsesCount || 0,
+        closedQuotes: closedQuotesCount || 0,
+        unreadMessages: unreadMessagesCount,
+      });
+    } catch (error) {
+      console.error("Erro ao carregar painel:", error);
+    } finally {
+      setLoading(false);
+    }
   }
 
-  return data;
-}
-
-export async function unsaveSupplierForCustomer(customerId: string, supplierId: string) {
-  const user = (await supabase.auth.getUser()).data.user;
-
-  if (!user) {
-    throw new Error('Login necessário.');
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    router.push("/");
   }
 
-  const { error } = await supabase
-    .from('saved_suppliers')
-    .delete()
-    .eq('customer_id', customerId)
-    .eq('supplier_id', supplierId);
+  useEffect(() => {
+    loadDashboard();
+  }, []);
 
-  if (error) {
-    console.error('Erro ao remover fornecedor do evento da cliente:', error);
-    throw error;
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-[#f8f2e9] flex items-center justify-center px-6">
+        <div className="flex flex-col items-center gap-4 text-center">
+          <Loader2 className="w-10 h-10 animate-spin text-pink-500" />
+          <p className="text-slate-700 font-bold">Carregando painel...</p>
+        </div>
+      </main>
+    );
   }
 
-  return true;
-}
+  if (!supplier) {
+    return (
+      <main className="min-h-screen bg-[#f8f2e9] px-5 py-8">
+        <section className="max-w-md mx-auto bg-white rounded-[32px] p-7 shadow-sm border border-amber-100">
+          <div className="w-14 h-14 rounded-2xl bg-pink-500 text-white flex items-center justify-center mb-5">
+            <Store className="w-7 h-7" />
+          </div>
 
-/* LEADS / ORÇAMENTOS */
+          <h1 className="text-2xl font-black text-slate-950 mb-2">
+            Complete sua vitrine
+          </h1>
 
-export async function getSupplierLeads() {
-  const supplierIds = await getMySupplierIds();
+          <p className="text-slate-600 text-sm leading-relaxed mb-6">
+            Ainda não encontramos uma vitrine vinculada ao seu usuário. Cadastre
+            os dados do seu negócio para começar a receber pedidos de orçamento.
+          </p>
 
-  const { data, error } = await supabase
-    .from('quote_requests')
-    .select(`
-      *,
-      suppliers(
-        id,
-        business_name,
-        categories(name)
-      ),
-      quote_responses(
-        id,
-        status,
-        service_offered,
-        duration_period,
-        proposal_value,
-        payment_terms,
-        proposal_validity,
-        observations,
-        adjustment_notes,
-        adjustment_requested_at,
-        created_at
-      ),
-      quote_messages(
-        id,
-        sender_type,
-        sender_name,
-        message,
-        read_by_supplier,
-        read_by_client,
-        created_at
-      )
-    `)
-    .in('supplier_id', supplierIds)
-    .order('created_at', { ascending: false });
-
-  if (error) throw error;
-  return data ?? [];
-}
-
-export async function getSupplierLeadById(id: string) {
-  const supplierIds = await getMySupplierIds();
-
-  const { data, error } = await supabase
-    .from('quote_requests')
-    .select(`
-      *,
-      suppliers(
-        id,
-        business_name,
-        categories(name)
-      ),
-      quote_responses(
-        id,
-        status,
-        service_offered,
-        duration_period,
-        proposal_value,
-        payment_terms,
-        proposal_validity,
-        observations,
-        adjustment_notes,
-        adjustment_requested_at,
-        created_at
-      )
-    `)
-    .eq('id', id)
-    .in('supplier_id', supplierIds)
-    .single();
-
-  if (error) throw error;
-  return data;
-}
-
-export async function createQuoteRequest(data: {
-  supplier_id: string;
-  customer_name: string;
-  customer_whatsapp: string;
-  event_type: string;
-  event_date?: string;
-  event_time?: string;
-  event_space?: string;
-  event_city?: string;
-  guests_count?: number;
-  service_needed?: string;
-  notes?: string;
-}) {
-  const user = (await supabase.auth.getUser()).data.user;
-
-  if (!user) {
-    throw new Error('Login necessário para solicitar orçamento.');
+          <Link
+            href="/fornecedor/cadastro"
+            className="w-full h-[52px] rounded-2xl bg-black text-white font-black flex items-center justify-center"
+          >
+            Criar minha vitrine
+          </Link>
+        </section>
+      </main>
+    );
   }
 
-  const { error } = await supabase
-    .from('quote_requests')
-    .insert([
-      {
-        customer_id: user.id,
-        supplier_id: data.supplier_id,
-        customer_name: data.customer_name,
-        customer_whatsapp: data.customer_whatsapp,
-        event_type: data.event_type,
-        event_date: data.event_date || null,
-        event_time: data.event_time || null,
-        event_space: data.event_space || null,
-        event_city: data.event_city || null,
-        guests_count: data.guests_count || null,
-        service_needed: data.service_needed || null,
-        notes: data.notes || null,
-        status: 'novo',
-      },
-    ]);
+  return (
+    <main className="min-h-screen bg-[#f8f2e9]">
+      <section className="max-w-md mx-auto min-h-screen bg-[#f8f2e9] pb-10">
+        <div className="bg-black text-white rounded-b-[36px] px-6 pt-6 pb-8 relative overflow-hidden">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(236,72,153,0.35),transparent_35%),radial-gradient(circle_at_bottom_left,rgba(245,158,11,0.28),transparent_35%)]" />
 
-  if (error) {
-    console.error('Erro ao criar solicitação de orçamento:', error);
-    throw error;
-  }
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <p className="text-xs font-bold text-amber-300 uppercase tracking-wide">
+                  Painel do fornecedor
+                </p>
 
-  return true;
-}
+                <h1 className="text-2xl font-black mt-1 leading-tight">
+                  Olá, {supplierName}
+                </h1>
+              </div>
 
-export async function createQuoteResponse(data: {
-  quote_request_id: string;
-  service_offered: string;
-  duration_period?: string;
-  proposal_value: string;
-  payment_terms?: string;
-  proposal_validity?: string;
-  observations?: string;
-}) {
-  const lead = await getSupplierLeadById(data.quote_request_id);
+              <button
+                onClick={handleLogout}
+                className="w-11 h-11 rounded-2xl bg-white/10 flex items-center justify-center"
+                aria-label="Sair"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
+            </div>
 
-  const { error } = await supabase
-    .from('quote_responses')
-    .insert([
-      {
-        quote_request_id: data.quote_request_id,
-        supplier_id: lead.supplier_id,
-        status: 'respondido',
-        service_offered: data.service_offered,
-        duration_period: data.duration_period || null,
-        proposal_value: data.proposal_value,
-        payment_terms: data.payment_terms || null,
-        proposal_validity: data.proposal_validity || null,
-        observations: data.observations || null,
-      },
-    ]);
+            <div className="rounded-[28px] bg-white/10 border border-white/10 p-5 mb-5">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-amber-400 text-black flex items-center justify-center">
+                  <Crown className="w-7 h-7" />
+                </div>
 
-  if (error) {
-    console.error('Erro ao criar resposta de orçamento:', error);
-    throw error;
-  }
+                <div>
+                  <p className="text-sm text-white/75 font-bold">
+                    Status da vitrine
+                  </p>
 
-  const { error: updateError } = await supabase
-    .from('quote_requests')
-    .update({ status: 'respondido' })
-    .eq('id', data.quote_request_id)
-    .eq('supplier_id', lead.supplier_id);
+                  <p className="font-black text-amber-300 flex items-center gap-1">
+                    <Star className="w-4 h-4 fill-amber-300" />
+                    4.9 • {planName}
+                  </p>
+                </div>
+              </div>
+            </div>
 
-  if (updateError) {
-    console.error('Erro ao atualizar status do pedido:', updateError);
-    throw updateError;
-  }
+            {stats.unansweredLeads > 0 && (
+              <div className="rounded-[24px] bg-white px-5 py-5 shadow-sm flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-pink-500 flex items-center justify-center text-white">
+                  <Bell className="w-6 h-6" />
+                </div>
 
-  return true;
-}
+                <div>
+                  <p className="font-black text-slate-900">
+                    Atenção nos leads
+                  </p>
 
-export async function getQuoteResponseByRequestId(requestId: string) {
-  const { data, error } = await supabase
-    .from('quote_responses')
-    .select('*, suppliers(business_name, city, whatsapp, instagram, categories(name))')
-    .eq('quote_request_id', requestId)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single();
+                  <p className="text-sm font-bold text-slate-700">
+                    {stats.unansweredLeads} lead(s) novo(s) aguardando resposta.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
 
-  if (error) throw error;
-  return data;
-}
+        <div className="px-6 pt-6">
+          <div className="grid grid-cols-4 gap-2 mb-4">
+            <div className="bg-white rounded-2xl border border-amber-100 p-4 text-center">
+              <p className="text-xl font-black text-amber-500">
+                {stats.totalLeads}
+              </p>
+              <p className="text-xs font-bold text-slate-700 mt-1">Leads</p>
+            </div>
 
-export async function acceptQuoteResponse(data: {
-  quote_response_id: string;
-  quote_request_id: string;
-}) {
-  const { error: responseError } = await supabase
-    .from('quote_responses')
-    .update({ status: 'aceito' })
-    .eq('id', data.quote_response_id);
+            <div className="bg-white rounded-2xl border border-amber-100 p-4 text-center">
+              <p className="text-xl font-black text-pink-500">
+                {stats.unreadMessages}
+              </p>
+              <p className="text-xs font-bold text-slate-700 mt-1">Msgs</p>
+            </div>
 
-  if (responseError) {
-    console.error('Erro ao aceitar orçamento:', responseError);
-    throw responseError;
-  }
+            <div className="bg-white rounded-2xl border border-amber-100 p-4 text-center">
+              <p className="text-xl font-black text-blue-600">
+                {stats.totalResponses}
+              </p>
+              <p className="text-xs font-bold text-slate-700 mt-1">Resp.</p>
+            </div>
 
-  const { error: requestError } = await supabase
-    .from('quote_requests')
-    .update({ status: 'aceito' })
-    .eq('id', data.quote_request_id);
+            <div className="bg-white rounded-2xl border border-amber-100 p-4 text-center">
+              <p className="text-xl font-black text-green-600">
+                {stats.closedQuotes}
+              </p>
+              <p className="text-xs font-bold text-slate-700 mt-1">Fechado</p>
+            </div>
+          </div>
 
-  if (requestError) {
-    console.error('Erro ao atualizar solicitação como aceita:', requestError);
-    throw requestError;
-  }
+          <div className="rounded-[28px] bg-emerald-50 border border-emerald-100 p-5 mb-4">
+            <div className="flex items-start gap-4">
+              <div className="w-11 h-11 rounded-2xl bg-white text-emerald-700 flex items-center justify-center">
+                <Crown className="w-6 h-6" />
+              </div>
 
-  return true;
-}
+              <div>
+                <p className="font-black text-emerald-700">
+                  {planActive ? "Plano ativo" : "Plano não ativo"}
+                </p>
 
-export async function requestQuoteAdjustment(data: {
-  quote_response_id: string;
-  quote_request_id: string;
-  adjustment_notes: string;
-}) {
-  const { error: responseError } = await supabase
-    .from('quote_responses')
-    .update({
-      status: 'ajuste_solicitado',
-      adjustment_notes: data.adjustment_notes,
-      adjustment_requested_at: new Date().toISOString(),
-    })
-    .eq('id', data.quote_response_id);
+                <p className="text-sm text-emerald-700/80 font-bold mt-1">
+                  {planActive && planEndDate
+                    ? `Seu plano está ativo até ${planEndDate}.`
+                    : planActive
+                    ? "Seu plano está ativo."
+                    : "Ative um plano para aparecer melhor na vitrine."}
+                </p>
 
-  if (responseError) {
-    console.error('Erro ao solicitar ajuste:', responseError);
-    throw responseError;
-  }
+                <div className="flex flex-wrap gap-2 mt-4">
+                  <span className="px-4 py-2 rounded-full bg-white text-emerald-700 text-xs font-black">
+                    {planName}
+                  </span>
 
-  const { error: requestError } = await supabase
-    .from('quote_requests')
-    .update({ status: 'ajuste_solicitado' })
-    .eq('id', data.quote_request_id);
+                  <span className="px-4 py-2 rounded-full bg-white text-emerald-700 text-xs font-black">
+                    {planActive ? "Ativo" : "Pendente"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
 
-  if (requestError) {
-    console.error('Erro ao atualizar pedido como ajuste solicitado:', requestError);
-    throw requestError;
-  }
+          <div className="rounded-[28px] bg-emerald-50 border border-emerald-100 p-5 mb-7">
+            <p className="font-black text-emerald-700 mb-4">
+              Status público da vitrine
+            </p>
 
-  return true;
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-2xl bg-white/80 p-4">
+                <p className="text-[11px] font-black text-emerald-600/70 uppercase">
+                  Nas buscas
+                </p>
+
+                <p className="font-black text-emerald-700 mt-2">
+                  {supplier.status === "ativo" || supplier.status === "active"
+                    ? "Aparecendo"
+                    : "Pendente"}
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-white/80 p-4">
+                <p className="text-[11px] font-black text-emerald-600/70 uppercase">
+                  Orçamentos
+                </p>
+
+                <p className="font-black text-emerald-700 mt-2">
+                  {supplier.status === "ativo" || supplier.status === "active"
+                    ? "Recebendo"
+                    : "Bloqueado"}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-black text-slate-950">
+              Ações rápidas
+            </h2>
+
+            <Link
+              href="/painel-fornecedor/leads"
+              className="text-sm font-black text-slate-500"
+            >
+              Gerenciar
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Link
+              href="/painel-fornecedor/leads"
+              className={`relative rounded-[26px] bg-white p-5 border min-h-[142px] ${
+                stats.unansweredLeads > 0
+                  ? "border-pink-400 shadow-[0_0_0_2px_rgba(236,72,153,0.12)]"
+                  : "border-amber-100"
+              }`}
+            >
+              {stats.unansweredLeads > 0 && (
+                <div className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-pink-500 text-white flex items-center justify-center font-black">
+                  {stats.unansweredLeads}
+                </div>
+              )}
+
+              <div className="w-12 h-12 rounded-2xl bg-pink-500 text-white flex items-center justify-center mb-4">
+                <MessageCircle className="w-6 h-6" />
+              </div>
+
+              <p className="font-black text-slate-950">Leads recebidos</p>
+
+              <p className="text-sm text-slate-500 mt-2 leading-snug">
+                {stats.unansweredLeads > 0
+                  ? `${stats.unansweredLeads} lead(s) novo(s) aguardando resposta`
+                  : "Acompanhe seus pedidos"}
+              </p>
+            </Link>
+
+            <Link
+              href={`/fornecedor/${supplier.id}/editar`}
+              className="rounded-[26px] bg-white p-5 border border-amber-100 min-h-[142px]"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-black text-white flex items-center justify-center mb-4">
+                <Edit3 className="w-6 h-6" />
+              </div>
+
+              <p className="font-black text-slate-950">Editar vitrine</p>
+
+              <p className="text-sm text-slate-500 mt-2 leading-snug">
+                Atualize nome, descrição e serviços
+              </p>
+            </Link>
+
+            <Link
+              href={`/fornecedor/${supplier.id}`}
+              className="rounded-[26px] bg-white p-5 border border-amber-100 min-h-[142px]"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-amber-400 text-black flex items-center justify-center mb-4">
+                <Eye className="w-6 h-6" />
+              </div>
+
+              <p className="font-black text-slate-950">Ver vitrine</p>
+
+              <p className="text-sm text-slate-500 mt-2 leading-snug">
+                Veja como os clientes enxergam seu perfil
+              </p>
+            </Link>
+
+            <Link
+              href="/planos"
+              className="rounded-[26px] bg-white p-5 border border-amber-100 min-h-[142px]"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center mb-4">
+                <Crown className="w-6 h-6" />
+              </div>
+
+              <p className="font-black text-slate-950">Meu plano</p>
+
+              <p className="text-sm text-slate-500 mt-2 leading-snug">
+                Gerencie assinatura e destaque
+              </p>
+            </Link>
+
+            <Link
+              href="/buscar"
+              className="rounded-[26px] bg-white p-5 border border-amber-100 min-h-[142px]"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center mb-4">
+                <Search className="w-6 h-6" />
+              </div>
+
+              <p className="font-black text-slate-950">Buscar</p>
+
+              <p className="text-sm text-slate-500 mt-2 leading-snug">
+                Consulte a vitrine pública do REIM
+              </p>
+            </Link>
+
+            <Link
+              href="/perfil"
+              className="rounded-[26px] bg-white p-5 border border-amber-100 min-h-[142px]"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center mb-4">
+                <User className="w-6 h-6" />
+              </div>
+
+              <p className="font-black text-slate-950">Perfil</p>
+
+              <p className="text-sm text-slate-500 mt-2 leading-snug">
+                Dados da conta e notificações
+              </p>
+            </Link>
+          </div>
+
+          <div className="mt-7 rounded-[28px] bg-black text-white p-5">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-white text-black flex items-center justify-center">
+                <FileText className="w-6 h-6" />
+              </div>
+
+              <div>
+                <p className="font-black">Regra dos alertas</p>
+
+                <p className="text-sm text-white/70 mt-1 leading-relaxed">
+                  Leads novos ficam destacados até que o fornecedor envie uma
+                  resposta ao cliente.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  );
 }
