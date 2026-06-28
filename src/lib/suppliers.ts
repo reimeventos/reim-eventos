@@ -1,62 +1,103 @@
-"use client";
+import { supabase } from "./supabase";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import {
-  Bell,
-  Crown,
-  Edit3,
-  Eye,
-  FileText,
-  Loader2,
-  LogOut,
-  MessageCircle,
-  Search,
-  Star,
-  Store,
-  User,
-} from "lucide-react";
-import { supabase } from "@/lib/supabase";
-
-type Supplier = {
+export type Supplier = {
   id: string;
   owner_id?: string | null;
+  user_id?: string | null;
+  category_id?: string | null;
+
   status?: string | null;
   is_featured?: boolean | null;
-  created_at?: string | null;
+
   business_name?: string | null;
   company_name?: string | null;
   fantasy_name?: string | null;
   name?: string | null;
   title?: string | null;
+
+  description?: string | null;
+  short_description?: string | null;
+
   category?: string | null;
   city?: string | null;
   state?: string | null;
+  address?: string | null;
+
+  phone?: string | null;
+  whatsapp?: string | null;
+  email?: string | null;
+  instagram?: string | null;
+  website?: string | null;
+
+  cover_url?: string | null;
+  logo_url?: string | null;
+  image_url?: string | null;
+
+  price_from?: number | null;
+  rating?: number | null;
+
+  created_at?: string | null;
+  updated_at?: string | null;
+
+  [key: string]: any;
 };
 
-type Subscription = {
-  id?: string;
-  supplier_id?: string;
+export type SupplierMedia = {
+  id: string;
+  supplier_id: string;
+  url?: string | null;
+  image_url?: string | null;
+  file_url?: string | null;
+  type?: string | null;
+  position?: number | null;
+  created_at?: string | null;
+
+  [key: string]: any;
+};
+
+export type SupplierCategory = {
+  id: string;
+  name?: string | null;
+  title?: string | null;
+  slug?: string | null;
+  icon?: string | null;
+  created_at?: string | null;
+
+  [key: string]: any;
+};
+
+export type SupplierSubscription = {
+  id: string;
+  supplier_id?: string | null;
   status?: string | null;
-  plan_name?: string | null;
   plan?: string | null;
+  plan_name?: string | null;
   public_label?: string | null;
   current_period_end?: string | null;
   ends_at?: string | null;
   trial_ends_at?: string | null;
   created_at?: string | null;
+
+  [key: string]: any;
 };
 
-type DashboardStats = {
-  totalLeads: number;
-  unansweredLeads: number;
-  totalResponses: number;
-  closedQuotes: number;
-  unreadMessages: number;
+export type SupplierVisibility = {
+  supplier_id?: string | null;
+  owner_id?: string | null;
+  can_appear_public?: boolean | null;
+  can_receive_quote?: boolean | null;
+  public_badge?: string | null;
+  public_label?: string | null;
+  public_notice?: string | null;
+
+  [key: string]: any;
 };
 
-function getSupplierName(supplier: Supplier | null) {
+export function getSupabase() {
+  return supabase;
+}
+
+export function getSupplierDisplayName(supplier?: Supplier | null) {
   if (!supplier) return "Fornecedor";
 
   return (
@@ -65,544 +106,469 @@ function getSupplierName(supplier: Supplier | null) {
     supplier.fantasy_name ||
     supplier.name ||
     supplier.title ||
-    "Minha vitrine"
+    "Fornecedor"
   );
 }
 
-function formatDateBR(dateValue?: string | null) {
-  if (!dateValue) return null;
+export async function getCurrentUser() {
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
 
-  const date = new Date(dateValue);
-
-  if (Number.isNaN(date.getTime())) return null;
-
-  return date.toLocaleDateString("pt-BR");
-}
-
-function getPlanName(subscription: Subscription | null, supplier: Supplier | null) {
-  if (!subscription) {
-    if (supplier?.is_featured) return "Premium Destaque";
-    return "Plano gratuito";
+  if (error) {
+    console.error("Erro ao buscar usuário:", error);
+    return null;
   }
 
-  return (
-    subscription.plan_name ||
-    subscription.plan ||
-    subscription.public_label ||
-    (supplier?.is_featured ? "Premium Destaque" : "Plano ativo")
-  );
+  return user;
 }
 
-function isActiveSubscription(subscription: Subscription | null) {
-  if (!subscription) return false;
+export async function getSupplierByOwner(ownerId: string) {
+  const { data, error } = await supabase
+    .from("suppliers")
+    .select("*")
+    .eq("owner_id", ownerId)
+    .maybeSingle();
 
-  const status = String(subscription.status || "").toLowerCase();
+  if (error) {
+    console.error("Erro ao buscar fornecedor pelo owner_id:", error);
+    return null;
+  }
 
-  return ["active", "ativo", "trialing", "teste", "paid", "pago"].includes(status);
+  return data as Supplier | null;
 }
 
-export default function PainelFornecedorPage() {
-  const router = useRouter();
+export async function getCurrentSupplier() {
+  const user = await getCurrentUser();
 
-  const [loading, setLoading] = useState(true);
-  const [supplier, setSupplier] = useState<Supplier | null>(null);
-  const [subscription, setSubscription] = useState<Subscription | null>(null);
+  if (!user) return null;
 
-  const [stats, setStats] = useState<DashboardStats>({
-    totalLeads: 0,
-    unansweredLeads: 0,
-    totalResponses: 0,
-    closedQuotes: 0,
-    unreadMessages: 0,
+  return getSupplierByOwner(user.id);
+}
+
+export async function getSupplierById(id: string) {
+  const { data, error } = await supabase
+    .from("suppliers")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Erro ao buscar fornecedor por ID:", error);
+    return null;
+  }
+
+  return data as Supplier | null;
+}
+
+export async function getSupplierPublicById(id: string) {
+  return getSupplierById(id);
+}
+
+export async function getSupplierForEdit(id: string) {
+  return getSupplierById(id);
+}
+
+export async function getSupplierProfile(id: string) {
+  return getSupplierById(id);
+}
+
+export async function listSuppliers() {
+  const { data, error } = await supabase
+    .from("suppliers")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Erro ao listar fornecedores:", error);
+    return [];
+  }
+
+  return (data || []) as Supplier[];
+}
+
+export async function getActiveSuppliers() {
+  const { data, error } = await supabase
+    .from("suppliers")
+    .select("*")
+    .in("status", ["ativo", "active"])
+    .order("is_featured", { ascending: false })
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Erro ao listar fornecedores ativos:", error);
+    return [];
+  }
+
+  return (data || []) as Supplier[];
+}
+
+export async function getFeaturedSuppliers(limit = 8) {
+  const { data, error } = await supabase
+    .from("suppliers")
+    .select("*")
+    .in("status", ["ativo", "active"])
+    .eq("is_featured", true)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error("Erro ao listar fornecedores em destaque:", error);
+    return [];
+  }
+
+  return (data || []) as Supplier[];
+}
+
+export async function searchSuppliers(searchTerm = "", categoryId?: string | null) {
+  let query = supabase
+    .from("suppliers")
+    .select("*")
+    .in("status", ["ativo", "active"])
+    .order("is_featured", { ascending: false })
+    .order("created_at", { ascending: false });
+
+  if (categoryId) {
+    query = query.eq("category_id", categoryId);
+  }
+
+  if (searchTerm.trim()) {
+    const term = `%${searchTerm.trim()}%`;
+
+    query = query.or(
+      `business_name.ilike.${term},company_name.ilike.${term},fantasy_name.ilike.${term},name.ilike.${term},title.ilike.${term},description.ilike.${term},city.ilike.${term}`
+    );
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error("Erro ao buscar fornecedores:", error);
+    return [];
+  }
+
+  return (data || []) as Supplier[];
+}
+
+export async function createSupplier(payload: Partial<Supplier>) {
+  const { data, error } = await supabase
+    .from("suppliers")
+    .insert(payload)
+    .select("*")
+    .single();
+
+  if (error) {
+    console.error("Erro ao criar fornecedor:", error);
+    throw error;
+  }
+
+  return data as Supplier;
+}
+
+export async function updateSupplier(id: string, payload: Partial<Supplier>) {
+  const updatePayload = {
+    ...payload,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { data, error } = await supabase
+    .from("suppliers")
+    .update(updatePayload)
+    .eq("id", id)
+    .select("*")
+    .single();
+
+  if (error) {
+    console.error("Erro ao atualizar fornecedor:", error);
+    throw error;
+  }
+
+  return data as Supplier;
+}
+
+export async function updateSupplierProfile(id: string, payload: Partial<Supplier>) {
+  return updateSupplier(id, payload);
+}
+
+export async function saveSupplierProfile(id: string, payload: Partial<Supplier>) {
+  return updateSupplier(id, payload);
+}
+
+export async function upsertSupplier(payload: Partial<Supplier>) {
+  const { data, error } = await supabase
+    .from("suppliers")
+    .upsert(payload)
+    .select("*")
+    .single();
+
+  if (error) {
+    console.error("Erro ao salvar fornecedor:", error);
+    throw error;
+  }
+
+  return data as Supplier;
+}
+
+export async function ensureSupplierForUser(ownerId: string, payload?: Partial<Supplier>) {
+  const existingSupplier = await getSupplierByOwner(ownerId);
+
+  if (existingSupplier) return existingSupplier;
+
+  return createSupplier({
+    owner_id: ownerId,
+    status: "pendente",
+    is_featured: false,
+    ...(payload || {}),
   });
-
-  const supplierName = getSupplierName(supplier);
-  const planName = getPlanName(subscription, supplier);
-  const planActive = isActiveSubscription(subscription);
-
-  const planEndDate =
-    formatDateBR(subscription?.current_period_end) ||
-    formatDateBR(subscription?.ends_at) ||
-    formatDateBR(subscription?.trial_ends_at);
-
-  async function loadDashboard() {
-    try {
-      setLoading(true);
-
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-
-      if (userError || !user) {
-        router.push("/login");
-        return;
-      }
-
-      const { data: supplierData, error: supplierError } = await supabase
-        .from("suppliers")
-        .select("*")
-        .eq("owner_id", user.id)
-        .maybeSingle();
-
-      if (supplierError) {
-        console.error("Erro ao buscar fornecedor:", supplierError);
-      }
-
-      if (!supplierData) {
-        setSupplier(null);
-        setLoading(false);
-        return;
-      }
-
-      const currentSupplier = supplierData as Supplier;
-      setSupplier(currentSupplier);
-
-      const supplierId = currentSupplier.id;
-
-      const { data: subscriptionData, error: subscriptionError } = await supabase
-        .from("supplier_subscriptions")
-        .select("*")
-        .eq("supplier_id", supplierId)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (subscriptionError) {
-        console.error("Erro ao buscar assinatura:", subscriptionError);
-      }
-
-      setSubscription((subscriptionData as Subscription) || null);
-
-      const { count: totalLeadsCount, error: totalLeadsError } = await supabase
-        .from("quote_requests")
-        .select("id", { count: "exact", head: true })
-        .eq("supplier_id", supplierId);
-
-      if (totalLeadsError) {
-        console.error("Erro ao contar leads:", totalLeadsError);
-      }
-
-      const { count: unansweredLeadsCount, error: unansweredLeadsError } =
-        await supabase
-          .from("supplier_unanswered_quote_requests")
-          .select("id", { count: "exact", head: true })
-          .eq("supplier_owner_id", user.id);
-
-      if (unansweredLeadsError) {
-        console.error("Erro ao contar leads sem resposta:", unansweredLeadsError);
-      }
-
-      const { count: responsesCount, error: responsesError } = await supabase
-        .from("quote_responses")
-        .select("id", { count: "exact", head: true })
-        .eq("supplier_id", supplierId);
-
-      if (responsesError) {
-        console.error("Erro ao contar respostas:", responsesError);
-      }
-
-      const { count: closedQuotesCount, error: closedQuotesError } =
-        await supabase
-          .from("quote_requests")
-          .select("id", { count: "exact", head: true })
-          .eq("supplier_id", supplierId)
-          .in("status", ["aceito", "accepted", "fechado", "closed"]);
-
-      if (closedQuotesError) {
-        console.error("Erro ao contar fechados:", closedQuotesError);
-      }
-
-      let unreadMessagesCount = 0;
-
-      try {
-        const { data: supplierQuotes, error: supplierQuotesError } = await supabase
-          .from("quote_requests")
-          .select("id")
-          .eq("supplier_id", supplierId);
-
-        if (supplierQuotesError) {
-          console.error("Erro ao buscar orçamentos do fornecedor:", supplierQuotesError);
-        }
-
-        const quoteIds =
-          supplierQuotes?.map((item: { id: string }) => item.id) || [];
-
-        if (quoteIds.length > 0) {
-          const { count: messagesCount, error: messagesError } = await supabase
-            .from("quote_messages")
-            .select("id", { count: "exact", head: true })
-            .in("quote_request_id", quoteIds)
-            .eq("read_by_supplier", false);
-
-          if (messagesError) {
-            console.error("Erro ao contar mensagens:", messagesError);
-          }
-
-          unreadMessagesCount = messagesCount || 0;
-        }
-      } catch (messageError) {
-        console.error("Erro geral ao buscar mensagens:", messageError);
-      }
-
-      setStats({
-        totalLeads: totalLeadsCount || 0,
-        unansweredLeads: unansweredLeadsCount || 0,
-        totalResponses: responsesCount || 0,
-        closedQuotes: closedQuotesCount || 0,
-        unreadMessages: unreadMessagesCount,
-      });
-    } catch (error) {
-      console.error("Erro ao carregar painel:", error);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleLogout() {
-    await supabase.auth.signOut();
-    router.push("/");
-  }
-
-  useEffect(() => {
-    loadDashboard();
-  }, []);
-
-  if (loading) {
-    return (
-      <main className="min-h-screen bg-[#f8f2e9] flex items-center justify-center px-6">
-        <div className="flex flex-col items-center gap-4 text-center">
-          <Loader2 className="w-10 h-10 animate-spin text-pink-500" />
-          <p className="text-slate-700 font-bold">Carregando painel...</p>
-        </div>
-      </main>
-    );
-  }
-
-  if (!supplier) {
-    return (
-      <main className="min-h-screen bg-[#f8f2e9] px-5 py-8">
-        <section className="max-w-md mx-auto bg-white rounded-[32px] p-7 shadow-sm border border-amber-100">
-          <div className="w-14 h-14 rounded-2xl bg-pink-500 text-white flex items-center justify-center mb-5">
-            <Store className="w-7 h-7" />
-          </div>
-
-          <h1 className="text-2xl font-black text-slate-950 mb-2">
-            Complete sua vitrine
-          </h1>
-
-          <p className="text-slate-600 text-sm leading-relaxed mb-6">
-            Ainda não encontramos uma vitrine vinculada ao seu usuário. Cadastre
-            os dados do seu negócio para começar a receber pedidos de orçamento.
-          </p>
-
-          <Link
-            href="/fornecedor/cadastro"
-            className="w-full h-[52px] rounded-2xl bg-black text-white font-black flex items-center justify-center"
-          >
-            Criar minha vitrine
-          </Link>
-        </section>
-      </main>
-    );
-  }
-
-  return (
-    <main className="min-h-screen bg-[#f8f2e9]">
-      <section className="max-w-md mx-auto min-h-screen bg-[#f8f2e9] pb-10">
-        <div className="bg-black text-white rounded-b-[36px] px-6 pt-6 pb-8 relative overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(236,72,153,0.35),transparent_35%),radial-gradient(circle_at_bottom_left,rgba(245,158,11,0.28),transparent_35%)]" />
-
-          <div className="relative z-10">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <p className="text-xs font-bold text-amber-300 uppercase tracking-wide">
-                  Painel do fornecedor
-                </p>
-
-                <h1 className="text-2xl font-black mt-1 leading-tight">
-                  Olá, {supplierName}
-                </h1>
-              </div>
-
-              <button
-                onClick={handleLogout}
-                className="w-11 h-11 rounded-2xl bg-white/10 flex items-center justify-center"
-                aria-label="Sair"
-              >
-                <LogOut className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="rounded-[28px] bg-white/10 border border-white/10 p-5 mb-5">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-amber-400 text-black flex items-center justify-center">
-                  <Crown className="w-7 h-7" />
-                </div>
-
-                <div>
-                  <p className="text-sm text-white/75 font-bold">
-                    Status da vitrine
-                  </p>
-
-                  <p className="font-black text-amber-300 flex items-center gap-1">
-                    <Star className="w-4 h-4 fill-amber-300" />
-                    4.9 • {planName}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {stats.unansweredLeads > 0 && (
-              <div className="rounded-[24px] bg-white px-5 py-5 shadow-sm flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-pink-500 flex items-center justify-center text-white">
-                  <Bell className="w-6 h-6" />
-                </div>
-
-                <div>
-                  <p className="font-black text-slate-900">
-                    Atenção nos leads
-                  </p>
-
-                  <p className="text-sm font-bold text-slate-700">
-                    {stats.unansweredLeads} lead(s) novo(s) aguardando resposta.
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="px-6 pt-6">
-          <div className="grid grid-cols-4 gap-2 mb-4">
-            <div className="bg-white rounded-2xl border border-amber-100 p-4 text-center">
-              <p className="text-xl font-black text-amber-500">
-                {stats.totalLeads}
-              </p>
-              <p className="text-xs font-bold text-slate-700 mt-1">Leads</p>
-            </div>
-
-            <div className="bg-white rounded-2xl border border-amber-100 p-4 text-center">
-              <p className="text-xl font-black text-pink-500">
-                {stats.unreadMessages}
-              </p>
-              <p className="text-xs font-bold text-slate-700 mt-1">Msgs</p>
-            </div>
-
-            <div className="bg-white rounded-2xl border border-amber-100 p-4 text-center">
-              <p className="text-xl font-black text-blue-600">
-                {stats.totalResponses}
-              </p>
-              <p className="text-xs font-bold text-slate-700 mt-1">Resp.</p>
-            </div>
-
-            <div className="bg-white rounded-2xl border border-amber-100 p-4 text-center">
-              <p className="text-xl font-black text-green-600">
-                {stats.closedQuotes}
-              </p>
-              <p className="text-xs font-bold text-slate-700 mt-1">Fechado</p>
-            </div>
-          </div>
-
-          <div className="rounded-[28px] bg-emerald-50 border border-emerald-100 p-5 mb-4">
-            <div className="flex items-start gap-4">
-              <div className="w-11 h-11 rounded-2xl bg-white text-emerald-700 flex items-center justify-center">
-                <Crown className="w-6 h-6" />
-              </div>
-
-              <div>
-                <p className="font-black text-emerald-700">
-                  {planActive ? "Plano ativo" : "Plano não ativo"}
-                </p>
-
-                <p className="text-sm text-emerald-700/80 font-bold mt-1">
-                  {planActive && planEndDate
-                    ? `Seu plano está ativo até ${planEndDate}.`
-                    : planActive
-                    ? "Seu plano está ativo."
-                    : "Ative um plano para aparecer melhor na vitrine."}
-                </p>
-
-                <div className="flex flex-wrap gap-2 mt-4">
-                  <span className="px-4 py-2 rounded-full bg-white text-emerald-700 text-xs font-black">
-                    {planName}
-                  </span>
-
-                  <span className="px-4 py-2 rounded-full bg-white text-emerald-700 text-xs font-black">
-                    {planActive ? "Ativo" : "Pendente"}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-[28px] bg-emerald-50 border border-emerald-100 p-5 mb-7">
-            <p className="font-black text-emerald-700 mb-4">
-              Status público da vitrine
-            </p>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-2xl bg-white/80 p-4">
-                <p className="text-[11px] font-black text-emerald-600/70 uppercase">
-                  Nas buscas
-                </p>
-
-                <p className="font-black text-emerald-700 mt-2">
-                  {supplier.status === "ativo" || supplier.status === "active"
-                    ? "Aparecendo"
-                    : "Pendente"}
-                </p>
-              </div>
-
-              <div className="rounded-2xl bg-white/80 p-4">
-                <p className="text-[11px] font-black text-emerald-600/70 uppercase">
-                  Orçamentos
-                </p>
-
-                <p className="font-black text-emerald-700 mt-2">
-                  {supplier.status === "ativo" || supplier.status === "active"
-                    ? "Recebendo"
-                    : "Bloqueado"}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-black text-slate-950">
-              Ações rápidas
-            </h2>
-
-            <Link
-              href="/painel-fornecedor/leads"
-              className="text-sm font-black text-slate-500"
-            >
-              Gerenciar
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Link
-              href="/painel-fornecedor/leads"
-              className={`relative rounded-[26px] bg-white p-5 border min-h-[142px] ${
-                stats.unansweredLeads > 0
-                  ? "border-pink-400 shadow-[0_0_0_2px_rgba(236,72,153,0.12)]"
-                  : "border-amber-100"
-              }`}
-            >
-              {stats.unansweredLeads > 0 && (
-                <div className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-pink-500 text-white flex items-center justify-center font-black">
-                  {stats.unansweredLeads}
-                </div>
-              )}
-
-              <div className="w-12 h-12 rounded-2xl bg-pink-500 text-white flex items-center justify-center mb-4">
-                <MessageCircle className="w-6 h-6" />
-              </div>
-
-              <p className="font-black text-slate-950">Leads recebidos</p>
-
-              <p className="text-sm text-slate-500 mt-2 leading-snug">
-                {stats.unansweredLeads > 0
-                  ? `${stats.unansweredLeads} lead(s) novo(s) aguardando resposta`
-                  : "Acompanhe seus pedidos"}
-              </p>
-            </Link>
-
-            <Link
-              href={`/fornecedor/${supplier.id}/editar`}
-              className="rounded-[26px] bg-white p-5 border border-amber-100 min-h-[142px]"
-            >
-              <div className="w-12 h-12 rounded-2xl bg-black text-white flex items-center justify-center mb-4">
-                <Edit3 className="w-6 h-6" />
-              </div>
-
-              <p className="font-black text-slate-950">Editar vitrine</p>
-
-              <p className="text-sm text-slate-500 mt-2 leading-snug">
-                Atualize nome, descrição e serviços
-              </p>
-            </Link>
-
-            <Link
-              href={`/fornecedor/${supplier.id}`}
-              className="rounded-[26px] bg-white p-5 border border-amber-100 min-h-[142px]"
-            >
-              <div className="w-12 h-12 rounded-2xl bg-amber-400 text-black flex items-center justify-center mb-4">
-                <Eye className="w-6 h-6" />
-              </div>
-
-              <p className="font-black text-slate-950">Ver vitrine</p>
-
-              <p className="text-sm text-slate-500 mt-2 leading-snug">
-                Veja como os clientes enxergam seu perfil
-              </p>
-            </Link>
-
-            <Link
-              href="/planos"
-              className="rounded-[26px] bg-white p-5 border border-amber-100 min-h-[142px]"
-            >
-              <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center mb-4">
-                <Crown className="w-6 h-6" />
-              </div>
-
-              <p className="font-black text-slate-950">Meu plano</p>
-
-              <p className="text-sm text-slate-500 mt-2 leading-snug">
-                Gerencie assinatura e destaque
-              </p>
-            </Link>
-
-            <Link
-              href="/buscar"
-              className="rounded-[26px] bg-white p-5 border border-amber-100 min-h-[142px]"
-            >
-              <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center mb-4">
-                <Search className="w-6 h-6" />
-              </div>
-
-              <p className="font-black text-slate-950">Buscar</p>
-
-              <p className="text-sm text-slate-500 mt-2 leading-snug">
-                Consulte a vitrine pública do REIM
-              </p>
-            </Link>
-
-            <Link
-              href="/perfil"
-              className="rounded-[26px] bg-white p-5 border border-amber-100 min-h-[142px]"
-            >
-              <div className="w-12 h-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center mb-4">
-                <User className="w-6 h-6" />
-              </div>
-
-              <p className="font-black text-slate-950">Perfil</p>
-
-              <p className="text-sm text-slate-500 mt-2 leading-snug">
-                Dados da conta e notificações
-              </p>
-            </Link>
-          </div>
-
-          <div className="mt-7 rounded-[28px] bg-black text-white p-5">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-white text-black flex items-center justify-center">
-                <FileText className="w-6 h-6" />
-              </div>
-
-              <div>
-                <p className="font-black">Regra dos alertas</p>
-
-                <p className="text-sm text-white/70 mt-1 leading-relaxed">
-                  Leads novos ficam destacados até que o fornecedor envie uma
-                  resposta ao cliente.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-    </main>
-  );
 }
+
+export async function getSupplierMedia(supplierId: string) {
+  const { data, error } = await supabase
+    .from("media")
+    .select("*")
+    .eq("supplier_id", supplierId)
+    .order("position", { ascending: true })
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Erro ao buscar mídia do fornecedor:", error);
+    return [];
+  }
+
+  return (data || []) as SupplierMedia[];
+}
+
+export async function addSupplierMedia(payload: Partial<SupplierMedia>) {
+  const { data, error } = await supabase
+    .from("media")
+    .insert(payload)
+    .select("*")
+    .single();
+
+  if (error) {
+    console.error("Erro ao adicionar mídia:", error);
+    throw error;
+  }
+
+  return data as SupplierMedia;
+}
+
+export async function updateSupplierMedia(id: string, payload: Partial<SupplierMedia>) {
+  const { data, error } = await supabase
+    .from("media")
+    .update(payload)
+    .eq("id", id)
+    .select("*")
+    .single();
+
+  if (error) {
+    console.error("Erro ao atualizar mídia:", error);
+    throw error;
+  }
+
+  return data as SupplierMedia;
+}
+
+export async function deleteSupplierMedia(id: string) {
+  const { error } = await supabase.from("media").delete().eq("id", id);
+
+  if (error) {
+    console.error("Erro ao apagar mídia:", error);
+    throw error;
+  }
+
+  return true;
+}
+
+export async function getSupplierCategories() {
+  const { data, error } = await supabase
+    .from("categories")
+    .select("*")
+    .order("name", { ascending: true });
+
+  if (error) {
+    console.error("Erro ao buscar categorias:", error);
+    return [];
+  }
+
+  return (data || []) as SupplierCategory[];
+}
+
+export async function getCategories() {
+  return getSupplierCategories();
+}
+
+export async function getSupplierSubscription(supplierId: string) {
+  const { data, error } = await supabase
+    .from("supplier_subscriptions")
+    .select("*")
+    .eq("supplier_id", supplierId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Erro ao buscar assinatura do fornecedor:", error);
+    return null;
+  }
+
+  return data as SupplierSubscription | null;
+}
+
+export async function getSupplierVisibility(supplierId: string) {
+  const { data, error } = await supabase
+    .from("supplier_public_visibility")
+    .select("*")
+    .eq("supplier_id", supplierId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Erro ao buscar visibilidade pública:", error);
+    return null;
+  }
+
+  return data as SupplierVisibility | null;
+}
+
+export async function getSupplierPublicVisibility(supplierId: string) {
+  return getSupplierVisibility(supplierId);
+}
+
+export async function getSupplierUnansweredLeadsCount(ownerId: string) {
+  const { count, error } = await supabase
+    .from("supplier_unanswered_quote_requests")
+    .select("id", { count: "exact", head: true })
+    .eq("supplier_owner_id", ownerId);
+
+  if (error) {
+    console.error("Erro ao contar leads sem resposta:", error);
+    return 0;
+  }
+
+  return count || 0;
+}
+
+export async function getSupplierStats(supplierId: string, ownerId?: string | null) {
+  const { count: totalLeads, error: totalLeadsError } = await supabase
+    .from("quote_requests")
+    .select("id", { count: "exact", head: true })
+    .eq("supplier_id", supplierId);
+
+  if (totalLeadsError) {
+    console.error("Erro ao contar leads:", totalLeadsError);
+  }
+
+  const { count: totalResponses, error: responsesError } = await supabase
+    .from("quote_responses")
+    .select("id", { count: "exact", head: true })
+    .eq("supplier_id", supplierId);
+
+  if (responsesError) {
+    console.error("Erro ao contar respostas:", responsesError);
+  }
+
+  const { count: closedQuotes, error: closedQuotesError } = await supabase
+    .from("quote_requests")
+    .select("id", { count: "exact", head: true })
+    .eq("supplier_id", supplierId)
+    .in("status", ["aceito", "accepted", "fechado", "closed"]);
+
+  if (closedQuotesError) {
+    console.error("Erro ao contar fechados:", closedQuotesError);
+  }
+
+  let unansweredLeads = 0;
+
+  if (ownerId) {
+    unansweredLeads = await getSupplierUnansweredLeadsCount(ownerId);
+  }
+
+  return {
+    totalLeads: totalLeads || 0,
+    unansweredLeads,
+    totalResponses: totalResponses || 0,
+    closedQuotes: closedQuotes || 0,
+  };
+}
+
+export async function getSupplierQuoteRequests(supplierId: string) {
+  const { data, error } = await supabase
+    .from("quote_requests")
+    .select("*")
+    .eq("supplier_id", supplierId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Erro ao buscar pedidos de orçamento:", error);
+    return [];
+  }
+
+  return data || [];
+}
+
+export async function getSupplierUnansweredQuoteRequests(ownerId: string) {
+  const { data, error } = await supabase
+    .from("supplier_unanswered_quote_requests")
+    .select("*")
+    .eq("supplier_owner_id", ownerId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Erro ao buscar leads sem resposta:", error);
+    return [];
+  }
+
+  return data || [];
+}
+
+export async function getSupplierResponses(supplierId: string) {
+  const { data, error } = await supabase
+    .from("quote_responses")
+    .select("*")
+    .eq("supplier_id", supplierId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Erro ao buscar respostas do fornecedor:", error);
+    return [];
+  }
+
+  return data || [];
+}
+
+export default {
+  getSupabase,
+  getCurrentUser,
+  getCurrentSupplier,
+  getSupplierByOwner,
+  getSupplierById,
+  getSupplierPublicById,
+  getSupplierForEdit,
+  getSupplierProfile,
+  listSuppliers,
+  getActiveSuppliers,
+  getFeaturedSuppliers,
+  searchSuppliers,
+  createSupplier,
+  updateSupplier,
+  updateSupplierProfile,
+  saveSupplierProfile,
+  upsertSupplier,
+  ensureSupplierForUser,
+  getSupplierMedia,
+  addSupplierMedia,
+  updateSupplierMedia,
+  deleteSupplierMedia,
+  getSupplierCategories,
+  getCategories,
+  getSupplierSubscription,
+  getSupplierVisibility,
+  getSupplierPublicVisibility,
+  getSupplierUnansweredLeadsCount,
+  getSupplierStats,
+  getSupplierQuoteRequests,
+  getSupplierUnansweredQuoteRequests,
+  getSupplierResponses,
+  getSupplierDisplayName,
+};
