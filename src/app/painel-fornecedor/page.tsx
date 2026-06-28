@@ -17,7 +17,7 @@ import {
   Store,
   User,
 } from "lucide-react";
-import { supabase } from "../../lib/supabase";
+import { supabase } from "@/lib/supabase";
 
 type Supplier = {
   id: string;
@@ -285,7 +285,7 @@ export default function PainelFornecedorPage() {
   if (!supplier) {
     return (
       <main className="min-h-screen bg-[#f8f2e9] px-5 py-8">
-        <section className="max-w-md mx-auto bg-white rounded-[32px] p-7 shadow-sm border border-amber-100">
+        <section className="max-w-xl mx-auto bg-white rounded-[32px] p-7 shadow-sm border border-amber-100">
           <div className="w-14 h-14 rounded-2xl bg-pink-500 text-white flex items-center justify-center mb-5">
             <Store className="w-7 h-7" />
           </div>
@@ -312,296 +312,292 @@ export default function PainelFornecedorPage() {
 
   return (
     <main className="min-h-screen bg-[#f8f2e9]">
-      <section className="max-w-md mx-auto min-h-screen bg-[#f8f2e9] pb-10">
-        <div className="bg-black text-white rounded-b-[36px] px-6 pt-6 pb-8 relative overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(236,72,153,0.35),transparent_35%),radial-gradient(circle_at_bottom_left,rgba(245,158,11,0.28),transparent_35%)]" />
+      <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-10">
+        <div className="grid grid-cols-1 lg:grid-cols-[1.05fr_1.4fr] gap-6 lg:gap-8 items-start">
+          <div className="bg-black text-white rounded-[36px] px-6 sm:px-8 pt-7 pb-8 relative overflow-hidden shadow-xl">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(236,72,153,0.38),transparent_36%),radial-gradient(circle_at_bottom_left,rgba(245,158,11,0.30),transparent_38%)]" />
 
-          <div className="relative z-10">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <p className="text-xs font-bold text-amber-300 uppercase tracking-wide">
-                  Painel do fornecedor
-                </p>
-
-                <h1 className="text-2xl font-black mt-1 leading-tight">
-                  Olá, {supplierName}
-                </h1>
-              </div>
-
-              <button
-                onClick={handleLogout}
-                className="w-11 h-11 rounded-2xl bg-white/10 flex items-center justify-center"
-                aria-label="Sair"
-              >
-                <LogOut className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="rounded-[28px] bg-white/10 border border-white/10 p-5 mb-5">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-amber-400 text-black flex items-center justify-center">
-                  <Crown className="w-7 h-7" />
-                </div>
-
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-7">
                 <div>
-                  <p className="text-sm text-white/75 font-bold">
-                    Status da vitrine
+                  <p className="text-xs font-black text-amber-300 uppercase tracking-wide">
+                    Painel do fornecedor
                   </p>
 
-                  <p className="font-black text-amber-300 flex items-center gap-1">
-                    <Star className="w-4 h-4 fill-amber-300" />
-                    4.9 • {planName}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {stats.unansweredLeads > 0 && (
-              <div className="rounded-[24px] bg-white px-5 py-5 shadow-sm flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-pink-500 flex items-center justify-center text-white">
-                  <Bell className="w-6 h-6" />
+                  <h1 className="text-2xl sm:text-3xl font-black mt-1 leading-tight">
+                    Olá, {supplierName}
+                  </h1>
                 </div>
 
-                <div>
-                  <p className="font-black text-slate-900">
-                    Atenção nos leads
-                  </p>
+                <button
+                  onClick={handleLogout}
+                  className="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/15 flex items-center justify-center"
+                  aria-label="Sair"
+                >
+                  <LogOut className="w-5 h-5" />
+                </button>
+              </div>
 
-                  <p className="text-sm font-bold text-slate-700">
-                    {stats.unansweredLeads} lead(s) novo(s) aguardando resposta.
-                  </p>
+              <div className="rounded-[28px] bg-white/10 border border-white/10 p-5 mb-5">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-2xl bg-amber-400 text-black flex items-center justify-center">
+                    <Crown className="w-7 h-7" />
+                  </div>
+
+                  <div>
+                    <p className="text-sm text-white/75 font-bold">
+                      Status da vitrine
+                    </p>
+
+                    <p className="font-black text-amber-300 flex items-center gap-1">
+                      <Star className="w-4 h-4 fill-amber-300" />
+                      4.9 • {planName}
+                    </p>
+                  </div>
                 </div>
               </div>
-            )}
-          </div>
-        </div>
 
-        <div className="px-6 pt-6">
-          <div className="grid grid-cols-4 gap-2 mb-4">
-            <div className="bg-white rounded-2xl border border-amber-100 p-4 text-center">
-              <p className="text-xl font-black text-amber-500">
-                {stats.totalLeads}
-              </p>
-              <p className="text-xs font-bold text-slate-700 mt-1">Leads</p>
-            </div>
-
-            <div className="bg-white rounded-2xl border border-amber-100 p-4 text-center">
-              <p className="text-xl font-black text-pink-500">
-                {stats.unreadMessages}
-              </p>
-              <p className="text-xs font-bold text-slate-700 mt-1">Msgs</p>
-            </div>
-
-            <div className="bg-white rounded-2xl border border-amber-100 p-4 text-center">
-              <p className="text-xl font-black text-blue-600">
-                {stats.totalResponses}
-              </p>
-              <p className="text-xs font-bold text-slate-700 mt-1">Resp.</p>
-            </div>
-
-            <div className="bg-white rounded-2xl border border-amber-100 p-4 text-center">
-              <p className="text-xl font-black text-green-600">
-                {stats.closedQuotes}
-              </p>
-              <p className="text-xs font-bold text-slate-700 mt-1">Fechado</p>
-            </div>
-          </div>
-
-          <div className="rounded-[28px] bg-emerald-50 border border-emerald-100 p-5 mb-4">
-            <div className="flex items-start gap-4">
-              <div className="w-11 h-11 rounded-2xl bg-white text-emerald-700 flex items-center justify-center">
-                <Crown className="w-6 h-6" />
-              </div>
-
-              <div>
-                <p className="font-black text-emerald-700">
-                  {planActive ? "Plano ativo" : "Plano não ativo"}
-                </p>
-
-                <p className="text-sm text-emerald-700/80 font-bold mt-1">
-                  {planActive && planEndDate
-                    ? `Seu plano está ativo até ${planEndDate}.`
-                    : planActive
-                    ? "Seu plano está ativo."
-                    : "Ative um plano para aparecer melhor na vitrine."}
-                </p>
-
-                <div className="flex flex-wrap gap-2 mt-4">
-                  <span className="px-4 py-2 rounded-full bg-white text-emerald-700 text-xs font-black">
-                    {planName}
-                  </span>
-
-                  <span className="px-4 py-2 rounded-full bg-white text-emerald-700 text-xs font-black">
-                    {planActive ? "Ativo" : "Pendente"}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-[28px] bg-emerald-50 border border-emerald-100 p-5 mb-7">
-            <p className="font-black text-emerald-700 mb-4">
-              Status público da vitrine
-            </p>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-2xl bg-white/80 p-4">
-                <p className="text-[11px] font-black text-emerald-600/70 uppercase">
-                  Nas buscas
-                </p>
-
-                <p className="font-black text-emerald-700 mt-2">
-                  {supplier.status === "ativo" || supplier.status === "active"
-                    ? "Aparecendo"
-                    : "Pendente"}
-                </p>
-              </div>
-
-              <div className="rounded-2xl bg-white/80 p-4">
-                <p className="text-[11px] font-black text-emerald-600/70 uppercase">
-                  Orçamentos
-                </p>
-
-                <p className="font-black text-emerald-700 mt-2">
-                  {supplier.status === "ativo" || supplier.status === "active"
-                    ? "Recebendo"
-                    : "Bloqueado"}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-black text-slate-950">
-              Ações rápidas
-            </h2>
-
-            <Link
-              href="/painel-fornecedor/leads"
-              className="text-sm font-black text-slate-500"
-            >
-              Gerenciar
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Link
-              href="/painel-fornecedor/leads"
-              className={`relative rounded-[26px] bg-white p-5 border min-h-[142px] ${
-                stats.unansweredLeads > 0
-                  ? "border-pink-400 shadow-[0_0_0_2px_rgba(236,72,153,0.12)]"
-                  : "border-amber-100"
-              }`}
-            >
               {stats.unansweredLeads > 0 && (
-                <div className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-pink-500 text-white flex items-center justify-center font-black">
-                  {stats.unansweredLeads}
+                <div className="rounded-[24px] bg-white px-5 py-5 shadow-sm flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-pink-500 flex items-center justify-center text-white">
+                    <Bell className="w-6 h-6" />
+                  </div>
+
+                  <div>
+                    <p className="font-black text-slate-900">
+                      Atenção nos leads
+                    </p>
+
+                    <p className="text-sm font-bold text-slate-700">
+                      {stats.unansweredLeads} lead(s) novo(s) aguardando resposta.
+                    </p>
+                  </div>
                 </div>
               )}
 
-              <div className="w-12 h-12 rounded-2xl bg-pink-500 text-white flex items-center justify-center mb-4">
-                <MessageCircle className="w-6 h-6" />
-              </div>
-
-              <p className="font-black text-slate-950">Leads recebidos</p>
-
-              <p className="text-sm text-slate-500 mt-2 leading-snug">
-                {stats.unansweredLeads > 0
-                  ? `${stats.unansweredLeads} lead(s) novo(s) aguardando resposta`
-                  : "Acompanhe seus pedidos"}
-              </p>
-            </Link>
-
-            <Link
-              href={`/fornecedor/${supplier.id}/editar`}
-              className="rounded-[26px] bg-white p-5 border border-amber-100 min-h-[142px]"
-            >
-              <div className="w-12 h-12 rounded-2xl bg-black text-white flex items-center justify-center mb-4">
-                <Edit3 className="w-6 h-6" />
-              </div>
-
-              <p className="font-black text-slate-950">Editar vitrine</p>
-
-              <p className="text-sm text-slate-500 mt-2 leading-snug">
-                Atualize nome, descrição e serviços
-              </p>
-            </Link>
-
-            <Link
-              href={`/fornecedor/${supplier.id}`}
-              className="rounded-[26px] bg-white p-5 border border-amber-100 min-h-[142px]"
-            >
-              <div className="w-12 h-12 rounded-2xl bg-amber-400 text-black flex items-center justify-center mb-4">
-                <Eye className="w-6 h-6" />
-              </div>
-
-              <p className="font-black text-slate-950">Ver vitrine</p>
-
-              <p className="text-sm text-slate-500 mt-2 leading-snug">
-                Veja como os clientes enxergam seu perfil
-              </p>
-            </Link>
-
-            <Link
-              href="/planos"
-              className="rounded-[26px] bg-white p-5 border border-amber-100 min-h-[142px]"
-            >
-              <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center mb-4">
-                <Crown className="w-6 h-6" />
-              </div>
-
-              <p className="font-black text-slate-950">Meu plano</p>
-
-              <p className="text-sm text-slate-500 mt-2 leading-snug">
-                Gerencie assinatura e destaque
-              </p>
-            </Link>
-
-            <Link
-              href="/buscar"
-              className="rounded-[26px] bg-white p-5 border border-amber-100 min-h-[142px]"
-            >
-              <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center mb-4">
-                <Search className="w-6 h-6" />
-              </div>
-
-              <p className="font-black text-slate-950">Buscar</p>
-
-              <p className="text-sm text-slate-500 mt-2 leading-snug">
-                Consulte a vitrine pública do REIM
-              </p>
-            </Link>
-
-            <Link
-              href="/perfil"
-              className="rounded-[26px] bg-white p-5 border border-amber-100 min-h-[142px]"
-            >
-              <div className="w-12 h-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center mb-4">
-                <User className="w-6 h-6" />
-              </div>
-
-              <p className="font-black text-slate-950">Perfil</p>
-
-              <p className="text-sm text-slate-500 mt-2 leading-snug">
-                Dados da conta e notificações
-              </p>
-            </Link>
-          </div>
-
-          <div className="mt-7 rounded-[28px] bg-black text-white p-5">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-white text-black flex items-center justify-center">
-                <FileText className="w-6 h-6" />
-              </div>
-
-              <div>
-                <p className="font-black">Regra dos alertas</p>
+              <div className="mt-6 rounded-[24px] bg-white/10 border border-white/10 p-5">
+                <p className="font-black text-white">Regra dos alertas</p>
 
                 <p className="text-sm text-white/70 mt-1 leading-relaxed">
                   Leads novos ficam destacados até que o fornecedor envie uma
                   resposta ao cliente.
                 </p>
               </div>
+            </div>
+          </div>
+
+          <div>
+            <div className="grid grid-cols-4 gap-3 mb-4">
+              <div className="bg-white rounded-2xl border border-amber-100 p-4 text-center shadow-sm">
+                <p className="text-2xl font-black text-amber-500">
+                  {stats.totalLeads}
+                </p>
+                <p className="text-xs font-bold text-slate-700 mt-1">Leads</p>
+              </div>
+
+              <div className="bg-white rounded-2xl border border-amber-100 p-4 text-center shadow-sm">
+                <p className="text-2xl font-black text-pink-500">
+                  {stats.unreadMessages}
+                </p>
+                <p className="text-xs font-bold text-slate-700 mt-1">Msgs</p>
+              </div>
+
+              <div className="bg-white rounded-2xl border border-amber-100 p-4 text-center shadow-sm">
+                <p className="text-2xl font-black text-blue-600">
+                  {stats.totalResponses}
+                </p>
+                <p className="text-xs font-bold text-slate-700 mt-1">Resp.</p>
+              </div>
+
+              <div className="bg-white rounded-2xl border border-amber-100 p-4 text-center shadow-sm">
+                <p className="text-2xl font-black text-green-600">
+                  {stats.closedQuotes}
+                </p>
+                <p className="text-xs font-bold text-slate-700 mt-1">Fechado</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-7">
+              <div className="rounded-[28px] bg-emerald-50 border border-emerald-100 p-5">
+                <div className="flex items-start gap-4">
+                  <div className="w-11 h-11 rounded-2xl bg-white text-emerald-700 flex items-center justify-center">
+                    <Crown className="w-6 h-6" />
+                  </div>
+
+                  <div>
+                    <p className="font-black text-emerald-700">
+                      {planActive ? "Plano ativo" : "Plano não ativo"}
+                    </p>
+
+                    <p className="text-sm text-emerald-700/80 font-bold mt-1">
+                      {planActive && planEndDate
+                        ? `Seu plano está ativo até ${planEndDate}.`
+                        : planActive
+                        ? "Seu plano está ativo."
+                        : "Ative um plano para aparecer melhor na vitrine."}
+                    </p>
+
+                    <div className="flex flex-wrap gap-2 mt-4">
+                      <span className="px-4 py-2 rounded-full bg-white text-emerald-700 text-xs font-black">
+                        {planName}
+                      </span>
+
+                      <span className="px-4 py-2 rounded-full bg-white text-emerald-700 text-xs font-black">
+                        {planActive ? "Ativo" : "Pendente"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-[28px] bg-emerald-50 border border-emerald-100 p-5">
+                <p className="font-black text-emerald-700 mb-4">
+                  Status público da vitrine
+                </p>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-2xl bg-white/80 p-4">
+                    <p className="text-[11px] font-black text-emerald-600/70 uppercase">
+                      Nas buscas
+                    </p>
+
+                    <p className="font-black text-emerald-700 mt-2">
+                      {supplier.status === "ativo" || supplier.status === "active"
+                        ? "Aparecendo"
+                        : "Pendente"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl bg-white/80 p-4">
+                    <p className="text-[11px] font-black text-emerald-600/70 uppercase">
+                      Orçamentos
+                    </p>
+
+                    <p className="font-black text-emerald-700 mt-2">
+                      {supplier.status === "ativo" || supplier.status === "active"
+                        ? "Recebendo"
+                        : "Bloqueado"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-black text-slate-950">
+                Ações rápidas
+              </h2>
+
+              <Link
+                href="/painel-fornecedor/leads"
+                className="text-sm font-black text-slate-500 hover:text-slate-950"
+              >
+                Gerenciar
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              <Link
+                href="/painel-fornecedor/leads"
+                className={`relative rounded-[26px] bg-white p-5 border min-h-[150px] shadow-sm ${
+                  stats.unansweredLeads > 0
+                    ? "border-pink-400 shadow-[0_0_0_2px_rgba(236,72,153,0.12)]"
+                    : "border-amber-100"
+                }`}
+              >
+                {stats.unansweredLeads > 0 && (
+                  <div className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-pink-500 text-white flex items-center justify-center font-black">
+                    {stats.unansweredLeads}
+                  </div>
+                )}
+
+                <div className="w-12 h-12 rounded-2xl bg-pink-500 text-white flex items-center justify-center mb-4">
+                  <MessageCircle className="w-6 h-6" />
+                </div>
+
+                <p className="font-black text-slate-950">Leads recebidos</p>
+
+                <p className="text-sm text-slate-500 mt-2 leading-snug">
+                  {stats.unansweredLeads > 0
+                    ? `${stats.unansweredLeads} lead(s) novo(s) aguardando resposta`
+                    : "Acompanhe seus pedidos"}
+                </p>
+              </Link>
+
+              <Link
+                href={`/fornecedor/${supplier.id}/editar`}
+                className="rounded-[26px] bg-white p-5 border border-amber-100 min-h-[150px] shadow-sm"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-black text-white flex items-center justify-center mb-4">
+                  <Edit3 className="w-6 h-6" />
+                </div>
+
+                <p className="font-black text-slate-950">Editar vitrine</p>
+
+                <p className="text-sm text-slate-500 mt-2 leading-snug">
+                  Atualize nome, descrição e serviços
+                </p>
+              </Link>
+
+              <Link
+                href={`/fornecedor/${supplier.id}`}
+                className="rounded-[26px] bg-white p-5 border border-amber-100 min-h-[150px] shadow-sm"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-amber-400 text-black flex items-center justify-center mb-4">
+                  <Eye className="w-6 h-6" />
+                </div>
+
+                <p className="font-black text-slate-950">Ver vitrine</p>
+
+                <p className="text-sm text-slate-500 mt-2 leading-snug">
+                  Veja como os clientes enxergam seu perfil
+                </p>
+              </Link>
+
+              <Link
+                href="/planos"
+                className="rounded-[26px] bg-white p-5 border border-amber-100 min-h-[150px] shadow-sm"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center mb-4">
+                  <Crown className="w-6 h-6" />
+                </div>
+
+                <p className="font-black text-slate-950">Meu plano</p>
+
+                <p className="text-sm text-slate-500 mt-2 leading-snug">
+                  Gerencie assinatura e destaque
+                </p>
+              </Link>
+
+              <Link
+                href="/buscar"
+                className="rounded-[26px] bg-white p-5 border border-amber-100 min-h-[150px] shadow-sm"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center mb-4">
+                  <Search className="w-6 h-6" />
+                </div>
+
+                <p className="font-black text-slate-950">Buscar</p>
+
+                <p className="text-sm text-slate-500 mt-2 leading-snug">
+                  Consulte a vitrine pública do REIM
+                </p>
+              </Link>
+
+              <Link
+                href="/perfil"
+                className="rounded-[26px] bg-white p-5 border border-amber-100 min-h-[150px] shadow-sm"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center mb-4">
+                  <User className="w-6 h-6" />
+                </div>
+
+                <p className="font-black text-slate-950">Perfil</p>
+
+                <p className="text-sm text-slate-500 mt-2 leading-snug">
+                  Dados da conta e notificações
+                </p>
+              </Link>
             </div>
           </div>
         </div>
