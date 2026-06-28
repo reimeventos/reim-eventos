@@ -584,12 +584,21 @@ export async function getSupplierQuoteRequests(supplierId: string) {
   return data || [];
 }
 
-export async function getSupplierLeads(supplierId: string) {
-  return getSupplierQuoteRequests(supplierId);
+export async function getSupplierLeads(supplierId?: string | null) {
+  let finalSupplierId = supplierId;
+
+  if (!finalSupplierId) {
+    const supplier = await getCurrentSupplier();
+    finalSupplierId = supplier?.id || null;
+  }
+
+  if (!finalSupplierId) return [];
+
+  return getSupplierQuoteRequests(finalSupplierId);
 }
 
-export async function getQuoteRequestsBySupplier(supplierId: string) {
-  return getSupplierQuoteRequests(supplierId);
+export async function getQuoteRequestsBySupplier(supplierId?: string | null) {
+  return getSupplierLeads(supplierId);
 }
 
 export async function getSupplierUnansweredQuoteRequests(ownerId: string) {
