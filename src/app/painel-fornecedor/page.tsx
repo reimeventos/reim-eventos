@@ -109,32 +109,6 @@ export default function PainelFornecedorPage() {
     formatDateBR(subscription?.ends_at) ||
     formatDateBR(subscription?.trial_ends_at);
 
-  async function loadUnreadMessages(supplierId: string) {
-    try {
-      const { data: supplierQuotes } = await supabase
-        .from("quote_requests")
-        .select("id")
-        .eq("supplier_id", supplierId);
-
-      const quoteIds = supplierQuotes?.map((item: { id: string }) => item.id) || [];
-
-      if (quoteIds.length === 0) return;
-
-      const { count: messagesCount } = await supabase
-        .from("quote_messages")
-        .select("id", { count: "exact", head: true })
-        .in("quote_request_id", quoteIds)
-        .eq("read_by_supplier", false);
-
-      setStats((current) => ({
-        ...current,
-        unreadMessages: messagesCount || 0,
-      }));
-    } catch (error) {
-      console.error("Erro ao carregar mensagens não lidas:", error);
-    }
-  }
-
   async function loadDashboard() {
     try {
       setLoading(true);
@@ -151,15 +125,11 @@ export default function PainelFornecedorPage() {
 
       const { data: supplierData, error: supplierError } = await supabase
         .from("suppliers")
-        .select(
-          "id, owner_id, status, is_featured, created_at, business_name, company_name, fantasy_name, name, title, category, city, state"
-        )
+        .select("*")
         .eq("owner_id", user.id)
         .maybeSingle();
 
-      if (supplierError) {
-        console.error("Erro ao buscar fornecedor:", supplierError);
-      }
+      if (supplierError) console.error("Erro ao buscar fornecedor:", supplierError);
 
       if (!supplierData) {
         setSupplier(null);
@@ -168,68 +138,72 @@ export default function PainelFornecedorPage() {
       }
 
       const currentSupplier = supplierData as Supplier;
-      const supplierId = currentSupplier.id;
-
       setSupplier(currentSupplier);
 
-      const [
-        subscriptionResult,
-        totalLeadsResult,
-        unansweredLeadsResult,
-        responsesResult,
-        closedQuotesResult,
-      ] = await Promise.all([
-        supabase
-          .from("supplier_subscriptions")
-          .select(
-            "id, supplier_id, status, plan_name, plan, public_label, current_period_end, ends_at, trial_ends_at, created_at"
-          )
-          .eq("supplier_id", supplierId)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle(),
+      const supplierId = currentSupplier.id;
 
-        supabase
-          .from("quote_requests")
+      const { data: subscriptionData, error: subscriptionError } = await supabase
+        .from("supplier_subscriptions")
+        .select("*")
+        .eq("supplier_id", supplierId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (subscriptionError) console.error("Erro ao buscar assinatura:", subscriptionError);
+
+      setSubscription((subscriptionData as Subscription) || null);
+
+      const { count: totalLeadsCount } = await supabase
+        .from("quote_requests")
+        .select("id", { count: "exact", head: true })
+        .eq("supplier_id", supplierId);
+
+      const { count: unansweredLeadsCount } = await supabase
+        .from("supplier_unanswered_quote_requests")
+        .select("id", { count: "exact", head: true })
+        .eq("supplier_owner_id", user.id);
+
+      const { count: responsesCount } = await supabase
+        .from("quote_responses")
+        .select("id", { count: "exact", head: true })
+        .eq("supplier_id", supplierId);
+
+      const { count: closedQuotesCount } = await supabase
+        .from("quote_requests")
+        .select("id", { count: "exact", head: true })
+        .eq("supplier_id", supplierId)
+        .in("status", ["aceito", "accepted", "fechado", "closed"]);
+
+      let unreadMessagesCount = 0;
+
+      const { data: supplierQuotes } = await supabase
+        .from("quote_requests")
+        .select("id")
+        .eq("supplier_id", supplierId);
+
+      const quoteIds = supplierQuotes?.map((item: { id: string }) => item.id) || [];
+
+      if (quoteIds.length > 0) {
+        const { count: messagesCount } = await supabase
+          .from("quote_messages")
           .select("id", { count: "exact", head: true })
-          .eq("supplier_id", supplierId),
+          .in("quote_request_id", quoteIds)
+          .eq("read_by_supplier", false);
 
-        supabase
-          .from("supplier_unanswered_quote_requests")
-          .select("id", { count: "exact", head: true })
-          .eq("supplier_owner_id", user.id),
-
-        supabase
-          .from("quote_responses")
-          .select("id", { count: "exact", head: true })
-          .eq("supplier_id", supplierId),
-
-        supabase
-          .from("quote_requests")
-          .select("id", { count: "exact", head: true })
-          .eq("supplier_id", supplierId)
-          .in("status", ["aceito", "accepted", "fechado", "closed"]),
-      ]);
-
-      if (subscriptionResult.error) {
-        console.error("Erro ao buscar assinatura:", subscriptionResult.error);
+        unreadMessagesCount = messagesCount || 0;
       }
 
-      setSubscription((subscriptionResult.data as Subscription) || null);
-
       setStats({
-        totalLeads: totalLeadsResult.count || 0,
-        unansweredLeads: unansweredLeadsResult.count || 0,
-        totalResponses: responsesResult.count || 0,
-        closedQuotes: closedQuotesResult.count || 0,
-        unreadMessages: 0,
+        totalLeads: totalLeadsCount || 0,
+        unansweredLeads: unansweredLeadsCount || 0,
+        totalResponses: responsesCount || 0,
+        closedQuotes: closedQuotesCount || 0,
+        unreadMessages: unreadMessagesCount,
       });
-
-      setLoading(false);
-
-      loadUnreadMessages(supplierId);
     } catch (error) {
       console.error("Erro ao carregar painel:", error);
+    } finally {
       setLoading(false);
     }
   }
