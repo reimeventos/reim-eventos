@@ -58,7 +58,7 @@ type DashboardStats = {
   unreadMessages: number;
 };
 
-const DASHBOARD_CACHE_KEY = "reim_supplier_dashboard_cache_v1";
+const DASHBOARD_CACHE_KEY = "reim_supplier_dashboard_cache_v2";
 
 function getSupplierName(supplier: Supplier | null) {
   if (!supplier) return "Fornecedor";
@@ -118,11 +118,13 @@ export default function PainelFornecedorPage() {
       }
 
       const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
 
-      if (userError || !user) {
+      const user = session?.user;
+
+      if (sessionError || !user) {
         router.push("/login");
         return;
       }
@@ -148,44 +150,83 @@ export default function PainelFornecedorPage() {
       }
 
       const currentSupplier = supplierData as Supplier;
-      setSupplier(currentSupplier);
-
       const supplierId = currentSupplier.id;
 
-      const { data: subscriptionData, error: subscriptionError } = await supabase
-        .from("supplier_subscriptions")
-        .select("*")
-        .eq("supplier_id", supplierId)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      setSupplier(currentSupplier);
+      setLoading(false);
 
-      if (subscriptionError) console.error("Erro ao buscar assinatura:", subscriptionError);
+      const [
+        subscriptionResult,
+        totalLeadsResult,
+        unansweredLeadsResult,
+        responsesResult,
+        closedQuotesResult,
+      ] = await Promise.all([
+        supabase
+          .from("supplier_subscriptions")
+          .select("*")
+          .eq("supplier_id", supplierId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
 
-      setSubscription((subscriptionData as Subscription) || null);
+        supabase
+          .from("quote_requests")
+          .select("id", { count: "exact", head: true })
+          .eq("supplier_id", supplierId),
 
-      const { count: totalLeadsCount } = await supabase
-        .from("quote_requests")
-        .select("id", { count: "exact", head: true })
-        .eq("supplier_id", supplierId);
+        supabase
+          .from("supplier_unanswered_quote_requests")
+          .select("id", { count: "exact", head: true })
+          .eq("supplier_owner_id", user.id),
 
-      const { count: unansweredLeadsCount } = await supabase
-        .from("supplier_unanswered_quote_requests")
-        .select("id", { count: "exact", head: true })
-        .eq("supplier_owner_id", user.id);
+        supabase
+          .from("quote_responses")
+          .select("id", { count: "exact", head: true })
+          .eq("supplier_id", supplierId),
 
-      const { count: responsesCount } = await supabase
-        .from("quote_responses")
-        .select("id", { count: "exact", head: true })
-        .eq("supplier_id", supplierId);
+        supabase
+          .from("quote_requests")
+          .select("id", { count: "exact", head: true })
+          .eq("supplier_id", supplierId)
+          .in("status", ["aceito", "accepted", "fechado", "closed"]),
+      ]);
 
-      const { count: closedQuotesCount } = await supabase
-        .from("quote_requests")
-        .select("id", { count: "exact", head: true })
-        .eq("supplier_id", supplierId)
-        .in("status", ["aceito", "accepted", "fechado", "closed"]);
+      if (subscriptionResult.error) {
+        console.error("Erro ao buscar assinatura:", subscriptionResult.error);
+      }
 
-      let unreadMessagesCount = 0;
+      setSubscription((subscriptionResult.data as Subscription) || null);
+
+      const nextStats = {
+        totalLeads: totalLeadsResult.count || 0,
+        unansweredLeads: unansweredLeadsResult.count || 0,
+        totalResponses: responsesResult.count || 0,
+        closedQuotes: closedQuotesResult.count || 0,
+        unreadMessages: 0,
+      };
+
+      setStats((previousStats) => ({
+        ...nextStats,
+        unreadMessages: previousStats.unreadMessages || 0,
+      }));
+
+      try {
+        window.localStorage.setItem(
+          DASHBOARD_CACHE_KEY,
+          JSON.stringify({
+            supplier: currentSupplier,
+            subscription: (subscriptionResult.data as Subscription) || null,
+            stats: {
+              ...nextStats,
+              unreadMessages: 0,
+            },
+            savedAt: new Date().toISOString(),
+          })
+        );
+      } catch (cacheError) {
+        console.error("Erro ao salvar cache do painel:", cacheError);
+      }
 
       const { data: supplierQuotes } = await supabase
         .from("quote_requests")
@@ -201,35 +242,33 @@ export default function PainelFornecedorPage() {
           .in("quote_request_id", quoteIds)
           .eq("read_by_supplier", false);
 
-        unreadMessagesCount = messagesCount || 0;
-      }
+        const unreadMessagesCount = messagesCount || 0;
 
-      const nextStats = {
-        totalLeads: totalLeadsCount || 0,
-        unansweredLeads: unansweredLeadsCount || 0,
-        totalResponses: responsesCount || 0,
-        closedQuotes: closedQuotesCount || 0,
-        unreadMessages: unreadMessagesCount,
-      };
+        setStats((previousStats) => {
+          const updatedStats = {
+            ...previousStats,
+            unreadMessages: unreadMessagesCount,
+          };
 
-      setStats(nextStats);
+          try {
+            window.localStorage.setItem(
+              DASHBOARD_CACHE_KEY,
+              JSON.stringify({
+                supplier: currentSupplier,
+                subscription: (subscriptionResult.data as Subscription) || null,
+                stats: updatedStats,
+                savedAt: new Date().toISOString(),
+              })
+            );
+          } catch (cacheError) {
+            console.error("Erro ao atualizar cache do painel:", cacheError);
+          }
 
-      try {
-        window.localStorage.setItem(
-          DASHBOARD_CACHE_KEY,
-          JSON.stringify({
-            supplier: currentSupplier,
-            subscription: (subscriptionData as Subscription) || null,
-            stats: nextStats,
-            savedAt: new Date().toISOString(),
-          })
-        );
-      } catch (cacheError) {
-        console.error("Erro ao salvar cache do painel:", cacheError);
+          return updatedStats;
+        });
       }
     } catch (error) {
       console.error("Erro ao carregar painel:", error);
-    } finally {
       setLoading(false);
     }
   }
