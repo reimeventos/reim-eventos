@@ -58,6 +58,8 @@ type DashboardStats = {
   unreadMessages: number;
 };
 
+const DASHBOARD_CACHE_KEY = "reim_supplier_dashboard_cache_v1";
+
 function getSupplierName(supplier: Supplier | null) {
   if (!supplier) return "Fornecedor";
   return supplier.business_name || supplier.company_name || supplier.fantasy_name || supplier.name || supplier.title || "Minha vitrine";
@@ -109,9 +111,11 @@ export default function PainelFornecedorPage() {
     formatDateBR(subscription?.ends_at) ||
     formatDateBR(subscription?.trial_ends_at);
 
-  async function loadDashboard() {
+  async function loadDashboard(showLoading = true) {
     try {
-      setLoading(true);
+      if (showLoading) {
+        setLoading(true);
+      }
 
       const {
         data: { user },
@@ -132,6 +136,12 @@ export default function PainelFornecedorPage() {
       if (supplierError) console.error("Erro ao buscar fornecedor:", supplierError);
 
       if (!supplierData) {
+        try {
+          window.localStorage.removeItem(DASHBOARD_CACHE_KEY);
+        } catch (cacheError) {
+          console.error("Erro ao limpar cache do painel:", cacheError);
+        }
+
         setSupplier(null);
         setLoading(false);
         return;
@@ -194,13 +204,29 @@ export default function PainelFornecedorPage() {
         unreadMessagesCount = messagesCount || 0;
       }
 
-      setStats({
+      const nextStats = {
         totalLeads: totalLeadsCount || 0,
         unansweredLeads: unansweredLeadsCount || 0,
         totalResponses: responsesCount || 0,
         closedQuotes: closedQuotesCount || 0,
         unreadMessages: unreadMessagesCount,
-      });
+      };
+
+      setStats(nextStats);
+
+      try {
+        window.localStorage.setItem(
+          DASHBOARD_CACHE_KEY,
+          JSON.stringify({
+            supplier: currentSupplier,
+            subscription: (subscriptionData as Subscription) || null,
+            stats: nextStats,
+            savedAt: new Date().toISOString(),
+          })
+        );
+      } catch (cacheError) {
+        console.error("Erro ao salvar cache do painel:", cacheError);
+      }
     } catch (error) {
       console.error("Erro ao carregar painel:", error);
     } finally {
@@ -214,7 +240,35 @@ export default function PainelFornecedorPage() {
   }
 
   useEffect(() => {
-    loadDashboard();
+    let hasCache = false;
+
+    try {
+      const cachedDashboard = window.localStorage.getItem(DASHBOARD_CACHE_KEY);
+
+      if (cachedDashboard) {
+        const parsedDashboard = JSON.parse(cachedDashboard);
+
+        if (parsedDashboard?.supplier?.id) {
+          hasCache = true;
+          setSupplier(parsedDashboard.supplier as Supplier);
+          setSubscription((parsedDashboard.subscription as Subscription) || null);
+          setStats(
+            parsedDashboard.stats || {
+              totalLeads: 0,
+              unansweredLeads: 0,
+              totalResponses: 0,
+              closedQuotes: 0,
+              unreadMessages: 0,
+            }
+          );
+          setLoading(false);
+        }
+      }
+    } catch (cacheError) {
+      console.error("Erro ao carregar cache do painel:", cacheError);
+    }
+
+    loadDashboard(!hasCache);
   }, []);
 
   if (loading) {
