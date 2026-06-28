@@ -708,7 +708,23 @@ export async function createQuoteResponse(
   return data;
 }
 
-export async function acceptQuoteResponse(responseId: string) {
+export async function acceptQuoteResponse(payloadOrResponseId: any) {
+  const responseId =
+    typeof payloadOrResponseId === "string"
+      ? payloadOrResponseId
+      : payloadOrResponseId?.quote_response_id ||
+        payloadOrResponseId?.response_id ||
+        payloadOrResponseId?.id;
+
+  const quoteRequestIdFromPayload =
+    typeof payloadOrResponseId === "object"
+      ? payloadOrResponseId?.quote_request_id
+      : null;
+
+  if (!responseId) {
+    throw new Error("ID da resposta do orçamento não informado.");
+  }
+
   const { data: responseData, error: responseError } = await supabase
     .from("quote_responses")
     .update({
@@ -724,7 +740,8 @@ export async function acceptQuoteResponse(responseId: string) {
     throw responseError;
   }
 
-  const quoteRequestId = responseData?.quote_request_id;
+  const quoteRequestId =
+    quoteRequestIdFromPayload || responseData?.quote_request_id;
 
   if (quoteRequestId) {
     await supabase
@@ -740,14 +757,37 @@ export async function acceptQuoteResponse(responseId: string) {
 }
 
 export async function requestQuoteAdjustment(
-  responseId: string,
-  adjustmentMessage: string
+  responseIdOrPayload: any,
+  adjustmentMessage?: string
 ) {
+  const responseId =
+    typeof responseIdOrPayload === "string"
+      ? responseIdOrPayload
+      : responseIdOrPayload?.quote_response_id ||
+        responseIdOrPayload?.response_id ||
+        responseIdOrPayload?.id;
+
+  const message =
+    adjustmentMessage ||
+    responseIdOrPayload?.adjustment_message ||
+    responseIdOrPayload?.message ||
+    responseIdOrPayload?.adjustment_request ||
+    "";
+
+  const quoteRequestIdFromPayload =
+    typeof responseIdOrPayload === "object"
+      ? responseIdOrPayload?.quote_request_id
+      : null;
+
+  if (!responseId) {
+    throw new Error("ID da resposta do orçamento não informado.");
+  }
+
   const { data: responseData, error: responseError } = await supabase
     .from("quote_responses")
     .update({
       status: "ajuste_solicitado",
-      adjustment_request: adjustmentMessage,
+      adjustment_request: message,
       adjustment_requested_at: new Date().toISOString(),
     })
     .eq("id", responseId)
@@ -759,7 +799,8 @@ export async function requestQuoteAdjustment(
     throw responseError;
   }
 
-  const quoteRequestId = responseData?.quote_request_id;
+  const quoteRequestId =
+    quoteRequestIdFromPayload || responseData?.quote_request_id;
 
   if (quoteRequestId) {
     await supabase
