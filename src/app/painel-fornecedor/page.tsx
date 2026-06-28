@@ -457,7 +457,7 @@ export default function PainelFornecedorPage() {
               Home
             </Link>
 
-            <Link href={`/fornecedor/${supplier.id}`} className="flex flex-col items-center gap-1">
+            <Link href="/painel-fornecedor/fotos" className="flex flex-col items-center gap-1">
               <ImageIcon className="w-5 h-5" />
               Mídias
             </Link>
