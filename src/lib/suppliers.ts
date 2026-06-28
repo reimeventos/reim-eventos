@@ -555,6 +555,97 @@ export async function getSupplierResponses(supplierId: string) {
   return data || [];
 }
 
+export async function getQuoteResponseByRequestId(quoteRequestId: string) {
+  const { data, error } = await supabase
+    .from("quote_responses")
+    .select("*")
+    .eq("quote_request_id", quoteRequestId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Erro ao buscar resposta do orçamento:", error);
+    return null;
+  }
+
+  return data;
+}
+
+export async function acceptQuoteResponse(responseId: string) {
+  const { data: responseData, error: responseError } = await supabase
+    .from("quote_responses")
+    .update({
+      status: "aceito",
+      accepted_at: new Date().toISOString(),
+    })
+    .eq("id", responseId)
+    .select("*")
+    .single();
+
+  if (responseError) {
+    console.error("Erro ao aceitar resposta do orçamento:", responseError);
+    throw responseError;
+  }
+
+  const quoteRequestId = responseData?.quote_request_id;
+
+  if (quoteRequestId) {
+    const { error: requestError } = await supabase
+      .from("quote_requests")
+      .update({
+        status: "aceito",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", quoteRequestId);
+
+    if (requestError) {
+      console.error("Erro ao atualizar pedido de orçamento:", requestError);
+    }
+  }
+
+  return responseData;
+}
+
+export async function requestQuoteAdjustment(
+  responseId: string,
+  adjustmentMessage: string
+) {
+  const { data: responseData, error: responseError } = await supabase
+    .from("quote_responses")
+    .update({
+      status: "ajuste_solicitado",
+      adjustment_request: adjustmentMessage,
+      adjustment_requested_at: new Date().toISOString(),
+    })
+    .eq("id", responseId)
+    .select("*")
+    .single();
+
+  if (responseError) {
+    console.error("Erro ao solicitar ajuste no orçamento:", responseError);
+    throw responseError;
+  }
+
+  const quoteRequestId = responseData?.quote_request_id;
+
+  if (quoteRequestId) {
+    const { error: requestError } = await supabase
+      .from("quote_requests")
+      .update({
+        status: "ajuste_solicitado",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", quoteRequestId);
+
+    if (requestError) {
+      console.error("Erro ao atualizar pedido com ajuste:", requestError);
+    }
+  }
+
+  return responseData;
+}
+
 /* Compatibilidade com nomes antigos usados nas páginas */
 export const getSuppliers = listSuppliers;
 export const getAllSuppliers = listSuppliers;
@@ -616,6 +707,9 @@ const suppliersApi = {
   getSupplierQuoteRequests,
   getSupplierUnansweredQuoteRequests,
   getSupplierResponses,
+  getQuoteResponseByRequestId,
+  acceptQuoteResponse,
+  requestQuoteAdjustment,
   getSupplierDisplayName,
 };
 
