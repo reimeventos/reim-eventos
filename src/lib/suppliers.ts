@@ -5,40 +5,31 @@ export type Supplier = {
   owner_id?: string | null;
   user_id?: string | null;
   category_id?: string | null;
-
   status?: string | null;
   is_featured?: boolean | null;
-
   business_name?: string | null;
   company_name?: string | null;
   fantasy_name?: string | null;
   name?: string | null;
   title?: string | null;
-
   description?: string | null;
   short_description?: string | null;
-
   category?: string | null;
   city?: string | null;
   state?: string | null;
   address?: string | null;
-
   phone?: string | null;
   whatsapp?: string | null;
   email?: string | null;
   instagram?: string | null;
   website?: string | null;
-
   cover_url?: string | null;
   logo_url?: string | null;
   image_url?: string | null;
-
   price_from?: number | null;
   rating?: number | null;
-
   created_at?: string | null;
   updated_at?: string | null;
-
   [key: string]: any;
 };
 
@@ -51,7 +42,6 @@ export type SupplierMedia = {
   type?: string | null;
   position?: number | null;
   created_at?: string | null;
-
   [key: string]: any;
 };
 
@@ -62,7 +52,6 @@ export type SupplierCategory = {
   slug?: string | null;
   icon?: string | null;
   created_at?: string | null;
-
   [key: string]: any;
 };
 
@@ -77,7 +66,6 @@ export type SupplierSubscription = {
   ends_at?: string | null;
   trial_ends_at?: string | null;
   created_at?: string | null;
-
   [key: string]: any;
 };
 
@@ -89,7 +77,6 @@ export type SupplierVisibility = {
   public_badge?: string | null;
   public_label?: string | null;
   public_notice?: string | null;
-
   [key: string]: any;
 };
 
@@ -139,12 +126,24 @@ export async function getSupplierByOwner(ownerId: string) {
   return data as Supplier | null;
 }
 
+export async function getSupplierByUserId(userId: string) {
+  return getSupplierByOwner(userId);
+}
+
 export async function getCurrentSupplier() {
   const user = await getCurrentUser();
 
   if (!user) return null;
 
   return getSupplierByOwner(user.id);
+}
+
+export async function getMySupplier() {
+  return getCurrentSupplier();
+}
+
+export async function getMySupplierProfile() {
+  return getCurrentSupplier();
 }
 
 export async function getSupplierById(id: string) {
@@ -157,6 +156,29 @@ export async function getSupplierById(id: string) {
   if (error) {
     console.error("Erro ao buscar fornecedor por ID:", error);
     return null;
+  }
+
+  return data as Supplier | null;
+}
+
+export async function getSupplier(id: string) {
+  return getSupplierById(id);
+}
+
+export async function getSupplierDetails(id: string) {
+  return getSupplierById(id);
+}
+
+export async function getSupplierBySlug(idOrSlug: string) {
+  const { data, error } = await supabase
+    .from("suppliers")
+    .select("*")
+    .or(`id.eq.${idOrSlug},slug.eq.${idOrSlug}`)
+    .maybeSingle();
+
+  if (error) {
+    const fallback = await getSupplierById(idOrSlug);
+    return fallback;
   }
 
   return data as Supplier | null;
@@ -188,6 +210,14 @@ export async function listSuppliers() {
   return (data || []) as Supplier[];
 }
 
+export async function getSuppliers() {
+  return listSuppliers();
+}
+
+export async function getAllSuppliers() {
+  return listSuppliers();
+}
+
 export async function getActiveSuppliers() {
   const { data, error } = await supabase
     .from("suppliers")
@@ -202,6 +232,10 @@ export async function getActiveSuppliers() {
   }
 
   return (data || []) as Supplier[];
+}
+
+export async function getPublicSuppliers() {
+  return getActiveSuppliers();
 }
 
 export async function getFeaturedSuppliers(limit = 8) {
@@ -351,6 +385,18 @@ export async function getSupplierMedia(supplierId: string) {
   return (data || []) as SupplierMedia[];
 }
 
+export async function getSupplierImages(supplierId: string) {
+  return getSupplierMedia(supplierId);
+}
+
+export async function getMediaBySupplier(supplierId: string) {
+  return getSupplierMedia(supplierId);
+}
+
+export async function getSupplierPhotos(supplierId: string) {
+  return getSupplierMedia(supplierId);
+}
+
 export async function addSupplierMedia(payload: Partial<SupplierMedia>) {
   const { data, error } = await supabase
     .from("media")
@@ -414,6 +460,14 @@ export async function getCategories() {
   return getSupplierCategories();
 }
 
+export async function getAllCategories() {
+  return getSupplierCategories();
+}
+
+export async function listCategories() {
+  return getSupplierCategories();
+}
+
 export async function getSupplierSubscription(supplierId: string) {
   const { data, error } = await supabase
     .from("supplier_subscriptions")
@@ -429,6 +483,14 @@ export async function getSupplierSubscription(supplierId: string) {
   }
 
   return data as SupplierSubscription | null;
+}
+
+export async function getSupplierPlan(supplierId: string) {
+  return getSupplierSubscription(supplierId);
+}
+
+export async function getSupplierSubscriptionStatus(supplierId: string) {
+  return getSupplierSubscription(supplierId);
 }
 
 export async function getSupplierVisibility(supplierId: string) {
@@ -525,6 +587,14 @@ export async function getSupplierQuoteRequests(supplierId: string) {
   return data || [];
 }
 
+export async function getSupplierLeads(supplierId: string) {
+  return getSupplierQuoteRequests(supplierId);
+}
+
+export async function getQuoteRequestsBySupplier(supplierId: string) {
+  return getSupplierQuoteRequests(supplierId);
+}
+
 export async function getSupplierUnansweredQuoteRequests(ownerId: string) {
   const { data, error } = await supabase
     .from("supplier_unanswered_quote_requests")
@@ -555,6 +625,10 @@ export async function getSupplierResponses(supplierId: string) {
   return data || [];
 }
 
+export async function getQuoteResponsesBySupplier(supplierId: string) {
+  return getSupplierResponses(supplierId);
+}
+
 export async function getSupplierLeadById(leadId: string) {
   const { data, error } = await supabase
     .from("quote_requests")
@@ -568,6 +642,10 @@ export async function getSupplierLeadById(leadId: string) {
   }
 
   return data;
+}
+
+export async function getSupplierLead(leadId: string) {
+  return getSupplierLeadById(leadId);
 }
 
 export async function getQuoteResponseByRequestId(quoteRequestId: string) {
@@ -585,6 +663,10 @@ export async function getQuoteResponseByRequestId(quoteRequestId: string) {
   }
 
   return data;
+}
+
+export async function getQuoteResponse(quoteRequestId: string) {
+  return getQuoteResponseByRequestId(quoteRequestId);
 }
 
 export async function createQuoteResponse(
@@ -703,38 +785,182 @@ export async function requestQuoteAdjustment(
   return responseData;
 }
 
-/* Compatibilidade com nomes antigos usados nas páginas */
-export const getSuppliers = listSuppliers;
-export const getAllSuppliers = listSuppliers;
-export const getPublicSuppliers = getActiveSuppliers;
-export const getSupplier = getSupplierById;
-export const getSupplierDetails = getSupplierById;
-export const getSupplierBySlug = getSupplierById;
-export const getSupplierByUserId = getSupplierByOwner;
-export const getMySupplier = getCurrentSupplier;
-export const getMySupplierProfile = getCurrentSupplier;
-export const getSupplierImages = getSupplierMedia;
-export const getMediaBySupplier = getSupplierMedia;
-export const getSupplierPhotos = getSupplierMedia;
-export const getAllCategories = getSupplierCategories;
-export const listCategories = getSupplierCategories;
-export const getSupplierPlan = getSupplierSubscription;
-export const getSupplierSubscriptionStatus = getSupplierSubscription;
-export const getSupplierLeads = getSupplierQuoteRequests;
-export const getSupplierLead = getSupplierLeadById;
-export const getQuoteRequestsBySupplier = getSupplierQuoteRequests;
-export const getQuoteResponsesBySupplier = getSupplierResponses;
-export const getQuoteResponse = getQuoteResponseByRequestId;
+/* Fornecedores salvos / Meu Evento */
+
+async function resolveCustomerId(customerId?: string | null) {
+  if (customerId) return customerId;
+
+  const user = await getCurrentUser();
+
+  return user?.id || null;
+}
+
+export async function isSupplierSaved(
+  supplierId: string,
+  customerId?: string | null
+) {
+  const finalCustomerId = await resolveCustomerId(customerId);
+
+  if (!finalCustomerId || !supplierId) return false;
+
+  const { data, error } = await supabase
+    .from("saved_suppliers")
+    .select("id")
+    .eq("supplier_id", supplierId)
+    .eq("customer_id", finalCustomerId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Erro ao verificar fornecedor salvo:", error);
+    return false;
+  }
+
+  return !!data;
+}
+
+export async function saveSupplierForCustomer(
+  customerId: string,
+  supplierId: string
+) {
+  if (!customerId || !supplierId) return null;
+
+  const { data: existing } = await supabase
+    .from("saved_suppliers")
+    .select("*")
+    .eq("customer_id", customerId)
+    .eq("supplier_id", supplierId)
+    .maybeSingle();
+
+  if (existing) return existing;
+
+  const { data, error } = await supabase
+    .from("saved_suppliers")
+    .insert({
+      customer_id: customerId,
+      supplier_id: supplierId,
+    })
+    .select("*")
+    .single();
+
+  if (error) {
+    console.error("Erro ao salvar fornecedor:", error);
+    throw error;
+  }
+
+  return data;
+}
+
+export async function saveSupplier(
+  supplierId: string,
+  customerId?: string | null
+) {
+  const finalCustomerId = await resolveCustomerId(customerId);
+
+  if (!finalCustomerId) {
+    throw new Error("Usuário não autenticado para salvar fornecedor.");
+  }
+
+  return saveSupplierForCustomer(finalCustomerId, supplierId);
+}
+
+export async function unsaveSupplierForCustomer(
+  customerId: string,
+  supplierId: string
+) {
+  if (!customerId || !supplierId) return false;
+
+  const { error } = await supabase
+    .from("saved_suppliers")
+    .delete()
+    .eq("customer_id", customerId)
+    .eq("supplier_id", supplierId);
+
+  if (error) {
+    console.error("Erro ao remover fornecedor salvo:", error);
+    throw error;
+  }
+
+  return true;
+}
+
+export async function unsaveSupplier(
+  supplierId: string,
+  customerId?: string | null
+) {
+  const finalCustomerId = await resolveCustomerId(customerId);
+
+  if (!finalCustomerId) {
+    throw new Error("Usuário não autenticado para remover fornecedor.");
+  }
+
+  return unsaveSupplierForCustomer(finalCustomerId, supplierId);
+}
+
+export async function getSavedSuppliers(customerId?: string | null) {
+  const finalCustomerId = await resolveCustomerId(customerId);
+
+  if (!finalCustomerId) return [];
+
+  const { data, error } = await supabase
+    .from("saved_suppliers")
+    .select("*, suppliers(*)")
+    .eq("customer_id", finalCustomerId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Erro ao buscar fornecedores salvos:", error);
+    return [];
+  }
+
+  return data || [];
+}
+
+export async function getCustomerSavedSuppliers(customerId: string) {
+  return getSavedSuppliers(customerId);
+}
+
+export async function getSavedSuppliersByCustomer(customerId: string) {
+  return getSavedSuppliers(customerId);
+}
+
+export async function toggleSaveSupplier(
+  supplierId: string,
+  customerId?: string | null
+) {
+  const finalCustomerId = await resolveCustomerId(customerId);
+
+  if (!finalCustomerId) {
+    throw new Error("Usuário não autenticado.");
+  }
+
+  const alreadySaved = await isSupplierSaved(supplierId, finalCustomerId);
+
+  if (alreadySaved) {
+    await unsaveSupplierForCustomer(finalCustomerId, supplierId);
+    return { saved: false };
+  }
+
+  await saveSupplierForCustomer(finalCustomerId, supplierId);
+  return { saved: true };
+}
 
 const suppliersApi = {
   getSupabase,
   getCurrentUser,
   getCurrentSupplier,
+  getMySupplier,
+  getMySupplierProfile,
+
   getSupplierByOwner,
+  getSupplierByUserId,
   getSupplierById,
+  getSupplier,
+  getSupplierDetails,
+  getSupplierBySlug,
   getSupplierPublicById,
   getSupplierForEdit,
   getSupplierProfile,
+
   listSuppliers,
   getSuppliers,
   getAllSuppliers,
@@ -742,12 +968,14 @@ const suppliersApi = {
   getActiveSuppliers,
   getFeaturedSuppliers,
   searchSuppliers,
+
   createSupplier,
   updateSupplier,
   updateSupplierProfile,
   saveSupplierProfile,
   upsertSupplier,
   ensureSupplierForUser,
+
   getSupplierMedia,
   getSupplierImages,
   getMediaBySupplier,
@@ -755,30 +983,45 @@ const suppliersApi = {
   addSupplierMedia,
   updateSupplierMedia,
   deleteSupplierMedia,
+
   getSupplierCategories,
   getCategories,
   getAllCategories,
   listCategories,
+
   getSupplierSubscription,
   getSupplierPlan,
   getSupplierSubscriptionStatus,
   getSupplierVisibility,
   getSupplierPublicVisibility,
+
   getSupplierUnansweredLeadsCount,
   getSupplierStats,
   getSupplierQuoteRequests,
+  getSupplierLeads,
+  getQuoteRequestsBySupplier,
   getSupplierUnansweredQuoteRequests,
   getSupplierResponses,
-  getSupplierLeads,
-  getSupplierLead,
-  getSupplierLeadById,
-  getQuoteRequestsBySupplier,
   getQuoteResponsesBySupplier,
+  getSupplierLeadById,
+  getSupplierLead,
+
   getQuoteResponseByRequestId,
   getQuoteResponse,
   createQuoteResponse,
   acceptQuoteResponse,
   requestQuoteAdjustment,
+
+  isSupplierSaved,
+  saveSupplier,
+  saveSupplierForCustomer,
+  unsaveSupplier,
+  unsaveSupplierForCustomer,
+  getSavedSuppliers,
+  getCustomerSavedSuppliers,
+  getSavedSuppliersByCustomer,
+  toggleSaveSupplier,
+
   getSupplierDisplayName,
 };
 
