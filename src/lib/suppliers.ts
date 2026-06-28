@@ -177,8 +177,7 @@ export async function getSupplierBySlug(idOrSlug: string) {
     .maybeSingle();
 
   if (error) {
-    const fallback = await getSupplierById(idOrSlug);
-    return fallback;
+    return getSupplierById(idOrSlug);
   }
 
   return data as Supplier | null;
@@ -329,6 +328,16 @@ export async function updateSupplierProfile(
   payload: Partial<Supplier>
 ) {
   return updateSupplier(id, payload);
+}
+
+export async function updateMySupplierProfile(payload: Partial<Supplier>) {
+  const supplier = await getCurrentSupplier();
+
+  if (!supplier?.id) {
+    throw new Error("Fornecedor não encontrado para o usuário atual.");
+  }
+
+  return updateSupplier(supplier.id, payload);
 }
 
 export async function saveSupplierProfile(
@@ -530,33 +539,21 @@ export async function getSupplierStats(
   supplierId: string,
   ownerId?: string | null
 ) {
-  const { count: totalLeads, error: totalLeadsError } = await supabase
+  const { count: totalLeads } = await supabase
     .from("quote_requests")
     .select("id", { count: "exact", head: true })
     .eq("supplier_id", supplierId);
 
-  if (totalLeadsError) {
-    console.error("Erro ao contar leads:", totalLeadsError);
-  }
-
-  const { count: totalResponses, error: responsesError } = await supabase
+  const { count: totalResponses } = await supabase
     .from("quote_responses")
     .select("id", { count: "exact", head: true })
     .eq("supplier_id", supplierId);
 
-  if (responsesError) {
-    console.error("Erro ao contar respostas:", responsesError);
-  }
-
-  const { count: closedQuotes, error: closedQuotesError } = await supabase
+  const { count: closedQuotes } = await supabase
     .from("quote_requests")
     .select("id", { count: "exact", head: true })
     .eq("supplier_id", supplierId)
     .in("status", ["aceito", "accepted", "fechado", "closed"]);
-
-  if (closedQuotesError) {
-    console.error("Erro ao contar fechados:", closedQuotesError);
-  }
 
   let unansweredLeads = 0;
 
@@ -730,17 +727,13 @@ export async function acceptQuoteResponse(responseId: string) {
   const quoteRequestId = responseData?.quote_request_id;
 
   if (quoteRequestId) {
-    const { error: requestError } = await supabase
+    await supabase
       .from("quote_requests")
       .update({
         status: "aceito",
         updated_at: new Date().toISOString(),
       })
       .eq("id", quoteRequestId);
-
-    if (requestError) {
-      console.error("Erro ao atualizar pedido de orçamento:", requestError);
-    }
   }
 
   return responseData;
@@ -769,17 +762,13 @@ export async function requestQuoteAdjustment(
   const quoteRequestId = responseData?.quote_request_id;
 
   if (quoteRequestId) {
-    const { error: requestError } = await supabase
+    await supabase
       .from("quote_requests")
       .update({
         status: "ajuste_solicitado",
         updated_at: new Date().toISOString(),
       })
       .eq("id", quoteRequestId);
-
-    if (requestError) {
-      console.error("Erro ao atualizar pedido com ajuste:", requestError);
-    }
   }
 
   return responseData;
@@ -915,6 +904,10 @@ export async function getSavedSuppliers(customerId?: string | null) {
   return data || [];
 }
 
+export async function listSavedSuppliers(customerId?: string | null) {
+  return getSavedSuppliers(customerId);
+}
+
 export async function getCustomerSavedSuppliers(customerId: string) {
   return getSavedSuppliers(customerId);
 }
@@ -950,6 +943,7 @@ const suppliersApi = {
   getCurrentSupplier,
   getMySupplier,
   getMySupplierProfile,
+  updateMySupplierProfile,
 
   getSupplierByOwner,
   getSupplierByUserId,
@@ -1018,6 +1012,7 @@ const suppliersApi = {
   unsaveSupplier,
   unsaveSupplierForCustomer,
   getSavedSuppliers,
+  listSavedSuppliers,
   getCustomerSavedSuppliers,
   getSavedSuppliersByCustomer,
   toggleSaveSupplier,
