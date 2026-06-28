@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -17,7 +17,7 @@ import {
   Store,
   User,
 } from "lucide-react";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { supabase } from "../../lib/supabase";
 
 type Supplier = {
   id: string;
@@ -103,11 +103,11 @@ function isActiveSubscription(subscription: Subscription | null) {
 
 export default function PainelFornecedorPage() {
   const router = useRouter();
-  const supabase = useMemo(() => createClientComponentClient(), []);
 
   const [loading, setLoading] = useState(true);
   const [supplier, setSupplier] = useState<Supplier | null>(null);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
+
   const [stats, setStats] = useState<DashboardStats>({
     totalLeads: 0,
     unansweredLeads: 0,
@@ -119,6 +119,7 @@ export default function PainelFornecedorPage() {
   const supplierName = getSupplierName(supplier);
   const planName = getPlanName(subscription, supplier);
   const planActive = isActiveSubscription(subscription);
+
   const planEndDate =
     formatDateBR(subscription?.current_period_end) ||
     formatDateBR(subscription?.ends_at) ||
@@ -154,9 +155,10 @@ export default function PainelFornecedorPage() {
         return;
       }
 
-      setSupplier(supplierData as Supplier);
+      const currentSupplier = supplierData as Supplier;
+      setSupplier(currentSupplier);
 
-      const supplierId = supplierData.id;
+      const supplierId = currentSupplier.id;
 
       const { data: subscriptionData, error: subscriptionError } = await supabase
         .from("supplier_subscriptions")
@@ -214,12 +216,20 @@ export default function PainelFornecedorPage() {
       let unreadMessagesCount = 0;
 
       try {
-        const { data: supplierQuotes } = await supabase
+        const { data: supplierQuotes, error: supplierQuotesError } = await supabase
           .from("quote_requests")
           .select("id")
           .eq("supplier_id", supplierId);
 
-        const quoteIds = supplierQuotes?.map((item: { id: string }) => item.id) || [];
+        if (supplierQuotesError) {
+          console.error(
+            "Erro ao buscar orçamentos do fornecedor:",
+            supplierQuotesError
+          );
+        }
+
+        const quoteIds =
+          supplierQuotes?.map((item: { id: string }) => item.id) || [];
 
         if (quoteIds.length > 0) {
           const { count: messagesCount, error: messagesError } = await supabase
@@ -291,7 +301,7 @@ export default function PainelFornecedorPage() {
 
           <Link
             href="/fornecedor/cadastro"
-            className="w-full h-13 rounded-2xl bg-black text-white font-black flex items-center justify-center"
+            className="w-full h-[52px] rounded-2xl bg-black text-white font-black flex items-center justify-center"
           >
             Criar minha vitrine
           </Link>
@@ -312,6 +322,7 @@ export default function PainelFornecedorPage() {
                 <p className="text-xs font-bold text-amber-300 uppercase tracking-wide">
                   Painel do fornecedor
                 </p>
+
                 <h1 className="text-2xl font-black mt-1 leading-tight">
                   Olá, {supplierName}
                 </h1>
@@ -336,6 +347,7 @@ export default function PainelFornecedorPage() {
                   <p className="text-sm text-white/75 font-bold">
                     Status da vitrine
                   </p>
+
                   <p className="font-black text-amber-300 flex items-center gap-1">
                     <Star className="w-4 h-4 fill-amber-300" />
                     4.9 • {planName}
@@ -354,6 +366,7 @@ export default function PainelFornecedorPage() {
                   <p className="font-black text-slate-900">
                     Atenção nos leads
                   </p>
+
                   <p className="text-sm font-bold text-slate-700">
                     {stats.unansweredLeads} lead(s) novo(s) aguardando resposta.
                   </p>
@@ -436,6 +449,7 @@ export default function PainelFornecedorPage() {
                 <p className="text-[11px] font-black text-emerald-600/70 uppercase">
                   Nas buscas
                 </p>
+
                 <p className="font-black text-emerald-700 mt-2">
                   {supplier.status === "ativo" || supplier.status === "active"
                     ? "Aparecendo"
@@ -447,6 +461,7 @@ export default function PainelFornecedorPage() {
                 <p className="text-[11px] font-black text-emerald-600/70 uppercase">
                   Orçamentos
                 </p>
+
                 <p className="font-black text-emerald-700 mt-2">
                   {supplier.status === "ativo" || supplier.status === "active"
                     ? "Recebendo"
@@ -581,6 +596,7 @@ export default function PainelFornecedorPage() {
 
               <div>
                 <p className="font-black">Regra dos alertas</p>
+
                 <p className="text-sm text-white/70 mt-1 leading-relaxed">
                   Leads novos ficam destacados até que o fornecedor envie uma
                   resposta ao cliente.
