@@ -221,7 +221,10 @@ export async function getFeaturedSuppliers(limit = 8) {
   return (data || []) as Supplier[];
 }
 
-export async function searchSuppliers(searchTerm = "", categoryId?: string | null) {
+export async function searchSuppliers(
+  searchTerm = "",
+  categoryId?: string | null
+) {
   let query = supabase
     .from("suppliers")
     .select("*")
@@ -287,11 +290,17 @@ export async function updateSupplier(id: string, payload: Partial<Supplier>) {
   return data as Supplier;
 }
 
-export async function updateSupplierProfile(id: string, payload: Partial<Supplier>) {
+export async function updateSupplierProfile(
+  id: string,
+  payload: Partial<Supplier>
+) {
   return updateSupplier(id, payload);
 }
 
-export async function saveSupplierProfile(id: string, payload: Partial<Supplier>) {
+export async function saveSupplierProfile(
+  id: string,
+  payload: Partial<Supplier>
+) {
   return updateSupplier(id, payload);
 }
 
@@ -310,7 +319,10 @@ export async function upsertSupplier(payload: Partial<Supplier>) {
   return data as Supplier;
 }
 
-export async function ensureSupplierForUser(ownerId: string, payload?: Partial<Supplier>) {
+export async function ensureSupplierForUser(
+  ownerId: string,
+  payload?: Partial<Supplier>
+) {
   const existingSupplier = await getSupplierByOwner(ownerId);
 
   if (existingSupplier) return existingSupplier;
@@ -354,7 +366,10 @@ export async function addSupplierMedia(payload: Partial<SupplierMedia>) {
   return data as SupplierMedia;
 }
 
-export async function updateSupplierMedia(id: string, payload: Partial<SupplierMedia>) {
+export async function updateSupplierMedia(
+  id: string,
+  payload: Partial<SupplierMedia>
+) {
   const { data, error } = await supabase
     .from("media")
     .update(payload)
@@ -449,7 +464,10 @@ export async function getSupplierUnansweredLeadsCount(ownerId: string) {
   return count || 0;
 }
 
-export async function getSupplierStats(supplierId: string, ownerId?: string | null) {
+export async function getSupplierStats(
+  supplierId: string,
+  ownerId?: string | null
+) {
   const { count: totalLeads, error: totalLeadsError } = await supabase
     .from("quote_requests")
     .select("id", { count: "exact", head: true })
@@ -537,7 +555,25 @@ export async function getSupplierResponses(supplierId: string) {
   return data || [];
 }
 
-export default {
+/* Compatibilidade com nomes antigos usados nas páginas */
+export const getSuppliers = listSuppliers;
+export const getAllSuppliers = listSuppliers;
+export const getPublicSuppliers = getActiveSuppliers;
+export const getSupplier = getSupplierById;
+export const getSupplierDetails = getSupplierById;
+export const getSupplierBySlug = getSupplierById;
+export const getSupplierByUserId = getSupplierByOwner;
+export const getMySupplier = getCurrentSupplier;
+export const getMySupplierProfile = getCurrentSupplier;
+export const getSupplierImages = getSupplierMedia;
+export const getMediaBySupplier = getSupplierMedia;
+export const getSupplierPhotos = getSupplierMedia;
+export const getAllCategories = getSupplierCategories;
+export const listCategories = getSupplierCategories;
+export const getSupplierPlan = getSupplierSubscription;
+export const getSupplierSubscriptionStatus = getSupplierSubscription;
+
+const suppliersApi = {
   getSupabase,
   getCurrentUser,
   getCurrentSupplier,
@@ -547,6 +583,9 @@ export default {
   getSupplierForEdit,
   getSupplierProfile,
   listSuppliers,
+  getSuppliers,
+  getAllSuppliers,
+  getPublicSuppliers,
   getActiveSuppliers,
   getFeaturedSuppliers,
   searchSuppliers,
@@ -557,12 +596,19 @@ export default {
   upsertSupplier,
   ensureSupplierForUser,
   getSupplierMedia,
+  getSupplierImages,
+  getMediaBySupplier,
+  getSupplierPhotos,
   addSupplierMedia,
   updateSupplierMedia,
   deleteSupplierMedia,
   getSupplierCategories,
   getCategories,
+  getAllCategories,
+  listCategories,
   getSupplierSubscription,
+  getSupplierPlan,
+  getSupplierSubscriptionStatus,
   getSupplierVisibility,
   getSupplierPublicVisibility,
   getSupplierUnansweredLeadsCount,
@@ -572,3 +618,5 @@ export default {
   getSupplierResponses,
   getSupplierDisplayName,
 };
+
+export default suppliersApi;
