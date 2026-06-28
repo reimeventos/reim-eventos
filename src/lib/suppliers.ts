@@ -555,6 +555,21 @@ export async function getSupplierResponses(supplierId: string) {
   return data || [];
 }
 
+export async function getSupplierLeadById(leadId: string) {
+  const { data, error } = await supabase
+    .from("quote_requests")
+    .select("*")
+    .eq("id", leadId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Erro ao buscar lead do fornecedor:", error);
+    return null;
+  }
+
+  return data;
+}
+
 export async function getQuoteResponseByRequestId(quoteRequestId: string) {
   const { data, error } = await supabase
     .from("quote_responses")
@@ -567,6 +582,48 @@ export async function getQuoteResponseByRequestId(quoteRequestId: string) {
   if (error) {
     console.error("Erro ao buscar resposta do orçamento:", error);
     return null;
+  }
+
+  return data;
+}
+
+export async function createQuoteResponse(
+  payloadOrQuoteRequestId: any,
+  maybePayload?: any
+) {
+  const payload =
+    typeof payloadOrQuoteRequestId === "string"
+      ? {
+          ...(maybePayload || {}),
+          quote_request_id: payloadOrQuoteRequestId,
+        }
+      : payloadOrQuoteRequestId;
+
+  const { data, error } = await supabase
+    .from("quote_responses")
+    .insert(payload)
+    .select("*")
+    .single();
+
+  if (error) {
+    console.error("Erro ao criar resposta do orçamento:", error);
+    throw error;
+  }
+
+  const quoteRequestId = data?.quote_request_id || payload?.quote_request_id;
+
+  if (quoteRequestId) {
+    const { error: requestError } = await supabase
+      .from("quote_requests")
+      .update({
+        status: "respondido",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", quoteRequestId);
+
+    if (requestError) {
+      console.error("Erro ao atualizar status do pedido:", requestError);
+    }
   }
 
   return data;
@@ -663,6 +720,11 @@ export const getAllCategories = getSupplierCategories;
 export const listCategories = getSupplierCategories;
 export const getSupplierPlan = getSupplierSubscription;
 export const getSupplierSubscriptionStatus = getSupplierSubscription;
+export const getSupplierLeads = getSupplierQuoteRequests;
+export const getSupplierLead = getSupplierLeadById;
+export const getQuoteRequestsBySupplier = getSupplierQuoteRequests;
+export const getQuoteResponsesBySupplier = getSupplierResponses;
+export const getQuoteResponse = getQuoteResponseByRequestId;
 
 const suppliersApi = {
   getSupabase,
@@ -707,7 +769,14 @@ const suppliersApi = {
   getSupplierQuoteRequests,
   getSupplierUnansweredQuoteRequests,
   getSupplierResponses,
+  getSupplierLeads,
+  getSupplierLead,
+  getSupplierLeadById,
+  getQuoteRequestsBySupplier,
+  getQuoteResponsesBySupplier,
   getQuoteResponseByRequestId,
+  getQuoteResponse,
+  createQuoteResponse,
   acceptQuoteResponse,
   requestQuoteAdjustment,
   getSupplierDisplayName,
