@@ -1,424 +1,272 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
-  AlertCircle,
-  ArrowLeft,
-  BarChart3,
   Bell,
-  Camera,
   Crown,
+  Edit3,
+  Eye,
   FileText,
-  ImageIcon,
+  Loader2,
+  LogOut,
   MessageCircle,
-  Pencil,
-  Settings,
+  Search,
   Star,
-  ToggleRight,
-  WalletCards,
-} from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+  Store,
+  User,
+} from "lucide-react";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
-function getCategoryName(supplier: any) {
-  if (!supplier) return 'Categoria não informada';
+type Supplier = {
+  id: string;
+  owner_id?: string | null;
+  status?: string | null;
+  is_featured?: boolean | null;
+  created_at?: string | null;
+  business_name?: string | null;
+  company_name?: string | null;
+  fantasy_name?: string | null;
+  name?: string | null;
+  title?: string | null;
+  category?: string | null;
+  city?: string | null;
+  state?: string | null;
+};
 
-  if (Array.isArray(supplier.categories)) {
-    return supplier.categories[0]?.name || 'Categoria não informada';
-  }
+type Subscription = {
+  id?: string;
+  supplier_id?: string;
+  status?: string | null;
+  plan_name?: string | null;
+  plan?: string | null;
+  public_label?: string | null;
+  current_period_end?: string | null;
+  ends_at?: string | null;
+  trial_ends_at?: string | null;
+  created_at?: string | null;
+};
 
-  return supplier.categories?.name || 'Categoria não informada';
+type DashboardStats = {
+  totalLeads: number;
+  unansweredLeads: number;
+  totalResponses: number;
+  closedQuotes: number;
+  unreadMessages: number;
+};
+
+function getSupplierName(supplier: Supplier | null) {
+  if (!supplier) return "Fornecedor";
+
+  return (
+    supplier.business_name ||
+    supplier.company_name ||
+    supplier.fantasy_name ||
+    supplier.name ||
+    supplier.title ||
+    "Minha vitrine"
+  );
 }
 
-function formatPrice(value: any) {
-  if (!value) return 'R$ 0';
+function formatDateBR(dateValue?: string | null) {
+  if (!dateValue) return null;
 
-  const numberValue = Number(value);
+  const date = new Date(dateValue);
 
-  if (!Number.isNaN(numberValue)) {
-    return numberValue.toLocaleString('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    });
-  }
+  if (Number.isNaN(date.getTime())) return null;
 
-  return String(value);
+  return date.toLocaleDateString("pt-BR");
 }
 
-function isPendingLead(status?: string) {
-  return status === 'novo' || status === 'aguardando_resposta' || !status;
-}
-
-
-function formatDate(date?: string) {
-  if (!date) return 'Não informado';
-
-  const [year, month, day] = String(date).split('-');
-
-  if (!year || !month || !day) return date;
-
-  return `${day}/${month}/${year}`;
-}
-
-function getDaysUntil(date?: string) {
-  if (!date) return null;
-
-  const today = new Date();
-  const target = new Date(date);
-
-  today.setHours(0, 0, 0, 0);
-  target.setHours(0, 0, 0, 0);
-
-  const diff = target.getTime() - today.getTime();
-
-  return Math.ceil(diff / (1000 * 60 * 60 * 24));
-}
-
-function getSubscriptionInfo(subscription: any, visibility?: any) {
-  if (visibility && visibility.can_receive_quote === false) {
-    if (visibility.public_badge === 'novo_no_reim') {
-      return {
-        label: 'Perfil pendente',
-        detail:
-          'Seu teste grátis está ativo, mas sua vitrine ainda precisa estar com perfil ativo para aparecer e responder leads.',
-        tone: 'warning',
-        planLabel: 'Teste grátis',
-        statusLabel: 'Perfil pendente',
-        isExpired: true,
-        isBlocked: true,
-        daysLeft: null as number | null,
-      };
-    }
-
-    if (visibility.public_badge === 'pendente') {
-      return {
-        label: 'Pagamento pendente',
-        detail: 'Aguarde a confirmação do pagamento pelo admin REIM.',
-        tone: 'warning',
-        planLabel:
-          subscription?.plan === 'premium'
-            ? 'Premium Destaque'
-            : subscription?.plan === 'profissional'
-              ? 'Profissional'
-              : 'Plano pendente',
-        statusLabel: 'Pendente',
-        isExpired: false,
-        isBlocked: true,
-        daysLeft: null as number | null,
-      };
-    }
-
-    if (visibility.public_badge === 'sem_assinatura') {
-      return {
-        label: 'Sem plano ativo',
-        detail: 'Inicie o teste grátis de 7 dias ou escolha um plano para receber e responder leads.',
-        tone: 'warning',
-        planLabel: 'Sem plano',
-        statusLabel: 'Sem assinatura',
-        isExpired: true,
-        isBlocked: true,
-        daysLeft: null as number | null,
-      };
-    }
-
-    if (visibility.public_badge === 'expirado' || visibility.public_badge === 'cancelado') {
-      return {
-        label:
-          visibility.public_badge === 'cancelado'
-            ? 'Assinatura cancelada'
-            : 'Assinatura expirada',
-        detail: 'Escolha o plano Profissional ou Premium para continuar recebendo leads.',
-        tone: 'danger',
-        planLabel:
-          subscription?.plan === 'premium'
-            ? 'Premium Destaque'
-            : subscription?.plan === 'profissional'
-              ? 'Profissional'
-              : subscription?.plan === 'teste_7_dias'
-                ? 'Teste grátis'
-                : 'Sem plano',
-        statusLabel: visibility.public_badge === 'cancelado' ? 'Cancelado' : 'Expirado',
-        isExpired: true,
-        isBlocked: true,
-        daysLeft: null as number | null,
-      };
-    }
-
-    return {
-      label: 'Vitrine indisponível',
-      detail: 'Sua vitrine não está habilitada para aparecer nas buscas ou responder leads neste momento.',
-      tone: 'danger',
-      planLabel: 'Indisponível',
-      statusLabel: 'Bloqueado',
-      isExpired: true,
-      isBlocked: true,
-      daysLeft: null as number | null,
-    };
-  }
-
+function getPlanName(subscription: Subscription | null, supplier: Supplier | null) {
   if (!subscription) {
-    return {
-      label: 'Sem plano ativo',
-      detail: 'Inicie o teste grátis de 7 dias ou escolha um plano.',
-      tone: 'warning',
-      planLabel: 'Sem plano',
-      statusLabel: 'Sem assinatura',
-      isExpired: true,
-      isBlocked: true,
-      daysLeft: null as number | null,
-    };
+    if (supplier?.is_featured) return "Premium Destaque";
+    return "Plano gratuito";
   }
 
-  const plan = subscription.plan || '';
-  const status = subscription.status || '';
-  const dueDate = subscription.due_date || '';
-  const trialEndsAt = subscription.trial_ends_at || '';
-  const daysLeft = getDaysUntil(dueDate || trialEndsAt);
-
-  const expiredByDate = daysLeft !== null && daysLeft < 0;
-  const isExpired =
-    status === 'expirado' ||
-    status === 'cancelado' ||
-    (status === 'teste' && expiredByDate);
-
-  if (status === 'teste' && !isExpired) {
-    return {
-      label: 'Teste grátis ativo',
-      detail:
-        daysLeft === 0
-          ? 'Seu teste vence hoje. Escolha um plano para continuar sem interrupção.'
-          : `Seu teste grátis vence em ${daysLeft} dia(s).`,
-      tone: 'info',
-      planLabel: 'Teste grátis',
-      statusLabel: 'Teste 7 dias',
-      isExpired: false,
-      isBlocked: false,
-      daysLeft,
-    };
-  }
-
-  if (status === 'pendente') {
-    return {
-      label: 'Pagamento pendente',
-      detail: 'Aguarde a confirmação do pagamento pelo admin REIM.',
-      tone: 'warning',
-      planLabel:
-        plan === 'premium'
-          ? 'Premium Destaque'
-          : plan === 'profissional'
-            ? 'Profissional'
-            : 'Plano pendente',
-      statusLabel: 'Pendente',
-      isExpired: false,
-      isBlocked: true,
-      daysLeft,
-    };
-  }
-
-  if (status === 'ativo') {
-    return {
-      label: 'Plano ativo',
-      detail:
-        daysLeft !== null
-          ? `Seu plano está ativo até ${formatDate(dueDate)}.`
-          : 'Seu plano está ativo.',
-      tone: 'success',
-      planLabel:
-        plan === 'premium'
-          ? 'Premium Destaque'
-          : plan === 'profissional'
-            ? 'Profissional'
-            : 'Plano ativo',
-      statusLabel: 'Ativo',
-      isExpired: false,
-      isBlocked: false,
-      daysLeft,
-    };
-  }
-
-  return {
-    label: 'Assinatura expirada',
-    detail: 'Escolha o plano Profissional ou Premium para continuar recebendo leads.',
-    tone: 'danger',
-    planLabel:
-      plan === 'premium'
-        ? 'Premium Destaque'
-        : plan === 'profissional'
-          ? 'Profissional'
-          : plan === 'teste_7_dias'
-            ? 'Teste grátis'
-            : 'Sem plano',
-    statusLabel: status === 'cancelado' ? 'Cancelado' : 'Expirado',
-    isExpired: true,
-    isBlocked: true,
-    daysLeft,
-  };
+  return (
+    subscription.plan_name ||
+    subscription.plan ||
+    subscription.public_label ||
+    (supplier?.is_featured ? "Premium Destaque" : "Plano ativo")
+  );
 }
 
+function isActiveSubscription(subscription: Subscription | null) {
+  if (!subscription) return false;
+
+  const status = String(subscription.status || "").toLowerCase();
+
+  return ["active", "ativo", "trialing", "teste", "paid", "pago"].includes(status);
+}
 
 export default function PainelFornecedorPage() {
   const router = useRouter();
+  const supabase = useMemo(() => createClientComponentClient(), []);
 
   const [loading, setLoading] = useState(true);
-  const [checkingRedirect, setCheckingRedirect] = useState(true);
-  const [supplier, setSupplier] = useState<any>(null);
-  const [subscription, setSubscription] = useState<any>(null);
-  const [publicVisibility, setPublicVisibility] = useState<any>(null);
-  const [leadsCount, setLeadsCount] = useState(0);
-  const [pendingLeadsCount, setPendingLeadsCount] = useState(0);
-  const [cerimonialistaLeadsCount, setCerimonialistaLeadsCount] = useState(0);
-  const [answeredCount, setAnsweredCount] = useState(0);
-  const [closedCount, setClosedCount] = useState(0);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [errorMessage, setErrorMessage] = useState('');
+  const [supplier, setSupplier] = useState<Supplier | null>(null);
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [stats, setStats] = useState<DashboardStats>({
+    totalLeads: 0,
+    unansweredLeads: 0,
+    totalResponses: 0,
+    closedQuotes: 0,
+    unreadMessages: 0,
+  });
 
-  async function loadPanel() {
+  const supplierName = getSupplierName(supplier);
+  const planName = getPlanName(subscription, supplier);
+  const planActive = isActiveSubscription(subscription);
+  const planEndDate =
+    formatDateBR(subscription?.current_period_end) ||
+    formatDateBR(subscription?.ends_at) ||
+    formatDateBR(subscription?.trial_ends_at);
+
+  async function loadDashboard() {
     try {
       setLoading(true);
-      setCheckingRedirect(true);
-      setErrorMessage('');
 
-      const { data: userData, error: userError } = await supabase.auth.getUser();
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
 
-      if (userError) {
-        throw userError;
-      }
-
-      const user = userData.user;
-
-      if (!user) {
-        router.replace('/login?redirect=/painel-fornecedor');
+      if (userError || !user) {
+        router.push("/login");
         return;
       }
 
-      /*
-        Regra correta:
-        Cerimonialista com vitrine é fornecedor.
-        Portanto não redirecionamos cerimonialista@ direto para convites.
-        Primeiro verificamos se existe supplier.owner_id para esta conta.
-      */
-
-      setCheckingRedirect(false);
-
       const { data: supplierData, error: supplierError } = await supabase
-        .from('suppliers')
-        .select(`
-          *,
-          categories(name, slug),
-          media(file_url, is_cover)
-        `)
-        .eq('owner_id', user.id)
-        .order('created_at', { ascending: true })
-        .limit(1)
+        .from("suppliers")
+        .select("*")
+        .eq("owner_id", user.id)
         .maybeSingle();
 
       if (supplierError) {
-        throw supplierError;
+        console.error("Erro ao buscar fornecedor:", supplierError);
       }
 
       if (!supplierData) {
         setSupplier(null);
-        setSubscription(null);
-        setErrorMessage('Nenhum fornecedor vinculado a esta conta.');
+        setLoading(false);
         return;
       }
 
-      setSupplier(supplierData);
+      setSupplier(supplierData as Supplier);
 
-      const { data: visibilityData, error: visibilityError } = await supabase
-        .from('supplier_public_visibility')
-        .select(
-          'supplier_id, supplier_status, subscription_status, plan, trial_active, plan_active, can_appear_public, can_receive_quote, public_badge, public_label, public_notice'
-        )
-        .eq('supplier_id', supplierData.id)
-        .maybeSingle();
-
-      if (visibilityError) {
-        console.error('Erro ao buscar visibilidade do fornecedor:', visibilityError);
-      }
-
-      setPublicVisibility(visibilityData || null);
+      const supplierId = supplierData.id;
 
       const { data: subscriptionData, error: subscriptionError } = await supabase
-        .from('supplier_subscriptions')
-        .select('*')
-        .eq('supplier_id', supplierData.id)
-        .order('created_at', { ascending: false })
-        .limit(1);
+        .from("supplier_subscriptions")
+        .select("*")
+        .eq("supplier_id", supplierId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
       if (subscriptionError) {
-        console.error('Erro ao buscar assinatura do fornecedor:', subscriptionError);
+        console.error("Erro ao buscar assinatura:", subscriptionError);
       }
 
-      setSubscription(subscriptionData?.[0] || null);
+      setSubscription((subscriptionData as Subscription) || null);
 
-      const { data: requestsData, error: requestsError } = await supabase
-        .from('quote_requests')
-        .select('id,status,created_by_role')
-        .eq('supplier_id', supplierData.id);
+      const { count: totalLeadsCount, error: totalLeadsError } = await supabase
+        .from("quote_requests")
+        .select("id", { count: "exact", head: true })
+        .eq("supplier_id", supplierId);
 
-      if (requestsError) {
-        console.error('Erro ao buscar leads:', requestsError);
+      if (totalLeadsError) {
+        console.error("Erro ao contar leads:", totalLeadsError);
       }
 
-      const requests = requestsData || [];
+      const { count: unansweredLeadsCount, error: unansweredLeadsError } =
+        await supabase
+          .from("supplier_unanswered_quote_requests")
+          .select("id", { count: "exact", head: true })
+          .eq("supplier_owner_id", user.id);
 
-      setLeadsCount(requests.length);
-      setPendingLeadsCount(
-        requests.filter((item: any) => isPendingLead(item.status)).length
-      );
-      setCerimonialistaLeadsCount(
-        requests.filter((item: any) => item.created_by_role === 'cerimonialista')
-          .length
-      );
-      setAnsweredCount(
-        requests.filter((item: any) =>
-          ['respondido', 'revisado', 'ajuste_solicitado'].includes(item.status)
-        ).length
-      );
-      setClosedCount(
-        requests.filter((item: any) =>
-          ['aceito', 'fechado'].includes(item.status)
-        ).length
-      );
-
-      const { data: messagesData, error: messagesError } = await supabase
-        .from('quote_messages')
-        .select('id, sender_type, quote_requests!inner(supplier_id)')
-        .eq('quote_requests.supplier_id', supplierData.id)
-        .eq('read_by_supplier', false)
-        .in('sender_type', ['cliente', 'cerimonialista']);
-
-      if (messagesError) {
-        console.error('Erro ao buscar mensagens não lidas:', messagesError);
+      if (unansweredLeadsError) {
+        console.error("Erro ao contar leads sem resposta:", unansweredLeadsError);
       }
 
-      setUnreadCount(messagesData?.length || 0);
-    } catch (error: any) {
-      console.error('Erro ao carregar painel fornecedor:', error);
-      setErrorMessage(error?.message || 'Não foi possível carregar o painel.');
+      const { count: responsesCount, error: responsesError } = await supabase
+        .from("quote_responses")
+        .select("id", { count: "exact", head: true })
+        .eq("supplier_id", supplierId);
+
+      if (responsesError) {
+        console.error("Erro ao contar respostas:", responsesError);
+      }
+
+      const { count: closedQuotesCount, error: closedQuotesError } =
+        await supabase
+          .from("quote_requests")
+          .select("id", { count: "exact", head: true })
+          .eq("supplier_id", supplierId)
+          .in("status", ["aceito", "accepted", "fechado", "closed"]);
+
+      if (closedQuotesError) {
+        console.error("Erro ao contar fechados:", closedQuotesError);
+      }
+
+      let unreadMessagesCount = 0;
+
+      try {
+        const { data: supplierQuotes } = await supabase
+          .from("quote_requests")
+          .select("id")
+          .eq("supplier_id", supplierId);
+
+        const quoteIds = supplierQuotes?.map((item: { id: string }) => item.id) || [];
+
+        if (quoteIds.length > 0) {
+          const { count: messagesCount, error: messagesError } = await supabase
+            .from("quote_messages")
+            .select("id", { count: "exact", head: true })
+            .in("quote_request_id", quoteIds)
+            .eq("read_by_supplier", false);
+
+          if (messagesError) {
+            console.error("Erro ao contar mensagens:", messagesError);
+          }
+
+          unreadMessagesCount = messagesCount || 0;
+        }
+      } catch (messageError) {
+        console.error("Erro geral ao buscar mensagens:", messageError);
+      }
+
+      setStats({
+        totalLeads: totalLeadsCount || 0,
+        unansweredLeads: unansweredLeadsCount || 0,
+        totalResponses: responsesCount || 0,
+        closedQuotes: closedQuotesCount || 0,
+        unreadMessages: unreadMessagesCount,
+      });
+    } catch (error) {
+      console.error("Erro ao carregar painel:", error);
     } finally {
       setLoading(false);
-      setCheckingRedirect(false);
     }
   }
 
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    router.push("/");
+  }
+
   useEffect(() => {
-    loadPanel();
+    loadDashboard();
   }, []);
 
-  if (loading || checkingRedirect) {
+  if (loading) {
     return (
-      <main className="min-h-screen bg-black text-[#151515]">
-        <div className="mx-auto flex min-h-screen w-full max-w-[430px] items-center justify-center bg-[#fbf7f1] px-6 text-center shadow-2xl">
-          <div className="rounded-[28px] bg-white p-6 shadow-sm ring-1 ring-[#f1e7cf]">
-            <Camera size={42} className="mx-auto text-[#d99200]" />
-            <h1 className="mt-4 text-xl font-extrabold">Carregando painel</h1>
-            <p className="mt-2 text-sm font-bold text-gray-500">
-              Verificando conta logada...
-            </p>
-          </div>
+      <main className="min-h-screen bg-[#f8f2e9] flex items-center justify-center px-6">
+        <div className="flex flex-col items-center gap-4 text-center">
+          <Loader2 className="w-10 h-10 animate-spin text-pink-500" />
+          <p className="text-slate-700 font-bold">Carregando painel...</p>
         </div>
       </main>
     );
@@ -426,493 +274,322 @@ export default function PainelFornecedorPage() {
 
   if (!supplier) {
     return (
-      <main className="min-h-screen bg-black text-[#151515]">
-        <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] pb-10 shadow-2xl">
-          <section className="relative overflow-hidden rounded-b-[34px] bg-black px-6 pb-8 pt-7 text-white">
-            <div className="absolute inset-0 bg-[url('/layout01-fundo.png')] bg-cover bg-center opacity-45" />
-            <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/85 to-black" />
+      <main className="min-h-screen bg-[#f8f2e9] px-5 py-8">
+        <section className="max-w-md mx-auto bg-white rounded-[32px] p-7 shadow-sm border border-amber-100">
+          <div className="w-14 h-14 rounded-2xl bg-pink-500 text-white flex items-center justify-center mb-5">
+            <Store className="w-7 h-7" />
+          </div>
 
-            <div className="relative z-10">
-              <Link
-                href="/perfil"
-                className="inline-flex items-center gap-2 text-sm font-bold text-[#e3a925]"
-              >
-                <ArrowLeft size={17} />
-                Voltar
-              </Link>
+          <h1 className="text-2xl font-black text-slate-950 mb-2">
+            Complete sua vitrine
+          </h1>
 
-              <h1 className="mt-6 font-serif text-[34px] leading-tight">
-                Painel fornecedor
-              </h1>
+          <p className="text-slate-600 text-sm leading-relaxed mb-6">
+            Ainda não encontramos uma vitrine vinculada ao seu usuário. Cadastre
+            os dados do seu negócio para começar a receber pedidos de orçamento.
+          </p>
 
-              <p className="mt-2 text-sm text-white/70">
-                Acesso restrito a contas com fornecedor vinculado.
-              </p>
-            </div>
-          </section>
-
-          <section className="px-6 pt-6">
-            <div className="rounded-[28px] bg-white p-6 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-              <AlertCircle size={42} className="mx-auto text-[#d99200]" />
-
-              <h2 className="mt-4 text-xl font-extrabold">
-                Nenhum fornecedor encontrado
-              </h2>
-
-              <p className="mt-2 text-sm leading-5 text-gray-500">
-                {errorMessage ||
-                  'Esta conta não possui um fornecedor vinculado. Use uma conta de fornecedor ou crie um perfil profissional.'}
-              </p>
-
-              <div className="mt-5 space-y-3">
-                <Link
-                  href="/perfil"
-                  className="block rounded-[22px] bg-black py-4 text-center font-extrabold text-white shadow-lg"
-                >
-                  Voltar para Perfil
-                </Link>
-
-                <Link
-                  href="/cerimonialista/convites"
-                  className="block rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg"
-                >
-                  Ir para convites da cerimonialista
-                </Link>
-              </div>
-            </div>
-          </section>
-        </div>
+          <Link
+            href="/fornecedor/cadastro"
+            className="w-full h-13 rounded-2xl bg-black text-white font-black flex items-center justify-center"
+          >
+            Criar minha vitrine
+          </Link>
+        </section>
       </main>
     );
   }
 
-  const supplierName = supplier.business_name || 'Fornecedor';
-  const categoryName = getCategoryName(supplier);
-  const rating = supplier.rating_average || '4.9';
-  const averagePrice = formatPrice(supplier.average_price);
-  const subscriptionInfo = getSubscriptionInfo(subscription, publicVisibility);
-  const planLabel = subscriptionInfo.planLabel;
-  const publicPriceStatus = supplier.show_price ? 'Ativado' : 'Desativado';
-  const hasAttention = unreadCount > 0 || pendingLeadsCount > 0;
-  const canReceiveQuote = Boolean(publicVisibility?.can_receive_quote);
-  const canAppearPublic = Boolean(publicVisibility?.can_appear_public);
-
-  const shortcuts = [
-    {
-      title: 'Leads recebidos',
-      desc:
-        !canReceiveQuote
-          ? 'Regularize sua vitrine para responder leads'
-          : unreadCount > 0
-            ? `${unreadCount} mensagem(ns) nova(s) aguardando leitura`
-            : pendingLeadsCount > 0
-              ? `${pendingLeadsCount} lead(s) novo(s) aguardando resposta`
-              : 'Veja pedidos de orçamento dos clientes',
-      href: '/painel-fornecedor/leads',
-      icon: MessageCircle,
-      color: hasAttention ? 'bg-pink-500' : 'bg-[#e3a925]',
-      highlight: hasAttention,
-      badge: unreadCount > 0 ? unreadCount : pendingLeadsCount,
-    },
-    {
-      title: 'Editar vitrine',
-      desc: 'Atualize nome, descrição e serviços',
-      href: '/painel-fornecedor/editar',
-      icon: Pencil,
-      color: 'bg-black',
-      highlight: false,
-      badge: 0,
-    },
-    {
-      title: 'Enviar mídias',
-      desc: 'Adicione imagens na sua galeria',
-      href: '/painel-fornecedor/fotos',
-      icon: ImageIcon,
-      color: 'bg-black',
-      highlight: false,
-      badge: 0,
-    },
-    {
-      title: 'Planos da vitrine',
-      desc: 'Teste grátis, Profissional e Premium',
-      href: '/painel-fornecedor/planos',
-      icon: Crown,
-      color: 'bg-[#e3a925]',
-      highlight: false,
-      badge: 0,
-    },
-  ];
-
   return (
-    <main className="min-h-screen bg-black text-[#151515]">
-      <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] pb-10 shadow-2xl">
-        {/* TOPO */}
-        <section className="relative overflow-hidden rounded-b-[34px] bg-black px-6 pb-8 pt-7 text-white">
-          <div className="absolute inset-0 bg-[url('/layout01-fundo.png')] bg-cover bg-center opacity-45" />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/85 to-black" />
+    <main className="min-h-screen bg-[#f8f2e9]">
+      <section className="max-w-md mx-auto min-h-screen bg-[#f8f2e9] pb-10">
+        <div className="bg-black text-white rounded-b-[36px] px-6 pt-6 pb-8 relative overflow-hidden">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(236,72,153,0.35),transparent_35%),radial-gradient(circle_at_bottom_left,rgba(245,158,11,0.28),transparent_35%)]" />
 
           <div className="relative z-10">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between mb-6">
               <div>
-                <Link
-                  href="/"
-                  className="inline-flex items-center gap-2 text-sm font-bold text-[#e3a925]"
-                >
-                  <ArrowLeft size={16} />
-                  Home
-                </Link>
-
-                <p className="mt-4 text-sm font-bold text-[#e3a925]">
-                  Fornecedor
+                <p className="text-xs font-bold text-amber-300 uppercase tracking-wide">
+                  Painel do fornecedor
                 </p>
-
-                <h1 className="mt-2 font-serif text-[34px] leading-tight">
-                  Painel
+                <h1 className="text-2xl font-black mt-1 leading-tight">
+                  Olá, {supplierName}
                 </h1>
               </div>
 
-              <Link
-                href="/painel-fornecedor/leads"
-                className={
-                  unreadCount > 0
-                    ? 'relative flex h-12 w-12 items-center justify-center rounded-full bg-pink-500 text-white shadow-lg ring-4 ring-pink-500/25'
-                    : 'relative flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-[#e3a925]'
-                }
+              <button
+                onClick={handleLogout}
+                className="w-11 h-11 rounded-2xl bg-white/10 flex items-center justify-center"
+                aria-label="Sair"
               >
-                <Bell size={24} />
-
-                {unreadCount > 0 && (
-                  <span className="absolute -right-1 -top-1 flex h-6 min-w-6 items-center justify-center rounded-full bg-white px-1 text-xs font-extrabold text-pink-600">
-                    {unreadCount}
-                  </span>
-                )}
-              </Link>
+                <LogOut className="w-5 h-5" />
+              </button>
             </div>
 
-            <div className="mt-6 rounded-[28px] bg-white/10 p-5 backdrop-blur">
+            <div className="rounded-[28px] bg-white/10 border border-white/10 p-5 mb-5">
               <div className="flex items-center gap-4">
-                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#e3a925] text-white shadow-lg">
-                  <Camera size={34} />
+                <div className="w-14 h-14 rounded-2xl bg-amber-400 text-black flex items-center justify-center">
+                  <Crown className="w-7 h-7" />
                 </div>
 
                 <div>
-                  <h2 className="text-xl font-extrabold">{supplierName}</h2>
-
-                  <p className="mt-1 text-sm text-white/70">
-                    {categoryName}
+                  <p className="text-sm text-white/75 font-bold">
+                    Status da vitrine
                   </p>
-
-                  <p className="mt-2 flex items-center gap-1 text-sm font-bold text-[#e3a925]">
-                    <Star size={15} fill="#e3a925" />
-                    {rating} • {planLabel}
+                  <p className="font-black text-amber-300 flex items-center gap-1">
+                    <Star className="w-4 h-4 fill-amber-300" />
+                    4.9 • {planName}
                   </p>
                 </div>
               </div>
             </div>
 
-            {hasAttention && (
-              <Link
-                href="/painel-fornecedor/leads"
-                className="mt-4 block rounded-[22px] bg-white p-4 text-[#151515] shadow-lg"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-pink-500 text-white">
-                    <Bell size={23} />
-                  </div>
-
-                  <div className="flex-1">
-                    <p className="text-sm font-extrabold">
-                      Atenção nos leads
-                    </p>
-
-                    <p className="mt-1 text-xs font-bold leading-5 text-gray-600">
-                      {unreadCount > 0
-                        ? `${unreadCount} mensagem(ns) nova(s) da cliente ou cerimonialista.`
-                        : `${pendingLeadsCount} lead(s) novo(s) aguardando resposta.`}
-                    </p>
-                  </div>
+            {stats.unansweredLeads > 0 && (
+              <div className="rounded-[24px] bg-white px-5 py-5 shadow-sm flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-pink-500 flex items-center justify-center text-white">
+                  <Bell className="w-6 h-6" />
                 </div>
-              </Link>
+
+                <div>
+                  <p className="font-black text-slate-900">
+                    Atenção nos leads
+                  </p>
+                  <p className="text-sm font-bold text-slate-700">
+                    {stats.unansweredLeads} lead(s) novo(s) aguardando resposta.
+                  </p>
+                </div>
+              </div>
             )}
           </div>
-        </section>
+        </div>
 
-        {/* RESUMO */}
-        <section className="grid grid-cols-4 gap-2 px-6 pt-6">
-          <div className="rounded-[20px] bg-white p-3 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-            <p className="text-xl font-extrabold text-[#d99200]">
-              {leadsCount}
-            </p>
-            <p className="mt-1 text-[10px] font-bold text-gray-600">Leads</p>
+        <div className="px-6 pt-6">
+          <div className="grid grid-cols-4 gap-2 mb-4">
+            <div className="bg-white rounded-2xl border border-amber-100 p-4 text-center">
+              <p className="text-xl font-black text-amber-500">
+                {stats.totalLeads}
+              </p>
+              <p className="text-xs font-bold text-slate-700 mt-1">Leads</p>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-amber-100 p-4 text-center">
+              <p className="text-xl font-black text-pink-500">
+                {stats.unreadMessages}
+              </p>
+              <p className="text-xs font-bold text-slate-700 mt-1">Msgs</p>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-amber-100 p-4 text-center">
+              <p className="text-xl font-black text-blue-600">
+                {stats.totalResponses}
+              </p>
+              <p className="text-xs font-bold text-slate-700 mt-1">Resp.</p>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-amber-100 p-4 text-center">
+              <p className="text-xl font-black text-green-600">
+                {stats.closedQuotes}
+              </p>
+              <p className="text-xs font-bold text-slate-700 mt-1">Fechado</p>
+            </div>
           </div>
 
-          <div className="rounded-[20px] bg-white p-3 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-            <p className="text-xl font-extrabold text-pink-600">
-              {unreadCount}
-            </p>
-            <p className="mt-1 text-[10px] font-bold text-gray-600">Msgs</p>
-          </div>
-
-          <div className="rounded-[20px] bg-white p-3 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-            <p className="text-xl font-extrabold text-blue-600">
-              {answeredCount}
-            </p>
-            <p className="mt-1 text-[10px] font-bold text-gray-600">Resp.</p>
-          </div>
-
-          <div className="rounded-[20px] bg-white p-3 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-            <p className="text-xl font-extrabold text-green-600">
-              {closedCount}
-            </p>
-            <p className="mt-1 text-[10px] font-bold text-gray-600">Fechado</p>
-          </div>
-        </section>
-
-        <section className="px-6 pt-4">
-          <div
-            className={
-              subscriptionInfo.tone === 'danger'
-                ? 'rounded-[22px] bg-red-50 p-4 text-sm leading-5 text-red-700 ring-1 ring-red-100'
-                : subscriptionInfo.tone === 'warning'
-                  ? 'rounded-[22px] bg-yellow-50 p-4 text-sm leading-5 text-yellow-800 ring-1 ring-yellow-100'
-                  : subscriptionInfo.tone === 'success'
-                    ? 'rounded-[22px] bg-green-50 p-4 text-sm leading-5 text-green-700 ring-1 ring-green-100'
-                    : 'rounded-[22px] bg-blue-50 p-4 text-sm leading-5 text-blue-700 ring-1 ring-blue-100'
-            }
-          >
-            <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/70">
-                {subscriptionInfo.tone === 'danger' ? (
-                  <AlertCircle size={22} />
-                ) : (
-                  <Crown size={22} />
-                )}
+          <div className="rounded-[28px] bg-emerald-50 border border-emerald-100 p-5 mb-4">
+            <div className="flex items-start gap-4">
+              <div className="w-11 h-11 rounded-2xl bg-white text-emerald-700 flex items-center justify-center">
+                <Crown className="w-6 h-6" />
               </div>
 
-              <div className="flex-1">
-                <p className="font-extrabold">{subscriptionInfo.label}</p>
-                <p className="mt-1 text-xs font-bold opacity-80">
-                  {subscriptionInfo.detail}
+              <div>
+                <p className="font-black text-emerald-700">
+                  {planActive ? "Plano ativo" : "Plano não ativo"}
                 </p>
 
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <span className="rounded-full bg-white/70 px-3 py-1 text-[10px] font-extrabold">
-                    {subscriptionInfo.planLabel}
+                <p className="text-sm text-emerald-700/80 font-bold mt-1">
+                  {planActive && planEndDate
+                    ? `Seu plano está ativo até ${planEndDate}.`
+                    : planActive
+                    ? "Seu plano está ativo."
+                    : "Ative um plano para aparecer melhor na vitrine."}
+                </p>
+
+                <div className="flex flex-wrap gap-2 mt-4">
+                  <span className="px-4 py-2 rounded-full bg-white text-emerald-700 text-xs font-black">
+                    {planName}
                   </span>
 
-                  <span className="rounded-full bg-white/70 px-3 py-1 text-[10px] font-extrabold">
-                    {subscriptionInfo.statusLabel}
+                  <span className="px-4 py-2 rounded-full bg-white text-emerald-700 text-xs font-black">
+                    {planActive ? "Ativo" : "Pendente"}
                   </span>
                 </div>
-
-                {subscriptionInfo.isBlocked && (
-                  <Link
-                    href="/painel-fornecedor/planos"
-                    className="mt-3 inline-flex rounded-full bg-[#e3a925] px-4 py-2 text-xs font-extrabold text-white shadow-sm"
-                  >
-                    Escolher plano
-                  </Link>
-                )}
               </div>
             </div>
           </div>
-        </section>
 
-        <section className="px-6 pt-4">
-          <div
-            className={
-              canAppearPublic && canReceiveQuote
-                ? 'rounded-[22px] bg-green-50 p-4 text-sm leading-5 text-green-700 ring-1 ring-green-100'
-                : 'rounded-[22px] bg-red-50 p-4 text-sm leading-5 text-red-700 ring-1 ring-red-100'
-            }
-          >
-            <p className="font-extrabold">Status público da vitrine</p>
+          <div className="rounded-[28px] bg-emerald-50 border border-emerald-100 p-5 mb-7">
+            <p className="font-black text-emerald-700 mb-4">
+              Status público da vitrine
+            </p>
 
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <div className="rounded-2xl bg-white/70 p-3">
-                <p className="text-[10px] font-extrabold uppercase opacity-70">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-2xl bg-white/80 p-4">
+                <p className="text-[11px] font-black text-emerald-600/70 uppercase">
                   Nas buscas
                 </p>
-                <p className="mt-1 text-sm font-extrabold">
-                  {canAppearPublic ? 'Aparecendo' : 'Oculta'}
+                <p className="font-black text-emerald-700 mt-2">
+                  {supplier.status === "ativo" || supplier.status === "active"
+                    ? "Aparecendo"
+                    : "Pendente"}
                 </p>
               </div>
 
-              <div className="rounded-2xl bg-white/70 p-3">
-                <p className="text-[10px] font-extrabold uppercase opacity-70">
+              <div className="rounded-2xl bg-white/80 p-4">
+                <p className="text-[11px] font-black text-emerald-600/70 uppercase">
                   Orçamentos
                 </p>
-                <p className="mt-1 text-sm font-extrabold">
-                  {canReceiveQuote ? 'Recebendo' : 'Bloqueado'}
+                <p className="font-black text-emerald-700 mt-2">
+                  {supplier.status === "ativo" || supplier.status === "active"
+                    ? "Recebendo"
+                    : "Bloqueado"}
                 </p>
               </div>
             </div>
-
-            {!canReceiveQuote && (
-              <p className="mt-3 text-xs font-bold opacity-90">
-                Sua vitrine não aparece para clientes e não recebe/responde novos orçamentos até regularizar perfil ou assinatura.
-              </p>
-            )}
-
-            {publicVisibility?.public_badge === 'novo_no_reim' &&
-              canReceiveQuote && (
-                <p className="mt-3 text-xs font-bold opacity-90">
-                  Você está em fase inicial no REIM. Após o teste, escolha um plano para continuar aparecendo nas buscas.
-                </p>
-              )}
-
-            {!canReceiveQuote && (
-              <Link
-                href="/painel-fornecedor/planos"
-                className="mt-4 inline-flex rounded-full bg-[#e3a925] px-4 py-2 text-xs font-extrabold text-white shadow-sm"
-              >
-                Escolher plano
-              </Link>
-            )}
           </div>
-        </section>
 
-        {cerimonialistaLeadsCount > 0 && (
-          <section className="px-6 pt-4">
-            <div className="rounded-[22px] bg-[#fff7e8] p-4 text-sm leading-5 text-[#7a5200] ring-1 ring-[#f1e7cf]">
-              <p className="font-extrabold">
-                {cerimonialistaLeadsCount} lead(s) vieram de cerimonialista.
-              </p>
-              <p className="mt-1">
-                Na tela de leads você consegue ver a origem de cada solicitação.
-              </p>
-            </div>
-          </section>
-        )}
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-black text-slate-950">
+              Ações rápidas
+            </h2>
 
-        {/* ATALHOS */}
-        <section className="px-6 pt-6">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-extrabold">Ações rápidas</h2>
-            <span className="text-xs font-bold text-gray-500">Gerenciar</span>
+            <Link
+              href="/painel-fornecedor/leads"
+              className="text-sm font-black text-slate-500"
+            >
+              Gerenciar
+            </Link>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            {shortcuts.map((item) => {
-              const Icon = item.icon;
-
-              return (
-                <Link
-                  key={item.title}
-                  href={item.href}
-                  className={
-                    item.highlight
-                      ? 'relative rounded-[26px] bg-white p-5 shadow-[0_10px_25px_rgba(219,39,119,.20)] ring-2 ring-pink-300'
-                      : 'relative rounded-[26px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]'
-                  }
-                >
-                  {item.badge > 0 && (
-                    <span className="absolute right-3 top-3 flex h-7 min-w-7 items-center justify-center rounded-full bg-pink-500 px-2 text-xs font-extrabold text-white">
-                      {item.badge}
-                    </span>
-                  )}
-
-                  <div
-                    className={`flex h-12 w-12 items-center justify-center rounded-2xl ${item.color} text-white`}
-                  >
-                    <Icon size={25} />
-                  </div>
-
-                  <h3 className="mt-4 text-sm font-extrabold">
-                    {item.title}
-                  </h3>
-
-                  <p className="mt-1 text-xs leading-4 text-gray-500">
-                    {item.desc}
-                  </p>
-                </Link>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* CONFIGURAÇÕES */}
-        <section className="px-6 pt-6">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-extrabold">Configurações</h2>
-            <Settings size={20} className="text-[#d99200]" />
-          </div>
-
-          <div className="space-y-4">
-            <div className="rounded-[26px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]">
-                    <ToggleRight size={27} />
-                  </div>
-
-                  <div>
-                    <h3 className="text-sm font-extrabold">Preço público</h3>
-                    <p className="mt-1 text-xs text-gray-500">
-                      Mostrar valor na vitrine
-                    </p>
-                  </div>
+            <Link
+              href="/painel-fornecedor/leads"
+              className={`relative rounded-[26px] bg-white p-5 border min-h-[142px] ${
+                stats.unansweredLeads > 0
+                  ? "border-pink-400 shadow-[0_0_0_2px_rgba(236,72,153,0.12)]"
+                  : "border-amber-100"
+              }`}
+            >
+              {stats.unansweredLeads > 0 && (
+                <div className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-pink-500 text-white flex items-center justify-center font-black">
+                  {stats.unansweredLeads}
                 </div>
+              )}
 
-                <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-extrabold text-gray-600">
-                  {publicPriceStatus}
-                </span>
+              <div className="w-12 h-12 rounded-2xl bg-pink-500 text-white flex items-center justify-center mb-4">
+                <MessageCircle className="w-6 h-6" />
               </div>
-            </div>
 
-            <div className="rounded-[26px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]">
-                    <WalletCards size={27} />
-                  </div>
+              <p className="font-black text-slate-950">Leads recebidos</p>
 
-                  <div>
-                    <h3 className="text-sm font-extrabold">Valor inicial</h3>
-                    <p className="mt-1 text-xs text-gray-500">
-                      Usado se preço público estiver ativo
-                    </p>
-                  </div>
-                </div>
+              <p className="text-sm text-slate-500 mt-2 leading-snug">
+                {stats.unansweredLeads > 0
+                  ? `${stats.unansweredLeads} lead(s) novo(s) aguardando resposta`
+                  : "Acompanhe seus pedidos"}
+              </p>
+            </Link>
 
-                <span className="text-sm font-extrabold text-[#d99200]">
-                  {averagePrice}
-                </span>
+            <Link
+              href={`/fornecedor/${supplier.id}/editar`}
+              className="rounded-[26px] bg-white p-5 border border-amber-100 min-h-[142px]"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-black text-white flex items-center justify-center mb-4">
+                <Edit3 className="w-6 h-6" />
               </div>
-            </div>
+
+              <p className="font-black text-slate-950">Editar vitrine</p>
+
+              <p className="text-sm text-slate-500 mt-2 leading-snug">
+                Atualize nome, descrição e serviços
+              </p>
+            </Link>
+
+            <Link
+              href={`/fornecedor/${supplier.id}`}
+              className="rounded-[26px] bg-white p-5 border border-amber-100 min-h-[142px]"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-amber-400 text-black flex items-center justify-center mb-4">
+                <Eye className="w-6 h-6" />
+              </div>
+
+              <p className="font-black text-slate-950">Ver vitrine</p>
+
+              <p className="text-sm text-slate-500 mt-2 leading-snug">
+                Veja como os clientes enxergam seu perfil
+              </p>
+            </Link>
+
+            <Link
+              href="/planos"
+              className="rounded-[26px] bg-white p-5 border border-amber-100 min-h-[142px]"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center mb-4">
+                <Crown className="w-6 h-6" />
+              </div>
+
+              <p className="font-black text-slate-950">Meu plano</p>
+
+              <p className="text-sm text-slate-500 mt-2 leading-snug">
+                Gerencie assinatura e destaque
+              </p>
+            </Link>
+
+            <Link
+              href="/buscar"
+              className="rounded-[26px] bg-white p-5 border border-amber-100 min-h-[142px]"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center mb-4">
+                <Search className="w-6 h-6" />
+              </div>
+
+              <p className="font-black text-slate-950">Buscar</p>
+
+              <p className="text-sm text-slate-500 mt-2 leading-snug">
+                Consulte a vitrine pública do REIM
+              </p>
+            </Link>
+
+            <Link
+              href="/perfil"
+              className="rounded-[26px] bg-white p-5 border border-amber-100 min-h-[142px]"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center mb-4">
+                <User className="w-6 h-6" />
+              </div>
+
+              <p className="font-black text-slate-950">Perfil</p>
+
+              <p className="text-sm text-slate-500 mt-2 leading-snug">
+                Dados da conta e notificações
+              </p>
+            </Link>
           </div>
-        </section>
 
-        {/* RELATÓRIO */}
-        <section className="px-6 pt-6">
-          <div className="rounded-[28px] bg-black p-5 text-white shadow-xl">
+          <div className="mt-7 rounded-[28px] bg-black text-white p-5">
             <div className="flex items-start gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#e3a925] text-white">
-                <BarChart3 size={30} />
+              <div className="w-12 h-12 rounded-2xl bg-white text-black flex items-center justify-center">
+                <FileText className="w-6 h-6" />
               </div>
 
-              <div className="flex-1">
-                <h2 className="text-lg font-extrabold">Resumo da semana</h2>
-                <p className="mt-2 text-sm leading-5 text-white/70">
-                  {subscriptionInfo.isBlocked
-                    ? 'Sua vitrine está bloqueada para aparecer nas buscas ou responder leads. Regularize perfil ou assinatura para continuar usando todos os recursos do fornecedor.'
-                    : hasAttention
-                      ? 'Você tem leads ou mensagens novas aguardando atenção. Responda rápido para aumentar as chances de fechar contrato.'
-                      : 'Sua vitrine está pronta para receber novos pedidos de orçamento. Mantenha fotos e informações atualizadas.'}
+              <div>
+                <p className="font-black">Regra dos alertas</p>
+                <p className="text-sm text-white/70 mt-1 leading-relaxed">
+                  Leads novos ficam destacados até que o fornecedor envie uma
+                  resposta ao cliente.
                 </p>
-
-                <Link
-                  href="/painel-fornecedor/leads"
-                  className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#e3a925] px-5 py-2 text-sm font-extrabold text-white"
-                >
-                  <FileText size={17} />
-                  Ver leads
-                </Link>
               </div>
             </div>
           </div>
-        </section>
-      </div>
+        </div>
+      </section>
     </main>
   );
 }
