@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import Link from "next/link";
+import { useEffect, useState } from "react";
 import {
   Bell,
   Cake,
@@ -19,26 +19,40 @@ import {
   Search,
   Utensils,
   Video,
-} from 'lucide-react';
-import { supabase } from '@/lib/supabase';
-import { Nav } from '@/components/Nav';
+} from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { Nav } from "@/components/Nav";
 
 const categories = [
-  { icon: Camera, title: 'Fotografia', subtitle: '& Filmagem' },
-  { icon: Utensils, title: 'Buffet', subtitle: '' },
-  { icon: Flower2, title: 'Ornamentação', subtitle: '' },
-  { icon: Video, title: 'Cabine &', subtitle: 'Totem' },
-  { icon: Gem, title: 'Cerimonial', subtitle: '' },
-  { icon: Music2, title: 'Música &', subtitle: 'Bandas' },
-  { icon: Cake, title: 'Bolos &', subtitle: 'Doces' },
-  { icon: Landmark, title: 'Espaços de', subtitle: 'Eventos' },
+  { icon: Camera, title: "Fotografia", subtitle: "& Filmagem" },
+  { icon: Utensils, title: "Buffet", subtitle: "" },
+  { icon: Flower2, title: "Ornamentação", subtitle: "" },
+  { icon: Video, title: "Cabine &", subtitle: "Totem" },
+  { icon: Gem, title: "Cerimonial", subtitle: "" },
+  { icon: Music2, title: "Música &", subtitle: "Bandas" },
+  { icon: Cake, title: "Bolos &", subtitle: "Doces" },
+  { icon: Landmark, title: "Espaços de", subtitle: "Eventos" },
 ];
 
 const fallbackImages = [
-  'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?q=80&w=800&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?q=80&w=800&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?q=80&w=800&auto=format&fit=crop',
+  "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?q=80&w=800&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1511795409834-ef04bbd61622?q=80&w=800&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1517457373958-b7bdd4587205?q=80&w=800&auto=format&fit=crop",
 ];
+const defaultCities = [
+  "Eunápolis",
+  "Porto Seguro",
+  "Arraial d'Ajuda",
+  "Trancoso",
+  "Belmonte",
+  "Teixeira de Freitas",
+  "Itagimirim",
+  "Itabela",
+];
+
+function normalizeCity(city: string) {
+  return city.trim().replace(/\s+/g, " ");
+}
 
 function CrownLogo() {
   return (
@@ -88,75 +102,81 @@ function CrownLogo() {
 function getTestAccountType(email: string) {
   const normalized = email.toLowerCase();
 
-  if (normalized.startsWith('cliente@')) {
-    return 'cliente';
+  if (normalized.startsWith("cliente@")) {
+    return "cliente";
   }
 
-  if (normalized.startsWith('fornecedor@')) {
-    return 'fornecedor';
+  if (normalized.startsWith("fornecedor@")) {
+    return "fornecedor";
   }
 
-  if (normalized.startsWith('cerimonialista@')) {
-    return 'cerimonialista';
+  if (normalized.startsWith("cerimonialista@")) {
+    return "cerimonialista";
   }
 
-  if (normalized.startsWith('admin@')) {
-    return 'admin';
+  if (normalized.startsWith("admin@")) {
+    return "admin";
   }
 
-  return '';
+  return "";
 }
 
 function getBellHref(accountType: string) {
-  if (accountType === 'admin') {
-    return '/admin';
+  if (accountType === "admin") {
+    return "/admin";
   }
 
-  if (accountType === 'fornecedor') {
-    return '/painel-fornecedor/leads';
+  if (accountType === "fornecedor") {
+    return "/painel-fornecedor/leads";
   }
 
-  if (accountType === 'cerimonialista') {
-    return '/cerimonialista/convites';
+  if (accountType === "cerimonialista") {
+    return "/cerimonialista/convites";
   }
 
-  if (accountType === 'cliente') {
-    return '/orcamentos';
+  if (accountType === "cliente") {
+    return "/orcamentos";
   }
 
-  return '/perfil';
+  return "/perfil";
 }
 
 function getPlanHref(accountType: string) {
-  if (accountType === 'fornecedor') {
-    return '/painel-fornecedor';
+  if (accountType === "fornecedor") {
+    return "/painel-fornecedor";
   }
 
-  if (accountType === 'cerimonialista') {
-    return '/cerimonialista/convites';
+  if (accountType === "cerimonialista") {
+    return "/cerimonialista/convites";
   }
 
-  return '/meu-evento';
+  return "/meu-evento";
 }
 
 function getPlanButtonText(accountType: string) {
-  if (accountType === 'fornecedor') {
-    return 'Abrir painel';
+  if (accountType === "fornecedor") {
+    return "Abrir painel";
   }
 
-  if (accountType === 'cerimonialista') {
-    return 'Ver convites';
+  if (accountType === "cerimonialista") {
+    return "Ver convites";
   }
 
-  return 'Criar meu evento';
+  return "Criar meu evento";
 }
 
 export default function HomePage() {
   const [featuredSuppliers, setFeaturedSuppliers] = useState<any[]>([]);
   const [loadingSuppliers, setLoadingSuppliers] = useState(true);
-  const [accountType, setAccountType] = useState('cliente');
+  const [accountType, setAccountType] = useState("cliente");
   const [notificationCount, setNotificationCount] = useState(0);
-  const [visibilityBySupplier, setVisibilityBySupplier] = useState<Record<string, any>>({});
+  const [visibilityBySupplier, setVisibilityBySupplier] = useState<
+    Record<string, any>
+  >({});
+  const [selectedCity, setSelectedCity] = useState("Eunápolis");
+  const [cityMenuOpen, setCityMenuOpen] = useState(false);
+  const [availableCities, setAvailableCities] =
+    useState<string[]>(defaultCities);
 
   useEffect(() => {
     async function loadAccountType() {
@@ -165,67 +185,67 @@ export default function HomePage() {
         const user = userData.user;
 
         if (!user) {
-          setAccountType('cliente');
+          setAccountType("cliente");
           setNotificationCount(0);
           return;
         }
 
-        const email = user.email || '';
+        const email = user.email || "";
         const testType = getTestAccountType(email);
 
         if (testType) {
           setAccountType(testType);
         } else {
           const { data: collaboratorData } = await supabase
-            .from('event_collaborators')
-            .select('id')
-            .ilike('collaborator_email', email)
+            .from("event_collaborators")
+            .select("id")
+            .ilike("collaborator_email", email)
             .limit(1);
 
           if (collaboratorData && collaboratorData.length > 0) {
-            setAccountType('cerimonialista');
+            setAccountType("cerimonialista");
           } else {
             const { data: supplierData } = await supabase
-              .from('suppliers')
-              .select('id')
-              .eq('owner_id', user.id)
+              .from("suppliers")
+              .select("id")
+              .eq("owner_id", user.id)
               .limit(1);
 
             if (supplierData && supplierData.length > 0) {
-              setAccountType('fornecedor');
+              setAccountType("fornecedor");
             } else {
-              setAccountType('cliente');
+              setAccountType("cliente");
             }
           }
         }
 
         const currentType = testType || accountType;
 
-        if (testType === 'cerimonialista') {
+        if (testType === "cerimonialista") {
           const { data } = await supabase
-            .from('event_collaborators')
-            .select('id,status')
-            .ilike('collaborator_email', email)
-            .eq('status', 'pendente');
+            .from("event_collaborators")
+            .select("id,status")
+            .ilike("collaborator_email", email)
+            .eq("status", "pendente");
 
           setNotificationCount(data?.length || 0);
           return;
         }
 
-        if (testType === 'fornecedor') {
+        if (testType === "fornecedor") {
           const { data: supplierData } = await supabase
-            .from('suppliers')
-            .select('id')
-            .eq('owner_id', user.id)
+            .from("suppliers")
+            .select("id")
+            .eq("owner_id", user.id)
             .limit(1)
             .maybeSingle();
 
           if (supplierData?.id) {
             const { data } = await supabase
-              .from('quote_requests')
-              .select('id')
-              .eq('supplier_id', supplierData.id)
-              .eq('status', 'novo');
+              .from("quote_requests")
+              .select("id")
+              .eq("supplier_id", supplierData.id)
+              .eq("status", "novo");
 
             setNotificationCount(data?.length || 0);
           }
@@ -233,28 +253,58 @@ export default function HomePage() {
           return;
         }
 
-        if (testType === 'cliente' || currentType === 'cliente') {
+        if (testType === "cliente" || currentType === "cliente") {
           const { data } = await supabase
-            .from('quote_requests')
-            .select('id')
-            .eq('customer_id', user.id)
-            .in('status', ['respondido', 'ajuste_solicitado']);
+            .from("quote_requests")
+            .select("id")
+            .eq("customer_id", user.id)
+            .in("status", ["respondido", "ajuste_solicitado"]);
 
           setNotificationCount(data?.length || 0);
           return;
         }
 
-        if (testType === 'admin') {
+        if (testType === "admin") {
           setNotificationCount(0);
         }
       } catch (error) {
-        console.error('Erro ao carregar tipo da conta:', error);
-        setAccountType('cliente');
+        console.error("Erro ao carregar tipo da conta:", error);
+        setAccountType("cliente");
         setNotificationCount(0);
       }
     }
 
     loadAccountType();
+  }, []);
+
+  useEffect(() => {
+    async function loadAvailableCities() {
+      try {
+        const { data, error } = await supabase
+          .from("suppliers")
+          .select("city")
+          .not("city", "is", null);
+
+        if (error) {
+          throw error;
+        }
+
+        const dynamicCities = (data || [])
+          .map((item: any) => normalizeCity(String(item.city || "")))
+          .filter(Boolean);
+
+        const mergedCities = Array.from(
+          new Set([...defaultCities, ...dynamicCities]),
+        ).sort((a, b) => a.localeCompare(b, "pt-BR"));
+
+        setAvailableCities(mergedCities);
+      } catch (error) {
+        console.error("Erro ao carregar cidades:", error);
+        setAvailableCities(defaultCities);
+      }
+    }
+
+    loadAvailableCities();
   }, []);
 
   useEffect(() => {
@@ -271,13 +321,13 @@ export default function HomePage() {
           A regra vem da view supplier_public_visibility.
         */
         const { data: visibilityData, error: visibilityError } = await supabase
-          .from('supplier_public_visibility')
+          .from("supplier_public_visibility")
           .select(
-            'supplier_id, public_badge, public_label, public_notice, supplier_is_featured, can_appear_public'
+            "supplier_id, public_badge, public_label, public_notice, supplier_is_featured, can_appear_public",
           )
-          .eq('can_appear_public', true)
-          .eq('supplier_is_featured', true)
-          .limit(3);
+          .eq("can_appear_public", true)
+          .eq("supplier_is_featured", true)
+          .limit(10);
 
         if (visibilityError) {
           throw visibilityError;
@@ -301,8 +351,9 @@ export default function HomePage() {
         }
 
         const { data, error } = await supabase
-          .from('suppliers')
-          .select(`
+          .from("suppliers")
+          .select(
+            `
             id,
             business_name,
             city,
@@ -311,9 +362,11 @@ export default function HomePage() {
             status,
             categories(name),
             media(file_url, is_cover)
-          `)
-          .in('id', visibleIds)
-          .order('rating_average', { ascending: false })
+          `,
+          )
+          .in("id", visibleIds)
+          .ilike("city", selectedCity)
+          .order("rating_average", { ascending: false })
           .limit(3);
 
         if (error) {
@@ -322,7 +375,7 @@ export default function HomePage() {
 
         setFeaturedSuppliers(data || []);
       } catch (error) {
-        console.error('Erro ao carregar fornecedores em destaque:', error);
+        console.error("Erro ao carregar fornecedores em destaque:", error);
         setFeaturedSuppliers([]);
         setVisibilityBySupplier({});
       } finally {
@@ -331,7 +384,7 @@ export default function HomePage() {
     }
 
     loadFeaturedSuppliers();
-  }, []);
+  }, [selectedCity]);
 
   function getSupplierImage(supplier: any, index: number) {
     const media = supplier?.media || [];
@@ -348,10 +401,10 @@ export default function HomePage() {
 
   function getSupplierCategory(supplier: any) {
     if (Array.isArray(supplier?.categories)) {
-      return supplier.categories[0]?.name || 'Fornecedor de eventos';
+      return supplier.categories[0]?.name || "Fornecedor de eventos";
     }
 
-    return supplier?.categories?.name || 'Fornecedor de eventos';
+    return supplier?.categories?.name || "Fornecedor de eventos";
   }
 
   function getSupplierVisibility(supplierId: string) {
@@ -361,33 +414,31 @@ export default function HomePage() {
   function getSupplierBadgeText(supplierId: string) {
     const visibility = getSupplierVisibility(supplierId);
 
-    if (visibility?.public_badge === 'novo_no_reim') {
-      return 'Novo no REIM';
+    if (visibility?.public_badge === "novo_no_reim") {
+      return "Novo no REIM";
     }
 
-    if (visibility?.public_badge === 'premium') {
-      return '♛ Premium';
+    if (visibility?.public_badge === "premium") {
+      return "♛ Premium";
     }
 
-    return 'Ativo';
+    return "Ativo";
   }
 
   const bellHref = getBellHref(accountType);
   const planHref = getPlanHref(accountType);
   const planButtonText = getPlanButtonText(accountType);
+  const searchHref = `/buscar?cidade=${encodeURIComponent(selectedCity)}`;
 
   return (
     <main className="min-h-screen bg-black text-[#151515]">
       <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] shadow-2xl">
         {/* TOPO */}
         <section className="relative h-[480px] overflow-hidden rounded-b-[36px] bg-black text-white">
-          <img
-            src="/layout01-fundo.png"
-            alt="Fundo REIM Eventos"
-            className="absolute inset-0 h-full w-full object-cover object-[78%_top]"
-          />
-
-          <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/18 to-black/78" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_15%,rgba(227,169,37,.34),transparent_28%),radial-gradient(circle_at_88%_20%,rgba(255,255,255,.13),transparent_24%),linear-gradient(145deg,#090604_0%,#211405_45%,#050505_100%)]" />
+          <div className="absolute -left-20 top-16 h-56 w-56 rounded-full bg-[#e3a925]/20 blur-3xl" />
+          <div className="absolute -right-24 top-10 h-64 w-64 rounded-full bg-[#e3a925]/16 blur-3xl" />
+          <div className="absolute bottom-12 left-8 right-8 h-24 rounded-full bg-white/10 blur-2xl" />
           <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#fbf7f1] via-[#fbf7f1]/75 to-transparent" />
 
           <div className="relative z-10 flex items-center justify-between px-7 pt-7">
@@ -432,16 +483,54 @@ export default function HomePage() {
         {/* BUSCA */}
         <section className="relative z-20 -mt-14 px-6">
           <div className="rounded-[30px] bg-[#f7f4ef] p-4 shadow-[0_20px_45px_rgba(0,0,0,.18)]">
-            <div className="mb-4 flex items-center justify-between rounded-[24px] bg-white px-5 py-4 text-[18px] font-extrabold shadow-sm">
-              <span className="flex items-center gap-3">
-                <MapPin size={22} fill="#e0a21e" className="text-[#e0a21e]" />
-                Eunápolis
-              </span>
-              <ChevronDown size={22} className="text-[#e0a21e]" />
+            <div className="relative mb-4">
+              <button
+                type="button"
+                onClick={() => setCityMenuOpen((current) => !current)}
+                className="flex w-full items-center justify-between rounded-[24px] bg-white px-5 py-4 text-[18px] font-extrabold shadow-sm"
+              >
+                <span className="flex min-w-0 items-center gap-3">
+                  <MapPin
+                    size={22}
+                    fill="#e0a21e"
+                    className="shrink-0 text-[#e0a21e]"
+                  />
+                  <span className="truncate">{selectedCity}</span>
+                </span>
+                <ChevronDown
+                  size={22}
+                  className={`shrink-0 text-[#e0a21e] transition ${
+                    cityMenuOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+
+              {cityMenuOpen && (
+                <div className="absolute left-0 right-0 top-[62px] z-40 max-h-72 overflow-y-auto rounded-[24px] bg-white p-2 shadow-2xl ring-1 ring-[#f1e7cf]">
+                  {availableCities.map((city) => (
+                    <button
+                      key={city}
+                      type="button"
+                      onClick={() => {
+                        setSelectedCity(city);
+                        setCityMenuOpen(false);
+                      }}
+                      className={`flex w-full items-center justify-between rounded-[18px] px-4 py-3 text-left text-sm font-extrabold ${
+                        selectedCity === city
+                          ? "bg-[#fff7e8] text-[#b97900]"
+                          : "text-[#151515] hover:bg-[#fbf7f1]"
+                      }`}
+                    >
+                      <span>{city}</span>
+                      {selectedCity === city && <span>✓</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <Link
-              href="/buscar"
+              href={searchHref}
               className="flex items-center gap-4 rounded-[24px] bg-white px-5 py-5 shadow-lg"
             >
               <Search size={32} className="text-[#d99200]" />
@@ -460,7 +549,7 @@ export default function HomePage() {
               const Icon = cat.icon;
 
               return (
-                <Link href="/buscar" key={cat.title} className="text-center">
+                <Link href={searchHref} key={cat.title} className="text-center">
                   <div className="mx-auto flex h-[76px] w-[76px] items-center justify-center rounded-full bg-white shadow-[0_10px_22px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]">
                     <Icon
                       size={32}
@@ -492,7 +581,7 @@ export default function HomePage() {
                 className="absolute inset-0 bg-cover bg-right"
                 style={{
                   backgroundImage:
-                    "url('https://images.unsplash.com/photo-1523438885200-e635ba2c371e?q=80&w=800&auto=format&fit=crop')",
+                    "linear-gradient(135deg, #090604 0%, #2a1807 48%, #090604 100%)",
                 }}
               />
               <div className="absolute inset-0 bg-gradient-to-r from-black via-black/90 to-black/20" />
@@ -531,7 +620,10 @@ export default function HomePage() {
               Fornecedores em destaque ✨
             </h2>
 
-            <Link href="/buscar" className="text-[13px] font-bold text-[#d99200]">
+            <Link
+              href={searchHref}
+              className="text-[13px] font-bold text-[#d99200]"
+            >
               Ver todos
             </Link>
           </div>
@@ -573,7 +665,7 @@ export default function HomePage() {
 
                   <div className="p-3">
                     <b className="block truncate text-[12px] leading-4">
-                      {supplier.business_name || 'Fornecedor'}
+                      {supplier.business_name || "Fornecedor"}
                     </b>
 
                     <p className="mt-1 truncate text-[10px] text-gray-600">
@@ -581,15 +673,15 @@ export default function HomePage() {
                     </p>
 
                     <p className="mt-1 text-[10px] font-bold text-[#d99200]">
-                      ★ {supplier.rating_average || '4.9'}
+                      ★ {supplier.rating_average || "4.9"}
                     </p>
 
                     <p className="truncate text-[10px] text-gray-500">
-                      📍 {supplier.city || 'Eunápolis'}
+                      📍 {supplier.city || "Eunápolis"}
                     </p>
 
                     {getSupplierVisibility(supplier.id)?.public_badge ===
-                      'novo_no_reim' && (
+                      "novo_no_reim" && (
                       <p className="mt-1 rounded-full bg-[#fff7e8] px-2 py-1 text-[9px] font-extrabold text-[#b97900]">
                         Novo fornecedor
                       </p>
