@@ -525,7 +525,7 @@ export default function BuscarPage() {
   return (
     <main className="min-h-screen bg-black text-[#151515]">
       <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] pb-40 shadow-2xl">
-        <section className="relative overflow-hidden rounded-b-[34px] bg-black px-6 pb-8 pt-7 text-white">
+        <section className="relative rounded-b-[34px] bg-black px-6 pb-8 pt-7 text-white">
           <div className="absolute inset-0 bg-[url('/layout01-fundo.png')] bg-cover bg-center opacity-45" />
           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/75 to-black" />
 
@@ -607,7 +607,7 @@ export default function BuscarPage() {
               </div>
             )}
 
-            <div className="relative mt-4">
+            <div className="mt-4">
               <button
                 type="button"
                 onClick={() => setCityOpen((current) => !current)}
@@ -624,7 +624,7 @@ export default function BuscarPage() {
               </button>
 
               {cityOpen && (
-                <div className="absolute left-0 top-12 z-40 max-h-72 w-full overflow-y-auto rounded-[24px] bg-white p-2 text-[#151515] shadow-2xl ring-1 ring-[#f1e7cf]">
+                <div className="mt-3 max-h-72 overflow-y-auto rounded-[24px] bg-white p-2 text-[#151515] shadow-2xl ring-1 ring-[#f1e7cf]">
                   {availableCities.map((city) => (
                     <button
                       key={city}
