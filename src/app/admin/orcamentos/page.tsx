@@ -1,76 +1,76 @@
-import Link from 'next/link';
+import Link from "next/link";
 import {
   ArrowLeft,
   CalendarDays,
   CheckCircle2,
   Clock,
   FileText,
-  MessageCircle,
+  Headset,
   Search,
   Star,
   User,
   Users,
   WalletCards,
-} from 'lucide-react';
+} from "lucide-react";
 
 const budgets = [
   {
-    id: '1',
-    client: 'Maria Souza',
-    supplier: 'Studio Premium',
-    eventType: 'Casamento',
-    date: '22/06/2026',
-    status: 'Respondido',
-    statusType: 'answered',
-    value: 'R$ 2.500,00',
-    city: 'Eunápolis',
+    id: "1",
+    client: "Maria Souza",
+    supplier: "Studio Premium",
+    eventType: "Casamento",
+    date: "22/06/2026",
+    status: "Respondido",
+    statusType: "answered",
+    value: "R$ 2.500,00",
+    city: "Eunápolis",
   },
   {
-    id: '2',
-    client: 'Ana Clara',
-    supplier: 'Photofest Totem',
-    eventType: 'Aniversário',
-    date: '15/07/2026',
-    status: 'Aguardando',
-    statusType: 'pending',
-    value: 'Sob consulta',
-    city: 'Eunápolis',
+    id: "2",
+    client: "Ana Clara",
+    supplier: "Photofest Totem",
+    eventType: "Aniversário",
+    date: "15/07/2026",
+    status: "Aguardando",
+    statusType: "pending",
+    value: "Sob consulta",
+    city: "Eunápolis",
   },
   {
-    id: '3',
-    client: 'João Marcos',
-    supplier: 'Sabor Eventos',
-    eventType: 'Evento corporativo',
-    date: '10/08/2026',
-    status: 'Fechado',
-    statusType: 'closed',
-    value: 'R$ 4.800,00',
-    city: 'Porto Seguro',
+    id: "3",
+    client: "João Marcos",
+    supplier: "Sabor Eventos",
+    eventType: "Evento corporativo",
+    date: "10/08/2026",
+    status: "Fechado",
+    statusType: "closed",
+    value: "R$ 4.800,00",
+    city: "Porto Seguro",
   },
   {
-    id: '4',
-    client: 'Camila Rocha',
-    supplier: 'Decora Luxo',
-    eventType: 'Debutante',
-    date: '05/09/2026',
-    status: 'Aguardando',
-    statusType: 'pending',
-    value: 'Sob consulta',
-    city: 'Eunápolis',
+    id: "4",
+    client: "Camila Rocha",
+    supplier: "Decora Luxo",
+    eventType: "Debutante",
+    date: "05/09/2026",
+    status: "Aguardando",
+    statusType: "pending",
+    value: "Sob consulta",
+    city: "Eunápolis",
   },
 ];
 
 function StatusBadge({ statusType, status }: { statusType: string; status: string }) {
-  if (statusType === 'answered') {
+  if (statusType === "answered") {
     return (
       <span className="flex items-center gap-1 rounded-full bg-blue-50 px-3 py-1 text-[11px] font-extrabold text-blue-700">
-        <MessageCircle size={13} />
+        <Headset size={13} />
         {status}
       </span>
     );
   }
 
-  if (statusType === 'closed') {
+  if (statusType === "closed") {
     return (
       <span className="flex items-center gap-1 rounded-full bg-green-50 px-3 py-1 text-[11px] font-extrabold text-green-700">
         <CheckCircle2 size={13} />
@@ -102,7 +102,7 @@ export default function AdminOrcamentosPage() {
               className="inline-flex items-center gap-2 text-sm font-bold text-[#e3a925]"
             >
               <ArrowLeft size={17} />
-              Voltar
+              Voltar para Admin
             </Link>
 
             <div className="mt-6 flex items-center gap-4">
@@ -111,13 +111,9 @@ export default function AdminOrcamentosPage() {
               </div>
 
               <div>
-                <p className="text-sm font-bold text-[#e3a925]">
-                  Administração
-                </p>
+                <p className="text-sm font-bold text-[#e3a925]">Administração</p>
 
-                <h1 className="font-serif text-[34px] leading-tight">
-                  Orçamentos
-                </h1>
+                <h1 className="font-serif text-[34px] leading-tight">Orçamentos</h1>
 
                 <p className="mt-1 text-sm text-white/70">
                   Acompanhe pedidos, respostas e fechamentos.
@@ -141,23 +137,17 @@ export default function AdminOrcamentosPage() {
         <section className="grid grid-cols-3 gap-3 px-6 pt-6">
           <div className="rounded-[22px] bg-white p-4 text-center shadow-sm ring-1 ring-[#f1e7cf]">
             <p className="text-2xl font-extrabold text-[#d99200]">483</p>
-            <p className="mt-1 text-[11px] font-bold text-gray-600">
-              Total
-            </p>
+            <p className="mt-1 text-[11px] font-bold text-gray-600">Total</p>
           </div>
 
           <div className="rounded-[22px] bg-white p-4 text-center shadow-sm ring-1 ring-[#f1e7cf]">
             <p className="text-2xl font-extrabold text-blue-600">218</p>
-            <p className="mt-1 text-[11px] font-bold text-gray-600">
-              Respondidos
-            </p>
+            <p className="mt-1 text-[11px] font-bold text-gray-600">Respondidos</p>
           </div>
 
           <div className="rounded-[22px] bg-white p-4 text-center shadow-sm ring-1 ring-[#f1e7cf]">
             <p className="text-2xl font-extrabold text-green-600">76</p>
-            <p className="mt-1 text-[11px] font-bold text-gray-600">
-              Fechados
-            </p>
+            <p className="mt-1 text-[11px] font-bold text-gray-600">Fechados</p>
           </div>
         </section>
 
@@ -178,13 +168,9 @@ export default function AdminOrcamentosPage() {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <h3 className="text-lg font-extrabold">
-                      {item.supplier}
-                    </h3>
+                    <h3 className="text-lg font-extrabold">{item.supplier}</h3>
 
-                    <p className="mt-1 text-sm text-gray-500">
-                      Cliente: {item.client}
-                    </p>
+                    <p className="mt-1 text-sm text-gray-500">Cliente: {item.client}</p>
                   </div>
 
                   <StatusBadge statusType={item.statusType} status={item.status} />
@@ -196,9 +182,7 @@ export default function AdminOrcamentosPage() {
                       <User size={14} className="text-[#d99200]" />
                       Evento
                     </p>
-                    <p className="mt-1 text-sm font-extrabold">
-                      {item.eventType}
-                    </p>
+                    <p className="mt-1 text-sm font-extrabold">{item.eventType}</p>
                   </div>
 
                   <div className="rounded-2xl bg-[#fbf7f1] p-3">
@@ -206,9 +190,7 @@ export default function AdminOrcamentosPage() {
                       <CalendarDays size={14} className="text-[#d99200]" />
                       Data
                     </p>
-                    <p className="mt-1 text-sm font-extrabold">
-                      {item.date}
-                    </p>
+                    <p className="mt-1 text-sm font-extrabold">{item.date}</p>
                   </div>
                 </div>
 
@@ -218,9 +200,7 @@ export default function AdminOrcamentosPage() {
                       <Users size={14} className="text-[#d99200]" />
                       Cidade
                     </p>
-                    <p className="mt-1 text-sm font-extrabold">
-                      {item.city}
-                    </p>
+                    <p className="mt-1 text-sm font-extrabold">{item.city}</p>
                   </div>
 
                   <div className="rounded-2xl bg-[#fff7e8] p-3">
@@ -242,17 +222,17 @@ export default function AdminOrcamentosPage() {
 
                   <div className="flex gap-2">
                     <Link
-                      href={`/orcamentos/${item.id}`}
+                      href={`/admin/orcamentos/${item.id}`}
                       className="rounded-full bg-[#fbf7f1] px-4 py-2 text-xs font-extrabold text-[#151515] ring-1 ring-[#f1e7cf]"
                     >
                       Ver
                     </Link>
 
                     <Link
-                      href={`/orcamentos/${item.id}/chat`}
+                      href={`/admin/orcamentos/${item.id}/chat`}
                       className="rounded-full bg-black px-4 py-2 text-xs font-extrabold text-white"
                     >
-                      Chat
+                      Suporte
                     </Link>
                   </div>
                 </div>
