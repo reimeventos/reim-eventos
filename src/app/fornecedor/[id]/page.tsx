@@ -114,6 +114,22 @@ function formatWhatsAppLink(value: any) {
   return `https://wa.me/55${onlyNumbers}`;
 }
 
+function getServiceCities(supplier: any) {
+  const cities = Array.isArray(supplier?.service_cities)
+    ? supplier.service_cities
+    : [];
+
+  const mainCity = supplier?.city || '';
+
+  return Array.from(
+    new Set(
+      [mainCity, ...cities]
+        .map((item: any) => String(item || '').trim())
+        .filter(Boolean)
+    )
+  );
+}
+
 function getCategoryName(supplier: any) {
   if (!supplier) return 'Categoria não informada';
 
@@ -220,6 +236,7 @@ export default function FornecedorPage() {
 
   const [targetCustomerId, setTargetCustomerId] = useState('');
   const [returnUrl, setReturnUrl] = useState('/buscar');
+  const [selectedCity, setSelectedCity] = useState('');
 
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -241,9 +258,11 @@ export default function FornecedorPage() {
         const urlParams = new URLSearchParams(window.location.search);
         const customerIdFromUrl = urlParams.get('cliente') || '';
         const returnUrlFromUrl = urlParams.get('voltar') || '/buscar';
+        const cityFromUrl = urlParams.get('cidade') || '';
 
         setTargetCustomerId(customerIdFromUrl);
         setReturnUrl(returnUrlFromUrl);
+        setSelectedCity(cityFromUrl);
 
         const data = await getSupplier(supplierId);
 
@@ -340,13 +359,17 @@ export default function FornecedorPage() {
   }
 
   function getQuoteLink() {
+    const cityParam = selectedCity
+      ? `&cidade=${encodeURIComponent(selectedCity)}`
+      : '';
+
     if (isCerimonialistaMode) {
       return `/solicitar-orcamento?fornecedor=${supplierId}&cliente=${targetCustomerId}&voltar=${encodeURIComponent(
         returnUrl
-      )}`;
+      )}${cityParam}`;
     }
 
-    return `/solicitar-orcamento?fornecedor=${supplierId}`;
+    return `/solicitar-orcamento?fornecedor=${supplierId}${cityParam}`;
   }
 
   if (loading) {
@@ -412,6 +435,7 @@ export default function FornecedorPage() {
   const gallery = getGallery(supplier);
   const services = getServices(categoryName);
   const whatsappLink = formatWhatsAppLink(supplier.whatsapp);
+  const serviceCities = getServiceCities(supplier);
   const canReceiveQuote = Boolean(publicVisibility?.can_receive_quote);
   const supplierTag = getPublicSupplierTag(
     publicVisibility,
@@ -508,6 +532,32 @@ export default function FornecedorPage() {
               </div>
             </div>
           </div>
+
+          {serviceCities.length > 0 && (
+            <div className="mt-4 rounded-2xl bg-white px-4 py-3 text-sm leading-5 text-gray-700 shadow-sm ring-1 ring-[#f1e7cf]">
+              <p className="font-extrabold text-[#151515]">Cidades onde atende</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {serviceCities.map((cityName) => (
+                  <span
+                    key={cityName}
+                    className={
+                      selectedCity && cityName === selectedCity
+                        ? 'rounded-full bg-[#e3a925] px-3 py-1 text-xs font-extrabold text-white'
+                        : 'rounded-full bg-[#fff7e8] px-3 py-1 text-xs font-extrabold text-[#7a5200]'
+                    }
+                  >
+                    {cityName}
+                  </span>
+                ))}
+              </div>
+
+              {selectedCity && serviceCities.includes(selectedCity) && (
+                <p className="mt-3 rounded-2xl bg-green-50 px-3 py-2 text-xs font-bold text-green-700">
+                  Este fornecedor atende {selectedCity}.
+                </p>
+              )}
+            </div>
+          )}
 
           {publicVisibility?.public_badge === 'novo_no_reim' && (
             <div className="mt-4 rounded-2xl bg-[#fff7e8] px-4 py-3 text-sm leading-5 text-[#7a5200] ring-1 ring-[#f1e7cf]">
@@ -659,7 +709,13 @@ export default function FornecedorPage() {
                 className="flex items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg"
               >
                 <MessageCircle size={22} />
-                {isCerimonialista ? 'Solicitar proposta' : 'Solicitar orçamento'}
+                {selectedCity
+                  ? isCerimonialista
+                    ? `Solicitar proposta em ${selectedCity}`
+                    : `Solicitar orçamento em ${selectedCity}`
+                  : isCerimonialista
+                    ? 'Solicitar proposta'
+                    : 'Solicitar orçamento'}
               </Link>
             ) : (
               <button
