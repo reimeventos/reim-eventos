@@ -1,12 +1,9 @@
-'use client';
-
-import { ReactNode } from 'react';
-import { SupplierSubscriptionGuard } from '@/components/SupplierSubscriptionGuard';
+import type { ReactNode } from "react";
 
 export default function PainelFornecedorLayout({
   children,
 }: {
   children: ReactNode;
 }) {
-  return <SupplierSubscriptionGuard>{children}</SupplierSubscriptionGuard>;
+  return <>{children}</>;
 }
