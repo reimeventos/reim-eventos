@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
+  ArrowLeft,
   BarChart3,
   Bell,
   CalendarCheck,
@@ -15,6 +16,7 @@ import {
   FolderKanban,
   Gem,
   Grid3X3,
+  Headset,
   Loader2,
   LockKeyhole,
   LogOut,
@@ -37,6 +39,7 @@ type DashboardStats = {
   categories: number;
   featuredSuppliers: number;
   auditLogs: number;
+  supportTickets: number;
   mrr: number;
 };
 
@@ -65,6 +68,7 @@ const initialStats: DashboardStats = {
   categories: 0,
   featuredSuppliers: 0,
   auditLogs: 0,
+  supportTickets: 0,
   mrr: 0,
 };
 
@@ -148,6 +152,7 @@ export default function AdminPage() {
         categoriesCount,
         featuredSuppliersCount,
         auditLogsCount,
+        supportTicketsCount,
       ] = await Promise.all([
         getCount('suppliers'),
         getCount('profiles'),
@@ -163,6 +168,9 @@ export default function AdminPage() {
         getCount('categories'),
         getCount('suppliers', (query) => query.eq('is_featured', true)),
         getCount('admin_audit_logs'),
+        getCount('support_tickets', (query) =>
+          query.in('status', ['aberto', 'em_atendimento'])
+        ),
       ]);
 
       const { data: activeSubscriptions, error: activeError } = await supabase
@@ -221,6 +229,7 @@ export default function AdminPage() {
         categories: categoriesCount,
         featuredSuppliers: featuredSuppliersCount,
         auditLogs: auditLogsCount,
+        supportTickets: supportTicketsCount,
         mrr,
       });
 
@@ -249,6 +258,14 @@ export default function AdminPage() {
           <div className="absolute inset-0 bg-gradient-to-b from-black/85 via-black/90 to-black" />
 
           <div className="relative z-10">
+            <Link
+              href="/perfil"
+              className="mb-4 inline-flex items-center gap-2 text-xs font-black text-[#e3a925]"
+            >
+              <ArrowLeft size={16} />
+              Voltar para Perfil
+            </Link>
+
             <div className="flex items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#e3a925] text-white shadow-lg">
@@ -351,6 +368,29 @@ export default function AdminPage() {
                 </Link>
               )}
 
+              {stats.supportTickets > 0 && (
+                <Link
+                  href="/admin/suporte"
+                  className="mb-4 flex items-center gap-3 rounded-[24px] border border-blue-200 bg-blue-50 p-4 shadow-sm"
+                >
+                  <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white">
+                    <Headset size={22} />
+                    <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-extrabold text-white">
+                      {stats.supportTickets}
+                    </span>
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <h2 className="text-sm font-black">Solicitação de suporte</h2>
+                    <p className="mt-1 text-[11px] font-bold leading-4 text-blue-700">
+                      Há chamado(s) aguardando acompanhamento do Admin.
+                    </p>
+                  </div>
+
+                  <ChevronRight className="shrink-0 text-blue-600" size={20} />
+                </Link>
+              )}
+
               <div className="grid grid-cols-4 gap-2">
                 <MiniStat
                   label="Pend."
@@ -428,6 +468,14 @@ export default function AdminPage() {
                   badge={stats.auditLogs}
                   dark
                 />
+
+                <AdminIcon
+                  href="/admin/suporte"
+                  icon={<Headset size={23} />}
+                  title="Suporte"
+                  badge={stats.supportTickets}
+                  active={stats.supportTickets > 0}
+                />
               </div>
 
               <SectionTitle title="Indicadores rápidos" />
@@ -456,6 +504,12 @@ export default function AdminPage() {
                   value={stats.auditLogs}
                   subtitle="logs registrados"
                   icon={<FileSearch size={18} />}
+                />
+                <InfoCard
+                  title="Suporte"
+                  value={stats.supportTickets}
+                  subtitle="chamados em aberto"
+                  icon={<Headset size={18} />}
                 />
               </div>
 
@@ -522,8 +576,11 @@ export default function AdminPage() {
               Clientes
             </Link>
 
-            <Link href="/admin/auditoria" className="rounded-2xl px-2 py-2">
-              Audit.
+            <Link href="/admin/suporte" className="relative rounded-2xl px-2 py-2">
+              Suporte
+              {stats.supportTickets > 0 && (
+                <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-600" />
+              )}
             </Link>
           </div>
         </nav>
