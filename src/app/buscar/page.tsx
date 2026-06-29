@@ -173,6 +173,8 @@ export default function BuscarPage() {
   const [availableCities, setAvailableCities] = useState<string[]>(defaultCities);
   const [showingAlternativeCities, setShowingAlternativeCities] = useState(false);
   const [alternativeCities, setAlternativeCities] = useState<string[]>([]);
+  const [localSuppliersCount, setLocalSuppliersCount] = useState(0);
+  const [otherCitiesSuppliersCount, setOtherCitiesSuppliersCount] = useState(0);
 
   const [targetCustomerId, setTargetCustomerId] = useState('');
   const [returnUrl, setReturnUrl] = useState('/');
@@ -264,6 +266,8 @@ export default function BuscarPage() {
       setLoadingSuppliers(true);
       setShowingAlternativeCities(false);
       setAlternativeCities([]);
+      setLocalSuppliersCount(0);
+      setOtherCitiesSuppliersCount(0);
 
       /*
         Regra pública:
@@ -359,28 +363,40 @@ export default function BuscarPage() {
         supplierAttendsCity(supplier, cityToUse)
       );
 
-      if (suppliersInSelectedCity.length > 0) {
-        setSuppliers(suppliersInSelectedCity);
-        return;
-      }
+      const suppliersFromOtherCities = filteredBySearch.filter(
+        (supplier: any) => !supplierAttendsCity(supplier, cityToUse)
+      );
 
       const citiesFound = Array.from(
         new Set(
-          filteredBySearch
+          suppliersFromOtherCities
             .map((supplier: any) => String(supplier.city || '').trim())
             .filter(Boolean)
         )
       );
 
-      setShowingAlternativeCities(filteredBySearch.length > 0 && Boolean(cityToUse));
+      /*
+        Ordem da busca:
+        1) fornecedores que atendem a cidade escolhida
+        2) fornecedores de outras cidades, como alternativas
+        Assim o fornecedor que marcou Porto Seguro aparece em Porto Seguro,
+        mas quem é de Eunápolis também pode aparecer logo abaixo como opção extra.
+      */
+      setLocalSuppliersCount(suppliersInSelectedCity.length);
+      setOtherCitiesSuppliersCount(suppliersFromOtherCities.length);
+      setShowingAlternativeCities(
+        suppliersFromOtherCities.length > 0 && Boolean(cityToUse)
+      );
       setAlternativeCities(citiesFound);
-      setSuppliers(filteredBySearch);
+      setSuppliers([...suppliersInSelectedCity, ...suppliersFromOtherCities]);
     } catch (error) {
       console.error('Erro ao carregar fornecedores:', error);
       setSuppliers([]);
       setVisibilityBySupplier({});
       setShowingAlternativeCities(false);
       setAlternativeCities([]);
+      setLocalSuppliersCount(0);
+      setOtherCitiesSuppliersCount(0);
     } finally {
       setLoadingSuppliers(false);
     }
@@ -741,13 +757,27 @@ export default function BuscarPage() {
 
           {showingAlternativeCities && !loadingSuppliers && (
             <div className="mb-4 rounded-[24px] bg-[#fff7e8] p-4 text-sm leading-5 text-[#7a5200] ring-1 ring-[#f1e7cf]">
-              <p className="font-extrabold">
-                Nenhum fornecedor encontrado em {selectedCity}.
-              </p>
-              <p className="mt-1">
-                Encontramos opções em outras cidades:{' '}
-                <strong>{alternativeCities.join(', ') || 'regiões próximas'}</strong>.
-              </p>
+              {localSuppliersCount > 0 ? (
+                <>
+                  <p className="font-extrabold">
+                    Primeiro mostramos fornecedores que atendem {selectedCity}.
+                  </p>
+                  <p className="mt-1">
+                    Logo abaixo também aparecem opções de outras cidades:{' '}
+                    <strong>{alternativeCities.join(', ') || 'regiões próximas'}</strong>.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="font-extrabold">
+                    Nenhum fornecedor encontrado em {selectedCity}.
+                  </p>
+                  <p className="mt-1">
+                    Encontramos opções em outras cidades:{' '}
+                    <strong>{alternativeCities.join(', ') || 'regiões próximas'}</strong>.
+                  </p>
+                </>
+              )}
             </div>
           )}
 
@@ -772,7 +802,7 @@ export default function BuscarPage() {
           )}
 
           <div className="space-y-4">
-            {filteredSuppliers.map((supplier) => {
+            {filteredSuppliers.map((supplier, index) => {
               const supplierName = supplier.business_name || 'Fornecedor';
               const categoryName = getCategoryNameFromSupplier(supplier);
               const city = supplier.city || 'Cidade não informada';
@@ -785,10 +815,23 @@ export default function BuscarPage() {
               const isSavedForCustomer = savedSupplierIds.includes(supplierId);
 
               return (
-                <div
-                  key={supplierId}
-                  className="overflow-hidden rounded-[28px] bg-white shadow-[0_10px_25px_rgba(0,0,0,.08)]"
-                >
+                <div key={supplierId}>
+                  {index === 0 && localSuppliersCount > 0 && (
+                    <div className="mb-3 rounded-[18px] bg-green-50 px-4 py-3 text-xs font-extrabold text-green-700 ring-1 ring-green-100">
+                      Opções que atendem {selectedCity}
+                    </div>
+                  )}
+
+                  {index === localSuppliersCount &&
+                    otherCitiesSuppliersCount > 0 && (
+                      <div className="mb-3 mt-5 rounded-[18px] bg-[#fff7e8] px-4 py-3 text-xs font-extrabold text-[#7a5200] ring-1 ring-[#f1e7cf]">
+                        Outras cidades disponíveis
+                      </div>
+                    )}
+
+                  <div
+                    className="overflow-hidden rounded-[28px] bg-white shadow-[0_10px_25px_rgba(0,0,0,.08)]"
+                  >
                   <Link href={getSupplierLink(supplierId)} className="block">
                     <div className="relative h-44 bg-cover bg-center">
                       <img
@@ -896,6 +939,7 @@ export default function BuscarPage() {
                         )}
                       </button>
                     )}
+                  </div>
                   </div>
                 </div>
               );
