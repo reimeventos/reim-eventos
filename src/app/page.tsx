@@ -19,6 +19,7 @@ import {
   Search,
   Utensils,
   Video,
+  X,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { Nav } from '@/components/Nav';
@@ -156,6 +157,19 @@ export default function HomePage() {
   const [loadingSuppliers, setLoadingSuppliers] = useState(true);
   const [accountType, setAccountType] = useState('cliente');
   const [notificationCount, setNotificationCount] = useState(0);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [cityOpen, setCityOpen] = useState(false);
+  const [selectedCity, setSelectedCity] = useState('Eunápolis');
+  const [availableCities, setAvailableCities] = useState<string[]>([
+    'Eunápolis',
+    'Porto Seguro',
+    "Arraial d'Ajuda",
+    'Trancoso',
+    'Belmonte',
+    'Teixeira de Freitas',
+    'Itagimirim',
+    'Itabela',
+  ]);
 
   useEffect(() => {
     async function loadAccountType() {
@@ -257,6 +271,46 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
+    async function loadAvailableCities() {
+      try {
+        const fixedCities = [
+          'Eunápolis',
+          'Porto Seguro',
+          "Arraial d'Ajuda",
+          'Trancoso',
+          'Belmonte',
+          'Teixeira de Freitas',
+          'Itagimirim',
+          'Itabela',
+        ];
+
+        const { data, error } = await supabase
+          .from('suppliers')
+          .select('city')
+          .not('city', 'is', null);
+
+        if (error) {
+          throw error;
+        }
+
+        const supplierCities = (data || [])
+          .map((item: any) => String(item.city || '').trim())
+          .filter(Boolean);
+
+        const mergedCities = Array.from(
+          new Set([...fixedCities, ...supplierCities])
+        ).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+
+        setAvailableCities(mergedCities);
+      } catch (error) {
+        console.error('Erro ao carregar cidades:', error);
+      }
+    }
+
+    loadAvailableCities();
+  }, []);
+
+  useEffect(() => {
     async function loadFeaturedSuppliers() {
       try {
         setLoadingSuppliers(true);
@@ -333,8 +387,12 @@ export default function HomePage() {
           <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/18 to-black/78" />
           <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#fbf7f1] via-[#fbf7f1]/75 to-transparent" />
 
-          <div className="relative z-10 -mt-10 flex flex-col items-center text-center">
-            <button className="flex h-[58px] w-[58px] items-center justify-center rounded-full bg-black/72 text-white shadow-xl">
+          <div className="relative z-10 flex items-center justify-between px-7 pt-7">
+            <button
+              type="button"
+              onClick={() => setMenuOpen(true)}
+              className="flex h-[58px] w-[58px] items-center justify-center rounded-full bg-black/72 text-white shadow-xl"
+            >
               <Menu size={32} strokeWidth={2.8} />
             </button>
 
@@ -353,7 +411,7 @@ export default function HomePage() {
           </div>
 
           {/* LOGO CENTRAL */}
-          <div className="relative z-10 mt-5 text-center">
+          <div className="relative z-10 mt-0 text-center">
             <CrownLogo />
 
             <h1 className="mt-1 font-serif text-[60px] leading-none tracking-[0.12em] text-white drop-shadow-[0_3px_8px_rgba(0,0,0,.35)]">
@@ -375,16 +433,50 @@ export default function HomePage() {
         {/* BUSCA */}
         <section className="relative z-20 -mt-14 px-6">
           <div className="rounded-[30px] bg-[#f7f4ef] p-4 shadow-[0_20px_45px_rgba(0,0,0,.18)]">
-            <div className="mb-4 flex items-center justify-between rounded-[24px] bg-white px-5 py-4 text-[18px] font-extrabold shadow-sm">
-              <span className="flex items-center gap-3">
-                <MapPin size={22} fill="#e0a21e" className="text-[#e0a21e]" />
-                Eunápolis
-              </span>
-              <ChevronDown size={22} className="text-[#e0a21e]" />
+            <div className="relative mb-4">
+              <button
+                type="button"
+                onClick={() => setCityOpen((current) => !current)}
+                className="flex w-full items-center justify-between rounded-[24px] bg-white px-5 py-4 text-[18px] font-extrabold shadow-sm"
+              >
+                <span className="flex items-center gap-3">
+                  <MapPin size={22} fill="#e0a21e" className="text-[#e0a21e]" />
+                  {selectedCity}
+                </span>
+                <ChevronDown
+                  size={22}
+                  className={`text-[#e0a21e] transition ${
+                    cityOpen ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
+
+              {cityOpen && (
+                <div className="absolute left-0 right-0 top-[64px] z-40 max-h-72 overflow-y-auto rounded-[24px] bg-white p-2 shadow-2xl ring-1 ring-[#f1e7cf]">
+                  {availableCities.map((city) => (
+                    <button
+                      key={city}
+                      type="button"
+                      onClick={() => {
+                        setSelectedCity(city);
+                        setCityOpen(false);
+                      }}
+                      className={`flex w-full items-center gap-3 rounded-[18px] px-4 py-3 text-left text-sm font-extrabold ${
+                        selectedCity === city
+                          ? 'bg-[#fff7e8] text-[#b97900]'
+                          : 'text-[#151515]'
+                      }`}
+                    >
+                      <MapPin size={16} className="text-[#d99200]" />
+                      {city}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <Link
-              href="/buscar"
+              href={`/buscar?cidade=${encodeURIComponent(selectedCity)}`}
               className="flex items-center gap-4 rounded-[24px] bg-white px-5 py-5 shadow-lg"
             >
               <Search size={32} className="text-[#d99200]" />
@@ -403,7 +495,11 @@ export default function HomePage() {
               const Icon = cat.icon;
 
               return (
-                <Link href="/buscar" key={cat.title} className="text-center">
+                <Link
+                    href={`/buscar?cidade=${encodeURIComponent(selectedCity)}`}
+                    key={cat.title}
+                    className="text-center"
+                  >
                   <div className="mx-auto flex h-[76px] w-[76px] items-center justify-center rounded-full bg-white shadow-[0_10px_22px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]">
                     <Icon
                       size={32}
@@ -474,7 +570,10 @@ export default function HomePage() {
               Fornecedores em destaque ✨
             </h2>
 
-            <Link href="/buscar" className="text-[13px] font-bold text-[#d99200]">
+            <Link
+              href={`/buscar?cidade=${encodeURIComponent(selectedCity)}`}
+              className="text-[13px] font-bold text-[#d99200]"
+            >
               Ver todos
             </Link>
           </div>
@@ -536,6 +635,81 @@ export default function HomePage() {
             </div>
           )}
         </section>
+
+        {menuOpen && (
+          <div className="fixed inset-0 z-[90] bg-black/70">
+            <div className="ml-auto min-h-screen w-[82%] max-w-[330px] bg-[#fbf7f1] p-6 shadow-2xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-extrabold uppercase tracking-[0.25em] text-[#d99200]">
+                    REIM Eventos
+                  </p>
+                  <h2 className="mt-1 font-serif text-2xl font-bold">
+                    Menu
+                  </h2>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-black text-white"
+                >
+                  <X size={22} />
+                </button>
+              </div>
+
+              <div className="mt-7 space-y-3">
+                <Link
+                  href="/"
+                  onClick={() => setMenuOpen(false)}
+                  className="block rounded-[22px] bg-white px-5 py-4 text-sm font-extrabold shadow-sm ring-1 ring-[#f1e7cf]"
+                >
+                  Home
+                </Link>
+
+                <Link
+                  href={`/buscar?cidade=${encodeURIComponent(selectedCity)}`}
+                  onClick={() => setMenuOpen(false)}
+                  className="block rounded-[22px] bg-white px-5 py-4 text-sm font-extrabold shadow-sm ring-1 ring-[#f1e7cf]"
+                >
+                  Buscar fornecedores
+                </Link>
+
+                <Link
+                  href="/meu-evento"
+                  onClick={() => setMenuOpen(false)}
+                  className="block rounded-[22px] bg-white px-5 py-4 text-sm font-extrabold shadow-sm ring-1 ring-[#f1e7cf]"
+                >
+                  Meu Evento
+                </Link>
+
+                <Link
+                  href="/orcamentos"
+                  onClick={() => setMenuOpen(false)}
+                  className="block rounded-[22px] bg-white px-5 py-4 text-sm font-extrabold shadow-sm ring-1 ring-[#f1e7cf]"
+                >
+                  Meus Orçamentos
+                </Link>
+
+                <Link
+                  href="/painel-fornecedor"
+                  onClick={() => setMenuOpen(false)}
+                  className="block rounded-[22px] bg-white px-5 py-4 text-sm font-extrabold shadow-sm ring-1 ring-[#f1e7cf]"
+                >
+                  Painel do Fornecedor
+                </Link>
+
+                <Link
+                  href="/perfil"
+                  onClick={() => setMenuOpen(false)}
+                  className="block rounded-[22px] bg-black px-5 py-4 text-sm font-extrabold text-white shadow-sm"
+                >
+                  Perfil / Entrar
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
 
         <Nav />
       </div>
