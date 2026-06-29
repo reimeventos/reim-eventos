@@ -3,13 +3,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Nav } from '@/components/Nav';
-import { listCategories, listSuppliers } from '@/lib/marketplace';
+import { listCategories } from '@/lib/marketplace';
 import { supabase } from '@/lib/supabase';
 import {
   ArrowRight,
   Camera,
   Cake,
   CheckCircle2,
+  ChevronDown,
   Flower2,
   Gem,
   Heart,
@@ -23,6 +24,42 @@ import {
   Video,
   X,
 } from 'lucide-react';
+
+const defaultCities = [
+  'Eunápolis',
+  'Porto Seguro',
+  "Arraial d'Ajuda",
+  'Trancoso',
+  'Belmonte',
+  'Teixeira de Freitas',
+  'Itagimirim',
+  'Itabela',
+];
+
+function normalizeText(value: any) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+function supplierAttendsCity(supplier: any, city: string) {
+  const selectedCity = normalizeText(city);
+
+  if (!selectedCity) return true;
+
+  const serviceCities = Array.isArray(supplier?.service_cities)
+    ? supplier.service_cities
+    : [];
+
+  const allCities = [supplier?.city, ...serviceCities]
+    .map((item) => normalizeText(item))
+    .filter(Boolean);
+
+  return allCities.includes(selectedCity);
+}
+
 
 function getCategoryIcon(name: string) {
   const normalized = name.toLowerCase();
@@ -131,6 +168,11 @@ export default function BuscarPage() {
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
   const [search, setSearch] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
+  const [selectedCity, setSelectedCity] = useState('Eunápolis');
+  const [cityOpen, setCityOpen] = useState(false);
+  const [availableCities, setAvailableCities] = useState<string[]>(defaultCities);
+  const [showingAlternativeCities, setShowingAlternativeCities] = useState(false);
+  const [alternativeCities, setAlternativeCities] = useState<string[]>([]);
 
   const [targetCustomerId, setTargetCustomerId] = useState('');
   const [returnUrl, setReturnUrl] = useState('/');
@@ -147,9 +189,11 @@ export default function BuscarPage() {
     const params = new URLSearchParams(window.location.search);
     const cliente = params.get('cliente') || '';
     const voltar = params.get('voltar') || '/';
+    const cidade = params.get('cidade') || 'Eunápolis';
 
     setTargetCustomerId(cliente);
     setReturnUrl(voltar);
+    setSelectedCity(cidade);
   }, []);
 
   useEffect(() => {
@@ -176,6 +220,35 @@ export default function BuscarPage() {
     loadSavedForTargetCustomer();
   }, [targetCustomerId]);
 
+  useEffect(() => {
+    async function loadAvailableCities() {
+      try {
+        const { data } = await supabase
+          .from('suppliers')
+          .select('city, service_cities');
+
+        const supplierCities = (data || []).flatMap((item: any) => [
+          item.city,
+          ...(Array.isArray(item.service_cities) ? item.service_cities : []),
+        ]);
+
+        const cities = Array.from(
+          new Set(
+            [...defaultCities, ...supplierCities]
+              .map((city) => String(city || '').trim())
+              .filter(Boolean)
+          )
+        ).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+
+        setAvailableCities(cities);
+      } catch (error) {
+        console.error('Erro ao carregar cidades:', error);
+      }
+    }
+
+    loadAvailableCities();
+  }, []);
+
   function getSupplierLink(supplierId: string) {
     if (isCerimonialistaMode) {
       return `/fornecedor/${supplierId}?cliente=${targetCustomerId}&voltar=${encodeURIComponent(
@@ -186,17 +259,18 @@ export default function BuscarPage() {
     return `/fornecedor/${supplierId}`;
   }
 
-  async function loadSuppliers(categoryId?: string, searchText?: string) {
+  async function loadSuppliers(categoryId?: string, searchText?: string, cityText?: string) {
     try {
       setLoadingSuppliers(true);
+      setShowingAlternativeCities(false);
+      setAlternativeCities([]);
 
       /*
         Regra pública:
-        Só aparecem fornecedores que podem receber orçamento:
-        - plano ativo
-        - ou teste ativo dentro do prazo
-        - e supplier.status = ativo
-        A regra vem da view supplier_public_visibility.
+        1) Só carregamos fornecedores liberados pela supplier_public_visibility.
+        2) Primeiro mostramos fornecedores que atendem a cidade escolhida.
+        3) Se não tiver resultado na cidade, mostramos alternativas em outras cidades
+           para o cliente não ficar sem opção.
       */
       const { data: visibilityData, error: visibilityError } = await supabase
         .from('supplier_public_visibility')
@@ -227,20 +301,86 @@ export default function BuscarPage() {
         return;
       }
 
-      const data = await listSuppliers({
-        categoryId: categoryId || undefined,
-        search: searchText || undefined,
+      let query = supabase
+        .from('suppliers')
+        .select(`
+          id,
+          business_name,
+          description,
+          city,
+          service_cities,
+          whatsapp,
+          instagram,
+          website,
+          average_price,
+          rating_average,
+          is_featured,
+          show_price,
+          status,
+          category_id,
+          categories(name),
+          media(file_url, is_cover)
+        `)
+        .in('id', visibleIds)
+        .eq('status', 'ativo')
+        .order('is_featured', { ascending: false })
+        .order('rating_average', { ascending: false });
+
+      if (categoryId) {
+        query = query.eq('category_id', categoryId);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        throw error;
+      }
+
+      const normalizedSearch = String(searchText || '').trim().toLowerCase();
+
+      const filteredBySearch = (data || []).filter((supplier: any) => {
+        if (!normalizedSearch) return true;
+
+        const supplierName = String(supplier.business_name || '').toLowerCase();
+        const description = String(supplier.description || '').toLowerCase();
+        const city = String(supplier.city || '').toLowerCase();
+        const categoryName = getCategoryNameFromSupplier(supplier).toLowerCase();
+
+        return (
+          supplierName.includes(normalizedSearch) ||
+          description.includes(normalizedSearch) ||
+          city.includes(normalizedSearch) ||
+          categoryName.includes(normalizedSearch)
+        );
       });
 
-      const onlyVisibleSuppliers = (data || []).filter((supplier: any) =>
-        visibleIds.includes(supplier.id)
+      const cityToUse = cityText || selectedCity;
+      const suppliersInSelectedCity = filteredBySearch.filter((supplier: any) =>
+        supplierAttendsCity(supplier, cityToUse)
       );
 
-      setSuppliers(onlyVisibleSuppliers);
+      if (suppliersInSelectedCity.length > 0) {
+        setSuppliers(suppliersInSelectedCity);
+        return;
+      }
+
+      const citiesFound = Array.from(
+        new Set(
+          filteredBySearch
+            .map((supplier: any) => String(supplier.city || '').trim())
+            .filter(Boolean)
+        )
+      );
+
+      setShowingAlternativeCities(filteredBySearch.length > 0 && Boolean(cityToUse));
+      setAlternativeCities(citiesFound);
+      setSuppliers(filteredBySearch);
     } catch (error) {
       console.error('Erro ao carregar fornecedores:', error);
       setSuppliers([]);
       setVisibilityBySupplier({});
+      setShowingAlternativeCities(false);
+      setAlternativeCities([]);
     } finally {
       setLoadingSuppliers(false);
     }
@@ -258,11 +398,16 @@ export default function BuscarPage() {
         setLoadingCategories(false);
       }
 
-      await loadSuppliers();
+      await loadSuppliers('', '', selectedCity);
     }
 
     loadInitialData();
   }, []);
+
+  useEffect(() => {
+    loadSuppliers(selectedCategoryId, appliedSearch, selectedCity);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCity]);
 
   const filteredSuppliers = useMemo(() => {
     const normalizedSearch = appliedSearch.trim().toLowerCase();
@@ -292,7 +437,7 @@ export default function BuscarPage() {
     setSelectedCategoryId(nextCategoryId);
     setAppliedSearch('');
     setSearch('');
-    loadSuppliers(nextCategoryId, '');
+    loadSuppliers(nextCategoryId, '', selectedCity);
   }
 
   function handleSearchSubmit(e: React.FormEvent) {
@@ -300,13 +445,13 @@ export default function BuscarPage() {
 
     const value = search.trim();
     setAppliedSearch(value);
-    loadSuppliers(selectedCategoryId, value);
+    loadSuppliers(selectedCategoryId, value, selectedCity);
   }
 
   function handleClearSearch() {
     setSearch('');
     setAppliedSearch('');
-    loadSuppliers(selectedCategoryId, '');
+    loadSuppliers(selectedCategoryId, '', selectedCity);
   }
 
   async function handleSaveForCustomer(supplierId: string, supplierName: string) {
@@ -446,9 +591,44 @@ export default function BuscarPage() {
               </div>
             )}
 
-            <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm text-white/90">
-              <MapPin size={16} className="text-[#e3a925]" />
-              Eunápolis
+            <div className="relative mt-4">
+              <button
+                type="button"
+                onClick={() => setCityOpen((current) => !current)}
+                className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-bold text-white/90"
+              >
+                <MapPin size={16} className="text-[#e3a925]" />
+                {selectedCity}
+                <ChevronDown
+                  size={15}
+                  className={`text-[#e3a925] transition ${
+                    cityOpen ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
+
+              {cityOpen && (
+                <div className="absolute left-0 top-12 z-40 max-h-72 w-full overflow-y-auto rounded-[24px] bg-white p-2 text-[#151515] shadow-2xl ring-1 ring-[#f1e7cf]">
+                  {availableCities.map((city) => (
+                    <button
+                      key={city}
+                      type="button"
+                      onClick={() => {
+                        setSelectedCity(city);
+                        setCityOpen(false);
+                      }}
+                      className={`flex w-full items-center gap-3 rounded-[18px] px-4 py-3 text-left text-sm font-extrabold ${
+                        selectedCity === city
+                          ? 'bg-[#fff7e8] text-[#b97900]'
+                          : 'text-[#151515]'
+                      }`}
+                    >
+                      <MapPin size={16} className="text-[#d99200]" />
+                      {city}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </section>
@@ -559,6 +739,18 @@ export default function BuscarPage() {
             </span>
           </div>
 
+          {showingAlternativeCities && !loadingSuppliers && (
+            <div className="mb-4 rounded-[24px] bg-[#fff7e8] p-4 text-sm leading-5 text-[#7a5200] ring-1 ring-[#f1e7cf]">
+              <p className="font-extrabold">
+                Nenhum fornecedor encontrado em {selectedCity}.
+              </p>
+              <p className="mt-1">
+                Encontramos opções em outras cidades:{' '}
+                <strong>{alternativeCities.join(', ') || 'regiões próximas'}</strong>.
+              </p>
+            </div>
+          )}
+
           {loadingSuppliers && (
             <div className="rounded-[28px] bg-white p-6 text-center shadow-sm ring-1 ring-[#f1e7cf]">
               <p className="text-sm font-bold text-gray-500">
@@ -652,6 +844,13 @@ export default function BuscarPage() {
                             ? 'Valor sob consulta'
                             : `A partir de ${price}`}
                         </p>
+
+                        {Array.isArray(supplier.service_cities) &&
+                          supplier.service_cities.length > 0 && (
+                            <p className="mt-1 text-[11px] font-bold text-[#b97900]">
+                              Atende: {supplier.service_cities.slice(0, 3).join(', ')}
+                            </p>
+                          )}
                       </div>
 
                       <Link
