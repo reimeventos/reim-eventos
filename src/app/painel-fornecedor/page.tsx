@@ -156,20 +156,11 @@ export default function PainelFornecedorPage() {
       setLoading(false);
 
       const [
-        subscriptionResult,
         totalLeadsResult,
         unansweredLeadsResult,
         responsesResult,
         closedQuotesResult,
       ] = await Promise.all([
-        supabase
-          .from("supplier_subscriptions")
-          .select("*")
-          .eq("supplier_id", supplierId)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle(),
-
         supabase
           .from("quote_requests")
           .select("id", { count: "exact", head: true })
@@ -192,12 +183,6 @@ export default function PainelFornecedorPage() {
           .in("status", ["aceito", "accepted", "fechado", "closed"]),
       ]);
 
-      if (subscriptionResult.error) {
-        console.error("Erro ao buscar assinatura:", subscriptionResult.error);
-      }
-
-      setSubscription((subscriptionResult.data as Subscription) || null);
-
       const nextStats = {
         totalLeads: totalLeadsResult.count || 0,
         unansweredLeads: unansweredLeadsResult.count || 0,
@@ -216,7 +201,7 @@ export default function PainelFornecedorPage() {
           DASHBOARD_CACHE_KEY,
           JSON.stringify({
             supplier: currentSupplier,
-            subscription: (subscriptionResult.data as Subscription) || null,
+            subscription: subscription || null,
             stats: {
               ...nextStats,
               unreadMessages: 0,
@@ -255,7 +240,7 @@ export default function PainelFornecedorPage() {
               DASHBOARD_CACHE_KEY,
               JSON.stringify({
                 supplier: currentSupplier,
-                subscription: (subscriptionResult.data as Subscription) || null,
+                subscription: subscription || null,
                 stats: updatedStats,
                 savedAt: new Date().toISOString(),
               })
@@ -424,14 +409,14 @@ export default function PainelFornecedorPage() {
               </div>
 
               <div>
-                <p className="font-black text-emerald-700">{planActive ? "Plano ativo" : "Plano não ativo"}</p>
+                <p className="font-black text-emerald-700">{planActive ? "Plano ativo" : "Plano da vitrine"}</p>
 
                 <p className="text-sm text-emerald-700/80 font-bold mt-1">
                   {planActive && planEndDate
                     ? `Seu plano está ativo até ${planEndDate}.`
                     : planActive
                     ? "Seu plano está ativo."
-                    : "Ative um plano para aparecer melhor na vitrine."}
+                    : "A verificação da assinatura fica no login e na tela de planos para o painel abrir mais rápido."}
                 </p>
 
                 <div className="flex flex-wrap gap-2 mt-4">
