@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getMySupplierProfile, updateMySupplierProfile } from '@/lib/suppliers';
+import { getMySupplierProfile } from '@/lib/suppliers';
 import { listCategories } from '@/lib/marketplace';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
@@ -58,6 +58,8 @@ export default function EditarVitrinePage() {
   });
 
   const [msg, setMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -185,28 +187,70 @@ export default function EditarVitrinePage() {
   async function save(e: React.FormEvent) {
     e.preventDefault();
 
-    await updateMySupplierProfile({
-      business_name: form.business_name,
-      description: form.description,
-      city: form.city,
-      whatsapp: form.whatsapp,
-      instagram: form.instagram,
-      website: form.website,
-      average_price: form.average_price,
-      category_id: form.category_id,
-      show_price: form.show_price === 'true',
-      service_cities: Array.from(
+    try {
+      setSaving(true);
+      setMsg('');
+      setErrorMsg('');
+
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+
+      if (userError) {
+        throw userError;
+      }
+
+      const user = userData.user;
+
+      if (!user) {
+        setErrorMsg('Sua sessão expirou. Entre novamente para salvar.');
+        return;
+      }
+
+      const serviceCities = Array.from(
         new Set(
           [form.city, ...form.service_cities]
             .map((city) => normalizeCity(city))
             .filter(Boolean)
         )
-      ),
-    });
+      );
 
-    setMsg('Vitrine atualizada com sucesso.');
+      const { error } = await supabase
+        .from('suppliers')
+        .update({
+          business_name: form.business_name,
+          description: form.description,
+          city: form.city,
+          whatsapp: form.whatsapp,
+          instagram: form.instagram,
+          website: form.website,
+          average_price: form.average_price,
+          category_id: form.category_id || null,
+          show_price: form.show_price === 'true',
+          service_cities: serviceCities,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('owner_id', user.id);
 
-    setTimeout(() => router.push('/painel-fornecedor'), 700);
+      if (error) {
+        throw error;
+      }
+
+      setForm((prev) => ({
+        ...prev,
+        service_cities: serviceCities,
+      }));
+
+      setMsg('Vitrine atualizada com sucesso.');
+
+      setTimeout(() => router.push('/painel-fornecedor'), 900);
+    } catch (error: any) {
+      console.error('Erro ao salvar vitrine:', error);
+      setErrorMsg(
+        error?.message ||
+          'Não foi possível salvar a vitrine. Verifique os dados e tente novamente.'
+      );
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -465,15 +509,25 @@ export default function EditarVitrinePage() {
               />
             </label>
 
+            {errorMsg && (
+              <p className="rounded-[18px] bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+                {errorMsg}
+              </p>
+            )}
+
             {msg && (
               <p className="rounded-[18px] bg-green-50 px-4 py-3 text-sm font-bold text-green-700">
                 {msg}
               </p>
             )}
 
-            <button className="flex w-full items-center justify-center gap-2 rounded-[24px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg">
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex w-full items-center justify-center gap-2 rounded-[24px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg disabled:opacity-60"
+            >
               <Save size={21} />
-              Salvar vitrine
+              {saving ? 'Salvando...' : 'Salvar vitrine'}
             </button>
           </form>
         </section>
