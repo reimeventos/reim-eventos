@@ -156,7 +156,6 @@ export default function HomePage() {
   const [loadingSuppliers, setLoadingSuppliers] = useState(true);
   const [accountType, setAccountType] = useState('cliente');
   const [notificationCount, setNotificationCount] = useState(0);
-  const [visibilityBySupplier, setVisibilityBySupplier] = useState<Record<string, any>>({});
 
   useEffect(() => {
     async function loadAccountType() {
@@ -262,44 +261,6 @@ export default function HomePage() {
       try {
         setLoadingSuppliers(true);
 
-        /*
-          Regra pública:
-          Só aparecem fornecedores que podem receber orçamento:
-          - plano ativo
-          - ou teste ativo dentro do prazo
-          - e supplier.status = ativo
-          A regra vem da view supplier_public_visibility.
-        */
-        const { data: visibilityData, error: visibilityError } = await supabase
-          .from('supplier_public_visibility')
-          .select(
-            'supplier_id, public_badge, public_label, public_notice, supplier_is_featured, can_appear_public'
-          )
-          .eq('can_appear_public', true)
-          .eq('supplier_is_featured', true)
-          .limit(3);
-
-        if (visibilityError) {
-          throw visibilityError;
-        }
-
-        const visibleRows = visibilityData || [];
-        const visibleIds = visibleRows
-          .map((item: any) => item.supplier_id)
-          .filter(Boolean);
-
-        const visibilityMap = visibleRows.reduce((acc: any, item: any) => {
-          acc[item.supplier_id] = item;
-          return acc;
-        }, {});
-
-        setVisibilityBySupplier(visibilityMap);
-
-        if (visibleIds.length === 0) {
-          setFeaturedSuppliers([]);
-          return;
-        }
-
         const { data, error } = await supabase
           .from('suppliers')
           .select(`
@@ -312,7 +273,8 @@ export default function HomePage() {
             categories(name),
             media(file_url, is_cover)
           `)
-          .in('id', visibleIds)
+          .eq('status', 'ativo')
+          .eq('is_featured', true)
           .order('rating_average', { ascending: false })
           .limit(3);
 
@@ -324,7 +286,6 @@ export default function HomePage() {
       } catch (error) {
         console.error('Erro ao carregar fornecedores em destaque:', error);
         setFeaturedSuppliers([]);
-        setVisibilityBySupplier({});
       } finally {
         setLoadingSuppliers(false);
       }
@@ -354,24 +315,6 @@ export default function HomePage() {
     return supplier?.categories?.name || 'Fornecedor de eventos';
   }
 
-  function getSupplierVisibility(supplierId: string) {
-    return visibilityBySupplier[supplierId] || null;
-  }
-
-  function getSupplierBadgeText(supplierId: string) {
-    const visibility = getSupplierVisibility(supplierId);
-
-    if (visibility?.public_badge === 'novo_no_reim') {
-      return 'Novo no REIM';
-    }
-
-    if (visibility?.public_badge === 'premium') {
-      return '♛ Premium';
-    }
-
-    return 'Ativo';
-  }
-
   const bellHref = getBellHref(accountType);
   const planHref = getPlanHref(accountType);
   const planButtonText = getPlanButtonText(accountType);
@@ -382,7 +325,7 @@ export default function HomePage() {
         {/* TOPO */}
         <section className="relative h-[480px] overflow-hidden rounded-b-[36px] bg-black text-white">
           <img
-            src="/layout01-fundo.png"
+            src="/layout01-fundo-sem-noivos.png"
             alt="Fundo REIM Eventos"
             className="absolute inset-0 h-full w-full object-cover object-[78%_top]"
           />
@@ -563,7 +506,7 @@ export default function HomePage() {
                     }}
                   >
                     <span className="absolute left-2 top-2 rounded-full bg-[#e3a925] px-2 py-1 text-[9px] font-extrabold text-white">
-                      {getSupplierBadgeText(supplier.id)}
+                      ♛ Premium
                     </span>
 
                     <span className="absolute right-2 top-2 text-xl text-white drop-shadow">
@@ -587,13 +530,6 @@ export default function HomePage() {
                     <p className="truncate text-[10px] text-gray-500">
                       📍 {supplier.city || 'Eunápolis'}
                     </p>
-
-                    {getSupplierVisibility(supplier.id)?.public_badge ===
-                      'novo_no_reim' && (
-                      <p className="mt-1 rounded-full bg-[#fff7e8] px-2 py-1 text-[9px] font-extrabold text-[#b97900]">
-                        Novo fornecedor
-                      </p>
-                    )}
                   </div>
                 </Link>
               ))}
