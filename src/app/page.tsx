@@ -333,7 +333,7 @@ export default function HomePage() {
           <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/18 to-black/78" />
           <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#fbf7f1] via-[#fbf7f1]/75 to-transparent" />
 
-          <div className="relative z-10 flex items-center justify-between px-7 pt-7">
+          <div className="relative z-10 -mt-10 flex flex-col items-center text-center">
             <button className="flex h-[58px] w-[58px] items-center justify-center rounded-full bg-black/72 text-white shadow-xl">
               <Menu size={32} strokeWidth={2.8} />
             </button>
