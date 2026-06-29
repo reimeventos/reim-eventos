@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { getMySupplierProfile, updateMySupplierProfile } from '@/lib/suppliers';
 import { listCategories } from '@/lib/marketplace';
+import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -13,16 +14,35 @@ import {
   Globe,
   MapPin,
   MessageCircle,
+  Plus,
   Pencil,
   Save,
   ToggleRight,
   WalletCards,
 } from 'lucide-react';
 
+const defaultServiceCities = [
+  'Eunápolis',
+  'Porto Seguro',
+  "Arraial d'Ajuda",
+  'Trancoso',
+  'Belmonte',
+  'Teixeira de Freitas',
+  'Itagimirim',
+  'Itabela',
+];
+
+function normalizeCity(city: string) {
+  return String(city || '').trim();
+}
+
+
 export default function EditarVitrinePage() {
   const router = useRouter();
 
   const [categories, setCategories] = useState<any[]>([]);
+  const [availableCities, setAvailableCities] = useState<string[]>(defaultServiceCities);
+  const [newCity, setNewCity] = useState('');
 
   const [form, setForm] = useState({
     business_name: '',
@@ -34,6 +54,7 @@ export default function EditarVitrinePage() {
     average_price: '',
     category_id: '',
     show_price: 'false',
+    service_cities: [] as string[],
   });
 
   const [msg, setMsg] = useState('');
@@ -49,16 +70,53 @@ export default function EditarVitrinePage() {
 
       setCategories(cats || []);
 
+      try {
+        const { data: suppliersCities } = await supabase
+          .from('suppliers')
+          .select('city, service_cities');
+
+        const citiesFromSuppliers = (suppliersCities || []).flatMap((item: any) => [
+          item.city,
+          ...(Array.isArray(item.service_cities) ? item.service_cities : []),
+        ]);
+
+        const mergedCities = Array.from(
+          new Set(
+            [...defaultServiceCities, ...citiesFromSuppliers]
+              .map((city) => normalizeCity(city))
+              .filter(Boolean)
+          )
+        ).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+
+        setAvailableCities(mergedCities);
+      } catch (error) {
+        console.error('Erro ao carregar cidades atendidas:', error);
+      }
+
+      const mainCity = supplierData?.city ?? '';
+      const savedServiceCities = Array.isArray(supplierData?.service_cities)
+        ? supplierData.service_cities
+        : [];
+
+      const serviceCities = Array.from(
+        new Set(
+          [mainCity, ...savedServiceCities]
+            .map((city) => normalizeCity(city))
+            .filter(Boolean)
+        )
+      );
+
       setForm({
         business_name: supplierData?.business_name ?? '',
         description: supplierData?.description ?? '',
-        city: supplierData?.city ?? '',
+        city: mainCity,
         whatsapp: supplierData?.whatsapp ?? '',
         instagram: supplierData?.instagram ?? '',
         website: supplierData?.website ?? '',
         average_price: supplierData?.average_price ?? '',
         category_id: supplierData?.category_id ?? '',
         show_price: supplierData?.show_price ? 'true' : 'false',
+        service_cities: serviceCities,
       });
     }
 
@@ -66,7 +124,62 @@ export default function EditarVitrinePage() {
   }, []);
 
   function setField(k: string, v: string) {
-    setForm((prev) => ({ ...prev, [k]: v }));
+    setForm((prev) => {
+      const next: any = { ...prev, [k]: v };
+
+      if (k === 'city') {
+        const city = normalizeCity(v);
+
+        if (city && !next.service_cities.includes(city)) {
+          next.service_cities = [city, ...next.service_cities];
+        }
+      }
+
+      return next;
+    });
+  }
+
+  function toggleServiceCity(city: string) {
+    const normalizedCity = normalizeCity(city);
+
+    if (!normalizedCity) return;
+
+    setForm((prev) => {
+      const alreadySelected = prev.service_cities.includes(normalizedCity);
+      const mainCity = normalizeCity(prev.city);
+
+      if (alreadySelected && normalizedCity === mainCity) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        service_cities: alreadySelected
+          ? prev.service_cities.filter((item) => item !== normalizedCity)
+          : [...prev.service_cities, normalizedCity],
+      };
+    });
+  }
+
+  function addNewServiceCity() {
+    const city = normalizeCity(newCity);
+
+    if (!city) return;
+
+    setAvailableCities((current) =>
+      current.includes(city)
+        ? current
+        : [...current, city].sort((a, b) => a.localeCompare(b, 'pt-BR'))
+    );
+
+    setForm((prev) => ({
+      ...prev,
+      service_cities: prev.service_cities.includes(city)
+        ? prev.service_cities
+        : [...prev.service_cities, city],
+    }));
+
+    setNewCity('');
   }
 
   async function save(e: React.FormEvent) {
@@ -81,6 +194,14 @@ export default function EditarVitrinePage() {
       website: form.website,
       average_price: form.average_price,
       category_id: form.category_id,
+      show_price: form.show_price === 'true',
+      service_cities: Array.from(
+        new Set(
+          [form.city, ...form.service_cities]
+            .map((city) => normalizeCity(city))
+            .filter(Boolean)
+        )
+      ),
     });
 
     setMsg('Vitrine atualizada com sucesso.');
@@ -174,7 +295,7 @@ export default function EditarVitrinePage() {
             <label className="block">
               <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
                 <MapPin size={17} className="text-[#d99200]" />
-                Cidade
+                Cidade principal
               </span>
               <input
                 className="w-full rounded-[22px] bg-white px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400"
@@ -182,7 +303,73 @@ export default function EditarVitrinePage() {
                 value={form.city}
                 onChange={(e) => setField('city', e.target.value)}
               />
+              <p className="mt-2 text-xs leading-5 text-gray-500">
+                Essa é a cidade onde sua empresa fica. Ela sempre entra automaticamente nas cidades atendidas.
+              </p>
             </label>
+
+            <div className="rounded-[26px] bg-white p-5 shadow-sm ring-1 ring-[#f1e7cf]">
+              <div className="mb-4 flex items-start gap-3">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]">
+                  <MapPin size={27} />
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-extrabold">Cidades onde atende</h3>
+                  <p className="mt-1 text-xs leading-5 text-gray-500">
+                    Marque todas as regiões onde você pode realizar atendimento.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                {availableCities.map((city) => {
+                  const checked = form.service_cities.includes(city);
+                  const isMainCity = normalizeCity(form.city) === city;
+
+                  return (
+                    <button
+                      key={city}
+                      type="button"
+                      onClick={() => toggleServiceCity(city)}
+                      className={
+                        checked
+                          ? 'rounded-[18px] bg-[#e3a925] px-3 py-3 text-left text-xs font-extrabold text-white shadow-sm'
+                          : 'rounded-[18px] bg-[#fbf7f1] px-3 py-3 text-left text-xs font-extrabold text-gray-700 ring-1 ring-[#f1e7cf]'
+                      }
+                    >
+                      {city}
+                      {isMainCity && (
+                        <span className="mt-1 block text-[10px] opacity-80">
+                          Cidade principal
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="mt-4 flex gap-2">
+                <input
+                  className="min-w-0 flex-1 rounded-[18px] bg-[#fbf7f1] px-4 py-3 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400"
+                  placeholder="Adicionar cidade"
+                  value={newCity}
+                  onChange={(e) => setNewCity(e.target.value)}
+                />
+
+                <button
+                  type="button"
+                  onClick={addNewServiceCity}
+                  className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[18px] bg-black text-white"
+                >
+                  <Plus size={20} />
+                </button>
+              </div>
+
+              <p className="mt-3 text-xs leading-5 text-gray-500">
+                Se o cliente buscar uma cidade que você atende, sua vitrine poderá aparecer mesmo que sua empresa seja de outra cidade.
+              </p>
+            </div>
 
             <label className="block">
               <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
@@ -248,7 +435,7 @@ export default function EditarVitrinePage() {
               </select>
 
               <p className="mt-2 text-xs leading-5 text-gray-500">
-                Essa opção visual será conectada ao banco na próxima etapa.
+                Quando ativo, o valor inicial aparece na sua vitrine pública.
               </p>
             </div>
 
