@@ -10,6 +10,7 @@ import {
   Building2,
   Crown,
   Heart,
+  Headset,
   ImageIcon,
   LogIn,
   LogOut,
@@ -263,6 +264,12 @@ export default function PerfilPage() {
       icon: Bell,
     },
     {
+      title: 'Suporte',
+      subtitle: 'Atendimentos',
+      href: '/admin/suporte',
+      icon: Headset,
+    },
+    {
       title: 'Segurança',
       subtitle: 'LGPD',
       href: '/seguranca',
@@ -301,6 +308,12 @@ export default function PerfilPage() {
       href: '/painel-fornecedor/planos',
       icon: Crown,
     },
+    {
+      title: 'Suporte REIM',
+      subtitle: 'Fale com atendimento',
+      href: '/suporte',
+      icon: Headset,
+    },
   ];
 
   const clientCards = [
@@ -316,6 +329,12 @@ export default function PerfilPage() {
       href: '/orcamentos',
       icon: Bell,
     },
+    {
+      title: 'Suporte REIM',
+      subtitle: 'Precisa de ajuda?',
+      href: '/suporte',
+      icon: Headset,
+    },
   ];
 
   const cerimonialCards = [
@@ -324,6 +343,12 @@ export default function PerfilPage() {
       subtitle: 'Eventos que atuo',
       href: '/cerimonialista/convites',
       icon: Users,
+    },
+    {
+      title: 'Suporte REIM',
+      subtitle: 'Precisa de ajuda?',
+      href: '/suporte',
+      icon: Headset,
     },
   ];
 
