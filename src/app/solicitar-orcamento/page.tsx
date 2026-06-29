@@ -61,6 +61,7 @@ function SolicitarOrcamentoContent() {
   const supplierId = searchParams.get('fornecedor') || '';
   const targetCustomerId = searchParams.get('cliente') || '';
   const returnUrl = searchParams.get('voltar') || '';
+  const cityFromSearch = searchParams.get('cidade') || '';
 
   const isCerimonialistaMode = Boolean(targetCustomerId);
 
@@ -83,7 +84,7 @@ function SolicitarOrcamentoContent() {
   const [customerWhatsapp, setCustomerWhatsapp] = useState('');
   const [eventType, setEventType] = useState('Casamento');
   const [eventDate, setEventDate] = useState('');
-  const [eventCity, setEventCity] = useState('Eunápolis');
+  const [eventCity, setEventCity] = useState(cityFromSearch || 'Eunápolis');
   const [eventSpace, setEventSpace] = useState('');
   const [structurePreference, setStructurePreference] = useState('Ainda não sei');
   const [guestsCount, setGuestsCount] = useState('');
@@ -106,7 +107,9 @@ function SolicitarOrcamentoContent() {
   const currentPath = supplierId
     ? `/solicitar-orcamento?fornecedor=${supplierId}${
         targetCustomerId ? `&cliente=${targetCustomerId}` : ''
-      }${returnUrl ? `&voltar=${encodeURIComponent(returnUrl)}` : ''}`
+      }${returnUrl ? `&voltar=${encodeURIComponent(returnUrl)}` : ''}${
+        cityFromSearch ? `&cidade=${encodeURIComponent(cityFromSearch)}` : ''
+      }`
     : '/solicitar-orcamento';
 
   const loginHref = `/login?redirect=${encodeURIComponent(currentPath)}`;
@@ -116,13 +119,23 @@ function SolicitarOrcamentoContent() {
     ? returnUrl
     : supplierId
       ? `/fornecedor/${supplierId}${
-          targetCustomerId
-            ? `?cliente=${targetCustomerId}&voltar=${encodeURIComponent(
-                returnUrl || '/'
-              )}`
+          targetCustomerId || cityFromSearch
+            ? `?${[
+                targetCustomerId ? `cliente=${targetCustomerId}` : '',
+                targetCustomerId
+                  ? `voltar=${encodeURIComponent(returnUrl || '/')}`
+                  : '',
+                cityFromSearch
+                  ? `cidade=${encodeURIComponent(cityFromSearch)}`
+                  : '',
+              ]
+                .filter(Boolean)
+                .join('&')}`
             : ''
         }`
-      : '/buscar';
+      : cityFromSearch
+        ? `/buscar?cidade=${encodeURIComponent(cityFromSearch)}`
+        : '/buscar';
 
   const isSupplierAccount =
     !isCerimonialistaMode &&
@@ -196,6 +209,10 @@ function SolicitarOrcamentoContent() {
           setPublicVisibility(visibilityData || null);
           setSupplier(data);
           setServiceNeeded(formatCategoryName(data));
+
+          if (cityFromSearch) {
+            setEventCity(cityFromSearch);
+          }
         }
       } catch (error) {
         console.error('Erro ao carregar fornecedor:', error);
@@ -265,7 +282,7 @@ function SolicitarOrcamentoContent() {
           setCustomerName(ownerName);
           setEventType(eventData.event_type || 'Casamento');
           setEventDate(eventData.event_date || '');
-          setEventCity(eventData.event_city || eventData.city || 'Eunápolis');
+          setEventCity(cityFromSearch || eventData.event_city || eventData.city || 'Eunápolis');
           setEventSpace(eventData.event_space || '');
           setGuestsCount(
             eventData.guests_count || eventData.guest_count
@@ -363,7 +380,7 @@ function SolicitarOrcamentoContent() {
 
     if (isSupplierAccount) {
       setErrorMessage(
-        'Você está logado como fornecedor. Para solicitar orçamento, entre com uma conta de cliente/noiva.'
+        'Você está logado como fornecedor. Para solicitar orçamento, entre com uma conta de cliente.'
       );
       return;
     }
@@ -453,7 +470,7 @@ function SolicitarOrcamentoContent() {
         setCustomerName('');
         setEventType('Casamento');
         setEventDate('');
-        setEventCity('Eunápolis');
+        setEventCity(cityFromSearch || 'Eunápolis');
         setEventSpace('');
         setStructurePreference('Ainda não sei');
         setGuestsCount('');
@@ -537,6 +554,15 @@ function SolicitarOrcamentoContent() {
               </div>
             </div>
           </div>
+
+          {cityFromSearch && (
+            <div className="mt-4 rounded-[22px] bg-[#fff7e8] px-4 py-3 text-sm leading-5 text-[#7a5200] ring-1 ring-[#f1e7cf]">
+              <p className="font-extrabold">Cidade selecionada na busca</p>
+              <p className="mt-1">
+                Esta solicitação será enviada para atendimento em <strong>{cityFromSearch}</strong>.
+              </p>
+            </div>
+          )}
         </section>
 
         {isNewSupplierOnReim && (
@@ -637,7 +663,7 @@ function SolicitarOrcamentoContent() {
 
               <p className="mt-3 text-sm leading-6 text-gray-600">
                 Esta conta está vinculada ao painel do fornecedor. Para solicitar
-                orçamento, saia desta conta e entre como cliente/noiva.
+                orçamento, saia desta conta e entre como cliente.
               </p>
 
               <p className="mt-3 rounded-2xl bg-[#fbf7f1] px-4 py-3 text-xs font-bold text-gray-500">
