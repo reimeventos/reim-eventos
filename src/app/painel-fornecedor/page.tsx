@@ -65,13 +65,6 @@ function getSupplierName(supplier: Supplier | null) {
   return supplier.business_name || supplier.company_name || supplier.fantasy_name || supplier.name || supplier.title || "Minha vitrine";
 }
 
-function formatDateBR(dateValue?: string | null) {
-  if (!dateValue) return null;
-  const date = new Date(dateValue);
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleDateString("pt-BR");
-}
-
 function getPlanName(subscription: Subscription | null, supplier: Supplier | null) {
   if (!subscription) {
     if (supplier?.is_featured) return "Premium Destaque";
@@ -81,11 +74,6 @@ function getPlanName(subscription: Subscription | null, supplier: Supplier | nul
   return subscription.plan_name || subscription.plan || subscription.public_label || (supplier?.is_featured ? "Premium Destaque" : "gratuito");
 }
 
-function isActiveSubscription(subscription: Subscription | null) {
-  if (!subscription) return false;
-  const status = String(subscription.status || "").toLowerCase();
-  return ["active", "ativo", "trialing", "teste", "paid", "pago"].includes(status);
-}
 
 export default function PainelFornecedorPage() {
   const router = useRouter();
@@ -104,13 +92,6 @@ export default function PainelFornecedorPage() {
 
   const supplierName = getSupplierName(supplier);
   const planName = getPlanName(subscription, supplier);
-  const planActive = isActiveSubscription(subscription);
-
-  const planEndDate =
-    formatDateBR(subscription?.current_period_end) ||
-    formatDateBR(subscription?.ends_at) ||
-    formatDateBR(subscription?.trial_ends_at);
-
   async function loadDashboard(showLoading = true) {
     try {
       if (showLoading) {
@@ -409,19 +390,16 @@ export default function PainelFornecedorPage() {
               </div>
 
               <div>
-                <p className="font-black text-emerald-700">{planActive ? "Plano ativo" : "Plano da vitrine"}</p>
+                <p className="font-black text-emerald-700">Plano da vitrine</p>
 
                 <p className="text-sm text-emerald-700/80 font-bold mt-1">
-                  {planActive && planEndDate
-                    ? `Seu plano está ativo até ${planEndDate}.`
-                    : planActive
-                    ? "Seu plano está ativo."
-                    : "A verificação da assinatura fica no login e na tela de planos para o painel abrir mais rápido."}
+                  Para o painel abrir mais rápido, a assinatura fica para ser conferida na tela Meu plano.
                 </p>
 
                 <div className="flex flex-wrap gap-2 mt-4">
-                  <span className="px-4 py-2 rounded-full bg-white text-emerald-700 text-xs font-black">{planName}</span>
-                  <span className="px-4 py-2 rounded-full bg-white text-emerald-700 text-xs font-black">{planActive ? "Ativo" : "Pendente"}</span>
+                  <Link href="/planos" className="px-4 py-2 rounded-full bg-white text-emerald-700 text-xs font-black">
+                    Ver meu plano
+                  </Link>
                 </div>
               </div>
             </div>
