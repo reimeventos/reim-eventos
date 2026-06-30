@@ -19,6 +19,22 @@ import {
   ToggleRight,
   WalletCards,
 } from 'lucide-react';
+
+function getServiceCitiesFromSupplier(supplier: any) {
+  const mainCity = supplier?.city || '';
+  const serviceCities = Array.isArray(supplier?.service_cities)
+    ? supplier.service_cities
+    : [];
+
+  return Array.from(
+    new Set(
+      [mainCity, ...serviceCities]
+        .map((city) => String(city || '').trim())
+        .filter(Boolean)
+    )
+  );
+}
+
 import { supabase } from '@/lib/supabase';
 
 function getCategoryName(supplier: any) {
@@ -409,7 +425,9 @@ export default function PainelFornecedorPage() {
   }, []);
 
   if (loading || checkingRedirect) {
-    return (
+    const serviceCities = getServiceCitiesFromSupplier(supplier);
+
+  return (
       <main className="min-h-screen bg-black text-[#151515]">
         <div className="mx-auto flex min-h-screen w-full max-w-[430px] items-center justify-center bg-[#fbf7f1] px-6 text-center shadow-2xl">
           <div className="rounded-[28px] bg-white p-6 shadow-sm ring-1 ring-[#f1e7cf]">
