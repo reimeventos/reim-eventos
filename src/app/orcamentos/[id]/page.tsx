@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   Download,
   FileText,
+  MapPin,
   MessageCircle,
   RefreshCcw,
   ShieldCheck,
@@ -30,6 +31,14 @@ function isCerimonialistaCategory(categoryName?: string) {
     normalized.includes('cerimonialista') ||
     normalized.includes('assessoria')
   );
+}
+
+function cityAttendanceText(city: string) {
+  if (!city || city === 'Cidade não informada') {
+    return 'Cidade do evento não informada';
+  }
+
+  return `Orçamento para atendimento em ${city}`;
 }
 
 function getOriginInfo(origin: any) {
@@ -99,7 +108,7 @@ export default function OrcamentoRecebidoPage() {
 
         const { data: originData, error: originError } = await supabase
           .from('quote_requests')
-          .select('created_by_user_id,created_by_role,created_by_name,created_by_email')
+          .select('created_by_user_id,created_by_role,created_by_name,created_by_email,event_city,event_type,event_date,event_space,guests_count,service_needed')
           .eq('id', requestId)
           .maybeSingle();
 
@@ -387,6 +396,13 @@ export default function OrcamentoRecebidoPage() {
     quote?.suppliers?.categories?.name || 'Fornecedor de eventos';
   const supplierWhatsapp = quote?.suppliers?.whatsapp || '';
   const supplierInstagram = quote?.suppliers?.instagram || '';
+  const eventCity = quoteRequestOrigin?.event_city || 'Cidade não informada';
+  const eventType = quoteRequestOrigin?.event_type || 'Evento não informado';
+  const eventDate = quoteRequestOrigin?.event_date
+    ? formatDateTime(quoteRequestOrigin.event_date)
+    : 'Data não informada';
+  const eventSpace = quoteRequestOrigin?.event_space || 'Espaço não informado';
+  const guestsCount = quoteRequestOrigin?.guests_count || 'Não informado';
 
   const quoteStatus = quote?.status || 'enviado';
   const isAccepted = quoteStatus === 'aceito';
@@ -613,7 +629,7 @@ export default function OrcamentoRecebidoPage() {
 
               <p className="mt-2 text-sm text-white/70">
                 {quote
-                  ? `${supplierCategory} • ${statusLabel()}`
+                  ? `${supplierCategory} • ${statusLabel()} • ${eventCity}`
                   : 'Veja a proposta enviada pelo fornecedor.'}
               </p>
             </div>
@@ -688,7 +704,9 @@ export default function OrcamentoRecebidoPage() {
 
                       <div className="mt-3 grid grid-cols-2 gap-3">
                         <div className="rounded-2xl bg-[#fbf7f1] p-3">
-                          <p className="text-xs font-bold text-gray-500">Cidade</p>
+                          <p className="text-xs font-bold text-gray-500">
+                            Cidade do fornecedor
+                          </p>
                           <p className="mt-1 line-clamp-1 text-sm font-extrabold">
                             {supplierCity}
                           </p>
@@ -701,6 +719,69 @@ export default function OrcamentoRecebidoPage() {
                           </p>
                         </div>
                       </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-5 rounded-[28px] bg-[#151515] p-5 text-white shadow-lg">
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#e3a925] text-white">
+                      <MapPin size={30} />
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#f7d67b]">
+                        Cidade do evento
+                      </p>
+
+                      <h2 className="mt-2 text-xl font-extrabold">
+                        {cityAttendanceText(eventCity)}
+                      </h2>
+
+                      <p className="mt-2 text-sm leading-5 text-white/70">
+                        Esta proposta considera o atendimento na cidade informada na solicitação.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-5 rounded-[28px] bg-white p-5 shadow-sm ring-1 ring-[#f1e7cf]">
+                  <h2 className="text-lg font-extrabold">Dados do evento</h2>
+
+                  <div className="mt-4 grid grid-cols-2 gap-3">
+                    <div className="rounded-2xl bg-[#fff7e8] p-3">
+                      <p className="flex items-center gap-2 text-xs font-bold text-[#b97900]">
+                        <MapPin size={14} />
+                        Cidade
+                      </p>
+                      <p className="mt-1 line-clamp-1 text-sm font-extrabold">
+                        {eventCity}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl bg-[#fbf7f1] p-3">
+                      <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
+                        <CalendarDays size={14} className="text-[#d99200]" />
+                        Data
+                      </p>
+                      <p className="mt-1 text-sm font-extrabold">{eventDate}</p>
+                    </div>
+
+                    <div className="rounded-2xl bg-[#fbf7f1] p-3">
+                      <p className="text-xs font-bold text-gray-500">Tipo de evento</p>
+                      <p className="mt-1 line-clamp-1 text-sm font-extrabold">
+                        {eventType}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl bg-[#fbf7f1] p-3">
+                      <p className="text-xs font-bold text-gray-500">Convidados</p>
+                      <p className="mt-1 text-sm font-extrabold">{guestsCount}</p>
+                    </div>
+
+                    <div className="col-span-2 rounded-2xl bg-[#fbf7f1] p-3">
+                      <p className="text-xs font-bold text-gray-500">Espaço / local</p>
+                      <p className="mt-1 text-sm font-extrabold">{eventSpace}</p>
                     </div>
                   </div>
                 </div>
@@ -753,6 +834,14 @@ export default function OrcamentoRecebidoPage() {
                   </div>
 
                   <div className="space-y-3">
+                    <div className="rounded-2xl bg-[#fff7e8] p-4 text-[#7a5200] ring-1 ring-[#f1e7cf]">
+                      <p className="flex items-center gap-2 text-xs font-extrabold">
+                        <MapPin size={15} />
+                        Atendimento em
+                      </p>
+                      <p className="mt-1 text-lg font-extrabold">{eventCity}</p>
+                    </div>
+
                     <div className="rounded-2xl bg-[#fbf7f1] p-3">
                       <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
                         <FileText size={14} className="text-[#d99200]" />
@@ -1105,7 +1194,7 @@ export default function OrcamentoRecebidoPage() {
                     }}
                   >
                     Este orçamento foi emitido por um fornecedor cadastrado na plataforma{' '}
-                    <strong>REIM EVENTOS</strong>.
+                    <strong>REIM EVENTOS</strong> para atendimento em <strong>{eventCity}</strong>.
                   </p>
                 </div>
 
@@ -1213,6 +1302,19 @@ export default function OrcamentoRecebidoPage() {
             >
               <div
                 style={{
+                  background: '#fff7e8',
+                  color: '#151515',
+                  padding: '14px 18px',
+                  fontSize: 16,
+                  fontWeight: 900,
+                  borderBottom: '1px solid #e3a925',
+                }}
+              >
+                {cityAttendanceText(eventCity)}
+              </div>
+
+              <div
+                style={{
                   background: '#151515',
                   color: '#ffffff',
                   padding: '14px 18px',
@@ -1273,7 +1375,7 @@ export default function OrcamentoRecebidoPage() {
                   }}
                 >
                   <div style={{ fontSize: 11, fontWeight: 800, color: '#8b8b8b' }}>
-                    Cidade
+                    Cidade do fornecedor
                   </div>
                   <div style={{ marginTop: 5, fontSize: 16, fontWeight: 800 }}>
                     {supplierCity}
