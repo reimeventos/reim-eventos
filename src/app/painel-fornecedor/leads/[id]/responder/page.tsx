@@ -37,6 +37,26 @@ function getDaysUntil(date?: string) {
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
 }
 
+function cityAttendanceText(city: string) {
+  if (!city || city === 'Cidade não informada') {
+    return 'Cidade do evento não informada';
+  }
+
+  return `Atendimento solicitado em ${city}`;
+}
+
+function isSpaceServiceText(service: string) {
+  const normalized = String(service || '').toLowerCase();
+
+  return (
+    normalized.includes('espaço') ||
+    normalized.includes('espaco') ||
+    normalized.includes('local') ||
+    normalized.includes('salão') ||
+    normalized.includes('salao')
+  );
+}
+
 function getSubscriptionAccess(subscription: any, visibility?: any) {
   if (visibility && visibility.can_receive_quote === false) {
     if (visibility.public_badge === 'novo_no_reim') {
@@ -401,7 +421,7 @@ export default function ResponderOrcamentoPage() {
   const notes = lead?.notes || 'Cliente não informou mensagem.';
   const status = lead?.status || 'aguardando_resposta';
   const serviceNeeded = lead?.service_needed || 'Serviço não informado';
-  const isEventSpace = lead?.service_needed === 'Espaço de festa';
+  const isEventSpace = isSpaceServiceText(lead?.service_needed || serviceNeeded);
   const isAdjustmentRequested = status === 'ajuste_solicitado';
   const adjustmentNotes = latestResponse?.adjustment_notes || '';
 
@@ -454,6 +474,10 @@ export default function ResponderOrcamentoPage() {
                     <MapPin size={13} className="text-[#e3a925]" />
                     {city}
                   </p>
+
+                  <p className="mt-3 inline-flex rounded-full bg-[#e3a925] px-3 py-1 text-[11px] font-extrabold text-white">
+                    {cityAttendanceText(city)}
+                  </p>
                 </div>
 
                 <span
@@ -502,7 +526,23 @@ export default function ResponderOrcamentoPage() {
             </div>
           ) : (
             <>
-              <div className={`rounded-[24px] p-4 ring-1 ${originInfo.boxClass}`}>
+              <div className="rounded-[26px] bg-[#151515] p-5 text-white shadow-lg">
+                <p className="flex items-center gap-2 text-xs font-extrabold text-[#f7d67b]">
+                  <MapPin size={16} />
+                  Cidade de atendimento
+                </p>
+
+                <h2 className="mt-2 text-xl font-extrabold">
+                  {cityAttendanceText(city)}
+                </h2>
+
+                <p className="mt-2 text-sm leading-5 text-white/70">
+                  Use essa cidade como referência para calcular deslocamento,
+                  disponibilidade, horários e valor da proposta.
+                </p>
+              </div>
+
+              <div className={`mt-4 rounded-[24px] p-4 ring-1 ${originInfo.boxClass}`}>
                 <p className="flex items-center gap-2 text-xs font-extrabold">
                   <OriginIcon size={16} className={originInfo.iconClass} />
                   Origem da solicitação
@@ -537,7 +577,7 @@ export default function ResponderOrcamentoPage() {
 
               <div className="mt-4 rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]">
                 <div className="mb-4 flex items-center justify-between gap-3">
-                  <h2 className="text-lg font-extrabold">Resumo do pedido</h2>
+                  <h2 className="text-lg font-extrabold">Resumo do pedido do cliente</h2>
 
                   <Link
                     href={`/orcamentos/${leadId}/chat`}
@@ -546,6 +586,19 @@ export default function ResponderOrcamentoPage() {
                     <MessageCircle size={14} className="text-[#e3a925]" />
                     Chat
                   </Link>
+                </div>
+
+                <div className="mb-3 rounded-2xl bg-[#fff7e8] p-4 text-[#7a5200] ring-1 ring-[#f1e7cf]">
+                  <p className="flex items-center gap-2 text-xs font-extrabold">
+                    <MapPin size={15} />
+                    Atendimento solicitado em
+                  </p>
+
+                  <p className="mt-2 text-lg font-extrabold">{city}</p>
+
+                  <p className="mt-1 text-xs leading-5">
+                    Essa cidade veio da busca ou do formulário preenchido pelo cliente.
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -741,7 +794,7 @@ export default function ResponderOrcamentoPage() {
                       value={observations}
                       onChange={(event) => setObservations(event.target.value)}
                       className="min-h-[130px] w-full resize-none rounded-[22px] bg-white px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400"
-                      placeholder="Inclua detalhes, itens inclusos, deslocamento, horários, condições..."
+                      placeholder={`Inclua detalhes, itens inclusos, deslocamento para ${city}, horários, condições...`}
                     />
                   </label>
 
