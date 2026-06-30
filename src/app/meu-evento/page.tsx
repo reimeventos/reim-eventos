@@ -118,6 +118,37 @@ function getEventCity(event: any) {
   return event?.event_city || event?.city || 'Eunápolis';
 }
 
+function getSupplierServiceCities(supplier: any) {
+  const mainCity = supplier?.city || '';
+  const serviceCities = Array.isArray(supplier?.service_cities)
+    ? supplier.service_cities
+    : [];
+
+  return Array.from(
+    new Set(
+      [mainCity, ...serviceCities]
+        .map((city: any) => String(city || '').trim())
+        .filter(Boolean)
+    )
+  );
+}
+
+function supplierAttendsEventCity(supplier: any, eventCity: string) {
+  const normalizedEventCity = String(eventCity || '').trim().toLowerCase();
+
+  if (!normalizedEventCity) return false;
+
+  return getSupplierServiceCities(supplier).some(
+    (city) => city.toLowerCase() === normalizedEventCity
+  );
+}
+
+function cityListText(cities: string[]) {
+  if (!cities.length) return 'Cidade não informada';
+
+  return cities.slice(0, 4).join(', ');
+}
+
 function getGuestsCount(event: any) {
   return event?.guests_count || event?.guest_count || null;
 }
@@ -286,6 +317,7 @@ export default function MeuEventoPage() {
         id,
         supplier_id,
         status,
+        event_city,
         created_at,
         quote_responses(
           id,
@@ -653,6 +685,19 @@ export default function MeuEventoPage() {
         </section>
 
         <section className="px-6 pt-6">
+          <div className="rounded-[24px] bg-[#fff7e8] p-4 text-[#7a5200] ring-1 ring-[#f1e7cf]">
+            <p className="flex items-center gap-2 text-sm font-extrabold">
+              <MapPin size={17} />
+              Cidade do evento: {eventCity}
+            </p>
+
+            <p className="mt-2 text-xs leading-5">
+              Os fornecedores salvos abaixo indicam se atendem a cidade do seu evento.
+            </p>
+          </div>
+        </section>
+
+        <section className="px-6 pt-6">
           <div className="rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]">
             <div className="flex items-start gap-4">
               <div className="flex h-13 w-13 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]">
@@ -816,7 +861,7 @@ export default function MeuEventoPage() {
             </div>
 
             <Link
-              href="/buscar"
+              href={`/buscar?cidade=${encodeURIComponent(eventCity)}`}
               className="flex h-10 w-10 items-center justify-center rounded-full bg-[#e3a925] text-white shadow-lg"
             >
               <Plus size={21} />
@@ -839,7 +884,7 @@ export default function MeuEventoPage() {
               </p>
 
               <Link
-                href="/buscar"
+                href={`/buscar?cidade=${encodeURIComponent(eventCity)}`}
                 className="mt-5 block rounded-[22px] bg-[#e3a925] py-3 text-sm font-extrabold text-white shadow-lg"
               >
                 Buscar fornecedores
@@ -857,10 +902,13 @@ export default function MeuEventoPage() {
               const supplierName = supplier.business_name || 'Fornecedor';
               const categoryName = getCategoryName(supplier);
               const city = supplier.city || 'Cidade não informada';
+              const serviceCities = getSupplierServiceCities(supplier);
+              const attendsEventCity = supplierAttendsEventCity(supplier, eventCity);
               const rating = formatRating(supplier.rating_average);
               const price = formatPrice(supplier.average_price);
               const coverImage = getCoverImage(supplier);
               const quote = getQuoteForSupplier(supplierId);
+              const quoteEventCity = quote?.event_city || eventCity;
               const isExpanded = expandedSupplierId === supplierId;
               const isAccepted =
                 quote?.status === 'aceito' || quote?.status === 'fechado';
@@ -898,11 +946,28 @@ export default function MeuEventoPage() {
                         {categoryName}
                       </p>
 
-                      <div className="mt-2 flex items-center gap-2">
+                      <p className="mt-0.5 line-clamp-1 text-[11px] font-bold text-[#b97900]">
+                        {attendsEventCity
+                          ? `Atende ${eventCity}`
+                          : `Fornecedor de ${city}`}
+                      </p>
+
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
                         <span
                           className={`rounded-full px-2.5 py-1 text-[10px] font-extrabold ring-1 ${statusClass}`}
                         >
                           {statusLabel}
+                        </span>
+
+                        <span
+                          className={
+                            attendsEventCity
+                              ? 'flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-[10px] font-extrabold text-green-700 ring-1 ring-green-100'
+                              : 'flex items-center gap-1 rounded-full bg-[#fff7e8] px-2.5 py-1 text-[10px] font-extrabold text-[#b97900] ring-1 ring-[#f1e7cf]'
+                          }
+                        >
+                          <MapPin size={11} />
+                          {attendsEventCity ? eventCity : city}
                         </span>
 
                         <span className="flex items-center gap-1 text-[10px] font-bold text-gray-400">
@@ -929,11 +994,30 @@ export default function MeuEventoPage() {
 
                   {isExpanded && (
                     <div className="mt-4 rounded-[22px] bg-[#fbf7f1] p-4 ring-1 ring-[#f1e7cf]">
-                      <div className="grid grid-cols-2 gap-3">
+                      <div
+                        className={
+                          attendsEventCity
+                            ? 'rounded-2xl bg-green-50 p-4 text-green-700 ring-1 ring-green-100'
+                            : 'rounded-2xl bg-[#fff7e8] p-4 text-[#7a5200] ring-1 ring-[#f1e7cf]'
+                        }
+                      >
+                        <p className="flex items-center gap-2 text-xs font-extrabold">
+                          <MapPin size={15} />
+                          {attendsEventCity
+                            ? `Atende ${eventCity}`
+                            : `Fornecedor de ${city}`}
+                        </p>
+
+                        <p className="mt-2 text-sm leading-5">
+                          Cidades atendidas: <strong>{cityListText(serviceCities)}</strong>
+                        </p>
+                      </div>
+
+                      <div className="mt-3 grid grid-cols-2 gap-3">
                         <div className="rounded-2xl bg-white p-3">
                           <p className="flex items-center gap-1 text-xs font-bold text-gray-500">
                             <MapPin size={13} className="text-[#d99200]" />
-                            Cidade
+                            Cidade do fornecedor
                           </p>
                           <p className="mt-1 line-clamp-1 text-sm font-extrabold">
                             {city}
@@ -952,7 +1036,7 @@ export default function MeuEventoPage() {
 
                       <div className="mt-4 grid grid-cols-2 gap-3">
                         <Link
-                          href={`/fornecedor/${supplierId}`}
+                          href={`/fornecedor/${supplierId}?cidade=${encodeURIComponent(eventCity)}`}
                           className="flex items-center justify-center gap-2 rounded-[18px] bg-white py-3 text-center text-sm font-extrabold text-[#151515] ring-1 ring-[#f1e7cf]"
                         >
                           <Eye size={16} className="text-[#d99200]" />
@@ -973,7 +1057,7 @@ export default function MeuEventoPage() {
                           </Link>
                         ) : (
                           <Link
-                            href={`/solicitar-orcamento?fornecedor=${supplierId}`}
+                            href={`/solicitar-orcamento?fornecedor=${supplierId}&cidade=${encodeURIComponent(eventCity)}`}
                             className="flex items-center justify-center gap-2 rounded-[18px] bg-[#e3a925] py-3 text-center text-sm font-extrabold text-white shadow-lg"
                           >
                             <MessageCircle size={16} />
@@ -1015,7 +1099,7 @@ export default function MeuEventoPage() {
           {savedSuppliers.length > 0 && (
             <div className="fixed bottom-[82px] left-1/2 z-30 w-full max-w-[430px] -translate-x-1/2 px-6">
               <Link
-                href="/meu-evento/solicitar-todos"
+                href={`/meu-evento/solicitar-todos?cidade=${encodeURIComponent(eventCity)}`}
                 className="flex w-full items-center justify-center gap-2 rounded-[24px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-[0_14px_35px_rgba(0,0,0,.25)]"
               >
                 <MessageCircle size={21} />
