@@ -100,6 +100,18 @@ export default function LeadsFornecedorPage() {
     return Clock;
   }
 
+  function isNewLeadStatus(status: string) {
+    return status === 'novo' || status === 'aguardando_resposta' || !status;
+  }
+
+  function cityAttendanceLabel(city: string) {
+    if (!city || city === 'Cidade não informada') {
+      return 'Cidade não informada';
+    }
+
+    return `Atendimento em ${city}`;
+  }
+
   function isSpaceService(service: string) {
     const normalized = String(service || '').toLowerCase();
 
@@ -340,6 +352,31 @@ export default function LeadsFornecedorPage() {
           </div>
         </section>
 
+        <section className="px-6 pt-4">
+          <div className="flex items-start gap-3 rounded-[22px] bg-[#fff7e8] px-4 py-4 text-[#7a5200] ring-1 ring-[#f1e7cf]">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#f7d67b]">
+              <MapPin size={22} />
+            </div>
+
+            <div>
+              <p className="text-sm font-extrabold">
+                Leads por cidade de atendimento
+              </p>
+
+              <p className="mt-1 text-xs leading-5">
+                Os pedidos aparecem conforme as cidades que você marcou em Editar vitrine.
+              </p>
+
+              <Link
+                href="/painel-fornecedor/editar"
+                className="mt-3 inline-flex rounded-full bg-black px-4 py-2 text-xs font-extrabold text-white"
+              >
+                Editar cidades
+              </Link>
+            </div>
+          </div>
+        </section>
+
         {cerimonialistaCount > 0 && (
           <section className="px-6 pt-4">
             <div className="flex items-start gap-3 rounded-[22px] bg-green-50 px-4 py-4 text-green-800 ring-1 ring-green-100">
@@ -469,6 +506,7 @@ export default function LeadsFornecedorPage() {
               const guests = lead.guests_count || 'Não informado';
               const notes = lead.notes || 'Cliente não informou mensagem.';
               const status = lead.status || 'novo';
+              const isNewLead = isNewLeadStatus(status);
 
               const originInfo = getOriginInfo(lead);
               const OriginIcon = originInfo.icon;
@@ -533,6 +571,16 @@ export default function LeadsFornecedorPage() {
                           {statusLabel(status)}
                         </span>
 
+                        {isNewLead && (
+                          <span className="rounded-full bg-[#151515] px-2.5 py-1 text-[10px] font-extrabold text-white">
+                            Novo lead
+                          </span>
+                        )}
+
+                        <span className="rounded-full bg-[#fff7e8] px-2.5 py-1 text-[10px] font-extrabold text-[#7a5200] ring-1 ring-[#f1e7cf]">
+                          {cityAttendanceLabel(city)}
+                        </span>
+
                         <span className="rounded-full bg-gray-50 px-2.5 py-1 text-[10px] font-extrabold text-gray-600 ring-1 ring-gray-100">
                           {originInfo.label}
                         </span>
@@ -594,6 +642,21 @@ export default function LeadsFornecedorPage() {
                             {supplierCategory}
                           </p>
                         )}
+                      </div>
+
+                      <div className="mt-3 rounded-2xl bg-[#fff7e8] p-4 text-[#7a5200] ring-1 ring-[#f1e7cf]">
+                        <p className="flex items-center gap-2 text-xs font-extrabold">
+                          <MapPin size={15} />
+                          Cidade de atendimento
+                        </p>
+
+                        <p className="mt-2 text-sm font-extrabold">
+                          {cityAttendanceLabel(city)}
+                        </p>
+
+                        <p className="mt-1 text-xs leading-5">
+                          Este lead foi enviado para atendimento nesta cidade do evento.
+                        </p>
                       </div>
 
                       {isAccepted && (
@@ -679,6 +742,14 @@ export default function LeadsFornecedorPage() {
                             Data
                           </p>
                           <p className="mt-1 text-sm font-extrabold">{eventDate}</p>
+                        </div>
+
+                        <div className="rounded-2xl bg-white p-3">
+                          <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
+                            <MapPin size={14} className="text-[#d99200]" />
+                            Cidade do evento
+                          </p>
+                          <p className="mt-1 text-sm font-extrabold">{city}</p>
                         </div>
 
                         <div className="rounded-2xl bg-white p-3">
