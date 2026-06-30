@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   AlertCircle,
@@ -66,7 +67,40 @@ function formatDateForInput(date?: string) {
   return date;
 }
 
-export default function SolicitarTodosPage() {
+function getSupplierServiceCities(supplier: any) {
+  const mainCity = supplier?.city || '';
+  const serviceCities = Array.isArray(supplier?.service_cities)
+    ? supplier.service_cities
+    : [];
+
+  return Array.from(
+    new Set(
+      [mainCity, ...serviceCities]
+        .map((city: any) => String(city || '').trim())
+        .filter(Boolean)
+    )
+  );
+}
+
+function supplierAttendsCity(supplier: any, city: string) {
+  const selectedCity = String(city || '').trim().toLowerCase();
+
+  if (!selectedCity) return true;
+
+  return getSupplierServiceCities(supplier).some(
+    (item) => item.toLowerCase() === selectedCity
+  );
+}
+
+function cityListText(cities: string[]) {
+  if (!cities.length) return 'Cidade não informada';
+
+  return cities.slice(0, 4).join(', ');
+}
+
+function SolicitarTodosContent() {
+  const searchParams = useSearchParams();
+  const cityFromUrl = searchParams.get('cidade') || '';
   const [user, setUser] = useState<any>(null);
   const [userEmail, setUserEmail] = useState('');
   const [loadingUser, setLoadingUser] = useState(true);
@@ -79,7 +113,7 @@ export default function SolicitarTodosPage() {
   const [customerWhatsapp, setCustomerWhatsapp] = useState('');
   const [eventType, setEventType] = useState('Casamento');
   const [eventDate, setEventDate] = useState('');
-  const [eventCity, setEventCity] = useState('Eunápolis');
+  const [eventCity, setEventCity] = useState(cityFromUrl || 'Eunápolis');
   const [eventSpace, setEventSpace] = useState('');
   const [guestsCount, setGuestsCount] = useState('');
   const [notes, setNotes] = useState('');
@@ -145,7 +179,7 @@ export default function SolicitarTodosPage() {
           if (eventData) {
             setEventType(eventData.event_type || 'Casamento');
             setEventDate(formatDateForInput(eventData.event_date));
-            setEventCity(eventData.event_city || eventData.city || 'Eunápolis');
+            setEventCity(cityFromUrl || eventData.event_city || eventData.city || 'Eunápolis');
             setEventSpace(eventData.event_space || '');
 
             const guests =
@@ -174,7 +208,7 @@ export default function SolicitarTodosPage() {
     }
 
     loadInitialData();
-  }, []);
+  }, [cityFromUrl]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -228,7 +262,7 @@ export default function SolicitarTodosPage() {
       }
 
       const confirmed = window.confirm(
-        `Enviar solicitação para ${suppliersToSend.length} fornecedor(es)?`
+        `Enviar solicitação para ${suppliersToSend.length} fornecedor(es) com atendimento em ${eventCity}?`
       );
 
       if (!confirmed) return;
@@ -339,6 +373,11 @@ export default function SolicitarTodosPage() {
                 <p className="mt-1 text-sm text-white/70">
                   Envie uma solicitação para todos os fornecedores salvos.
                 </p>
+
+                <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-2 text-xs font-extrabold text-[#f7d67b]">
+                  <MapPin size={14} />
+                  Cidade do evento: {eventCity}
+                </p>
               </div>
             </div>
           </div>
@@ -371,7 +410,7 @@ export default function SolicitarTodosPage() {
               </p>
 
               <Link
-                href="/login?redirect=/meu-evento/solicitar-todos"
+                href={`/login?redirect=${encodeURIComponent(`/meu-evento/solicitar-todos?cidade=${eventCity}`)}`}
                 className="mt-6 flex items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg"
               >
                 <LogIn size={21} />
@@ -418,6 +457,20 @@ export default function SolicitarTodosPage() {
 
             {!loadingSuppliers && savedSuppliers.length > 0 && (
               <section className="px-6 pt-5">
+                <div className="mb-4 rounded-[24px] bg-[#151515] p-4 text-white">
+                  <p className="flex items-center gap-2 text-xs font-extrabold text-[#f7d67b]">
+                    <MapPin size={15} />
+                    Cidade de atendimento
+                  </p>
+
+                  <h2 className="mt-2 text-lg font-extrabold">
+                    Solicitação para {eventCity}
+                  </h2>
+
+                  <p className="mt-1 text-xs leading-5 text-white/70">
+                    Todos os pedidos enviados nesta tela serão gravados com essa cidade no campo Cidade do evento.
+                  </p>
+                </div>
                 <div className="mb-3 flex items-center justify-between">
                   <h2 className="text-lg font-extrabold">Lista de fornecedores</h2>
 
@@ -436,6 +489,11 @@ export default function SolicitarTodosPage() {
                     if (!supplier) return null;
 
                     const categoryName = getCategoryName(supplier);
+                    const serviceCities = getSupplierServiceCities(supplier);
+                    const attendsSelectedCity = supplierAttendsCity(
+                      supplier,
+                      eventCity
+                    );
                     const isAlreadyRequested = existingQuoteSupplierIds.includes(
                       supplier.id
                     );
@@ -453,6 +511,23 @@ export default function SolicitarTodosPage() {
 
                             <p className="mt-1 text-xs font-bold text-gray-500">
                               {categoryName}
+                            </p>
+
+                            <p
+                              className={
+                                attendsSelectedCity
+                                  ? 'mt-2 inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-[10px] font-extrabold text-green-700 ring-1 ring-green-100'
+                                  : 'mt-2 inline-flex items-center gap-1 rounded-full bg-[#fff7e8] px-2.5 py-1 text-[10px] font-extrabold text-[#b97900] ring-1 ring-[#f1e7cf]'
+                              }
+                            >
+                              <MapPin size={11} />
+                              {attendsSelectedCity
+                                ? `Atende ${eventCity}`
+                                : `Fornecedor de ${supplier.city || 'outra cidade'}`}
+                            </p>
+
+                            <p className="mt-1 text-[10px] font-bold text-gray-400">
+                              Cidades: {cityListText(serviceCities)}
                             </p>
                           </div>
 
@@ -577,6 +652,10 @@ export default function SolicitarTodosPage() {
                       className="w-full rounded-[22px] bg-white px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400"
                       placeholder="Ex: Eunápolis"
                     />
+
+                    <p className="mt-2 text-xs leading-5 text-gray-500">
+                      Essa cidade será enviada para todos os fornecedores salvos.
+                    </p>
                   </label>
 
                   <label className="block">
@@ -646,7 +725,7 @@ export default function SolicitarTodosPage() {
                     <Send size={21} />
                     {loading
                       ? 'Enviando...'
-                      : `Enviar para ${suppliersToSendCount} fornecedor(es)`}
+                      : `Enviar para ${suppliersToSendCount} fornecedor(es) em ${eventCity}`}
                   </button>
                 </form>
 
@@ -659,5 +738,17 @@ export default function SolicitarTodosPage() {
         )}
       </div>
     </main>
+  );
+}
+
+export default function SolicitarTodosPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#fbf7f1] p-6">Carregando...</div>
+      }
+    >
+      <SolicitarTodosContent />
+    </Suspense>
   );
 }
