@@ -12,6 +12,7 @@ import {
   ChevronRight,
   Clock,
   FileText,
+  MapPin,
   MessageCircle,
   Send,
   Search,
@@ -150,6 +151,14 @@ export default function OrcamentosPage() {
     if (!year || !month || !day) return date;
 
     return `${day}/${month}/${year}`;
+  }
+
+  function cityAttendanceText(city: string) {
+    if (!city || city === 'Cidade não informada') {
+      return 'Cidade do evento não informada';
+    }
+
+    return `Atendimento em ${city}`;
   }
 
   function statusLabel(status?: string) {
@@ -471,8 +480,8 @@ export default function OrcamentosPage() {
               const hasUnreadMessages = unreadMessages > 0;
 
               const supplierName = item.suppliers?.business_name || 'Fornecedor';
-              const supplierCity =
-                item.suppliers?.city || item.event_city || 'Cidade não informada';
+              const supplierCity = item.suppliers?.city || 'Cidade não informada';
+              const eventCity = item.event_city || 'Cidade não informada';
               const supplierCategory = getSupplierCategory(item);
 
               const status = item.status || 'aguardando_resposta';
@@ -526,6 +535,10 @@ export default function OrcamentosPage() {
                       </div>
 
                       <p className="mt-1 line-clamp-1 text-xs font-bold text-gray-500">
+                        {eventType} • {eventCity}
+                      </p>
+
+                      <p className="mt-0.5 line-clamp-1 text-[11px] font-bold text-gray-400">
                         {supplierCategory}
                       </p>
 
@@ -535,6 +548,11 @@ export default function OrcamentosPage() {
                         >
                           <StatusIcon size={11} />
                           {statusLabel(status)}
+                        </span>
+
+                        <span className="flex items-center gap-1 rounded-full bg-[#fff7e8] px-2.5 py-1 text-[10px] font-extrabold text-[#b97900] ring-1 ring-[#f1e7cf]">
+                          <MapPin size={11} />
+                          {eventCity}
                         </span>
 
                         <span
@@ -590,6 +608,21 @@ export default function OrcamentosPage() {
                         )}
                       </div>
 
+                      <div className="mt-4 rounded-2xl bg-[#151515] p-4 text-white">
+                        <p className="flex items-center gap-2 text-xs font-extrabold text-[#f7d67b]">
+                          <MapPin size={15} />
+                          Cidade do evento
+                        </p>
+
+                        <p className="mt-2 text-lg font-extrabold">
+                          {cityAttendanceText(eventCity)}
+                        </p>
+
+                        <p className="mt-1 text-xs leading-5 text-white/70">
+                          Este pedido foi solicitado para essa cidade de atendimento.
+                        </p>
+                      </div>
+
                       <div className="mt-4 grid grid-cols-2 gap-3">
                         <div className="rounded-2xl bg-white p-3">
                           <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
@@ -602,11 +635,12 @@ export default function OrcamentosPage() {
                         </div>
 
                         <div className="rounded-2xl bg-white p-3">
-                          <p className="text-xs font-bold text-gray-500">
-                            Cidade
+                          <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
+                            <MapPin size={14} className="text-[#d99200]" />
+                            Cidade do evento
                           </p>
                           <p className="mt-1 line-clamp-1 text-sm font-extrabold">
-                            {supplierCity}
+                            {eventCity}
                           </p>
                         </div>
                       </div>
@@ -622,6 +656,16 @@ export default function OrcamentosPage() {
                       </div>
 
                       <div className="mt-3 rounded-2xl bg-white p-3">
+                        <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
+                          <Building2 size={14} className="text-[#d99200]" />
+                          Cidade do fornecedor
+                        </p>
+                        <p className="mt-1 text-sm font-extrabold">
+                          {supplierCity}
+                        </p>
+                      </div>
+
+                      <div className="mt-3 rounded-2xl bg-white p-3">
                         <p className="text-xs font-bold text-gray-500">
                           Tipo de evento
                         </p>
@@ -633,7 +677,7 @@ export default function OrcamentosPage() {
                       {latestResponse && (
                         <div className="mt-3 rounded-2xl bg-[#fff7e8] p-4 ring-1 ring-[#f1e7cf]">
                           <p className="text-xs font-bold text-[#b97900]">
-                            Última proposta
+                            Última proposta • {eventCity}
                           </p>
 
                           <p className="mt-1 text-2xl font-extrabold text-[#151515]">
