@@ -26,6 +26,21 @@ function formatDateForInput(date?: string) {
   return date;
 }
 
+const SERVICE_CITIES = [
+  'Eunápolis',
+  'Porto Seguro',
+  "Arraial d'Ajuda",
+  'Trancoso',
+  'Belmonte',
+  'Teixeira de Freitas',
+  'Itagimirim',
+  'Itabela',
+];
+
+function normalizeCity(value: string) {
+  return value.trim();
+}
+
 export default function EditarMeuEventoPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -88,6 +103,11 @@ export default function EditarMeuEventoPage() {
       return;
     }
 
+    if (!eventCity.trim()) {
+      setErrorMessage('Informe a cidade do evento.');
+      return;
+    }
+
     try {
       setSaving(true);
 
@@ -97,13 +117,14 @@ export default function EditarMeuEventoPage() {
         event_type: eventType,
         couple_name: coupleName,
         event_date: eventDate || undefined,
-        event_city: eventCity,
+        event_city: normalizeCity(eventCity),
+        city: normalizeCity(eventCity),
         guests_count: guestsCount ? Number(guestsCount) : null,
         event_space: eventSpace,
         notes,
       });
 
-      setSuccessMessage('Dados do evento atualizados com sucesso!');
+      setSuccessMessage(`Dados do evento atualizados com sucesso! Cidade salva: ${normalizeCity(eventCity)}.`);
     } catch (error: any) {
       console.error('Erro ao salvar evento:', error);
       setErrorMessage(
@@ -143,6 +164,11 @@ export default function EditarMeuEventoPage() {
                 <p className="mt-1 text-sm text-white/70">
                   Atualize os dados principais do seu evento.
                 </p>
+
+                <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-2 text-xs font-extrabold text-[#f7d67b]">
+                  <MapPin size={14} />
+                  Cidade atual: {eventCity || 'Não informada'}
+                </p>
               </div>
             </div>
           </div>
@@ -160,6 +186,18 @@ export default function EditarMeuEventoPage() {
 
           {!loading && (
             <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="rounded-[24px] bg-[#fff7e8] p-4 text-[#7a5200] ring-1 ring-[#f1e7cf]">
+                <p className="flex items-center gap-2 text-sm font-extrabold">
+                  <MapPin size={17} />
+                  Cidade principal do evento
+                </p>
+
+                <p className="mt-2 text-xs leading-5">
+                  Essa cidade será usada para buscar fornecedores, solicitar orçamento,
+                  solicitar orçamento para todos e organizar os pedidos do cliente.
+                </p>
+              </div>
+
               <label className="block">
                 <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
                   <Heart size={17} className="text-[#d99200]" />
@@ -230,12 +268,40 @@ export default function EditarMeuEventoPage() {
                   Cidade do evento
                 </span>
 
-                <input
-                  value={eventCity}
-                  onChange={(event) => setEventCity(event.target.value)}
-                  className="w-full rounded-[22px] bg-white px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400"
-                  placeholder="Ex: Eunápolis"
-                />
+                <select
+                  value={SERVICE_CITIES.includes(eventCity) ? eventCity : 'Outra'}
+                  onChange={(event) => {
+                    const value = event.target.value;
+
+                    if (value === 'Outra') {
+                      setEventCity('');
+                      return;
+                    }
+
+                    setEventCity(value);
+                  }}
+                  className="w-full rounded-[22px] bg-white px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf]"
+                >
+                  {SERVICE_CITIES.map((city) => (
+                    <option key={city} value={city}>
+                      {city}
+                    </option>
+                  ))}
+                  <option value="Outra">Outra cidade</option>
+                </select>
+
+                {!SERVICE_CITIES.includes(eventCity) && (
+                  <input
+                    value={eventCity}
+                    onChange={(event) => setEventCity(event.target.value)}
+                    className="mt-3 w-full rounded-[22px] bg-white px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400"
+                    placeholder="Digite a cidade do evento"
+                  />
+                )}
+
+                <p className="mt-2 rounded-2xl bg-white px-4 py-3 text-xs font-bold leading-5 text-gray-500 ring-1 ring-[#f1e7cf]">
+                  A cidade será salva em <strong>event_city</strong> e também em <strong>city</strong>.
+                </p>
               </label>
 
               <label className="block">
