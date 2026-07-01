@@ -1,5 +1,109 @@
 import { supabase } from './supabase';
 
+type EventPayload = {
+  title?: string;
+  event_name?: string;
+  eventName?: string;
+  event_type?: string;
+  couple_name?: string;
+  event_date?: string;
+  eventDate?: string;
+  event_city?: string;
+  city?: string;
+  guests_count?: number | null;
+  guestCount?: number | null;
+  event_space?: string;
+  notes?: string;
+};
+
+function normalizeCity(value?: string) {
+  const city = String(value || '').trim();
+
+  return city || 'Eunápolis';
+}
+
+function isMissingColumnError(error: any, columnName: string) {
+  const message = String(error?.message || '').toLowerCase();
+  const details = String(error?.details || '').toLowerCase();
+  const hint = String(error?.hint || '').toLowerCase();
+  const column = columnName.toLowerCase();
+
+  return (
+    error?.code === 'PGRST204' ||
+    message.includes(`'${column}'`) ||
+    message.includes(`"${column}"`) ||
+    message.includes(column) ||
+    details.includes(column) ||
+    hint.includes(column)
+  );
+}
+
+async function saveEventWithFallback({
+  currentEventId,
+  dataToSave,
+}: {
+  currentEventId?: string;
+  dataToSave: any;
+}) {
+  const savePayload = async (payload: any) => {
+    if (currentEventId) {
+      return supabase
+        .from('events')
+        .update(payload)
+        .eq('id', currentEventId)
+        .select()
+        .single();
+    }
+
+    return supabase.from('events').insert([payload]).select().single();
+  };
+
+  let { data, error } = await savePayload(dataToSave);
+
+  if (!error) {
+    return data;
+  }
+
+  const canRetryWithoutCity = dataToSave.city && isMissingColumnError(error, 'city');
+
+  if (canRetryWithoutCity) {
+    console.warn(
+      'Campo city não encontrado na tabela events. Tentando salvar apenas event_city.'
+    );
+
+    const { city, ...payloadWithoutCity } = dataToSave;
+
+    const retry = await savePayload(payloadWithoutCity);
+
+    if (!retry.error) {
+      return retry.data;
+    }
+
+    error = retry.error;
+  }
+
+  const canRetryWithoutEventCity =
+    dataToSave.event_city && isMissingColumnError(error, 'event_city');
+
+  if (canRetryWithoutEventCity) {
+    console.warn(
+      'Campo event_city não encontrado na tabela events. Tentando salvar apenas city.'
+    );
+
+    const { event_city, ...payloadWithoutEventCity } = dataToSave;
+
+    const retry = await savePayload(payloadWithoutEventCity);
+
+    if (!retry.error) {
+      return retry.data;
+    }
+
+    error = retry.error;
+  }
+
+  throw error;
+}
+
 export async function getMyEvent() {
   const user = (await supabase.auth.getUser()).data.user;
 
@@ -44,21 +148,7 @@ export async function getMyEvents() {
   return data ?? [];
 }
 
-export async function createOrUpdateMyEvent(payload: {
-  title?: string;
-  event_name?: string;
-  eventName?: string;
-  event_type?: string;
-  couple_name?: string;
-  event_date?: string;
-  eventDate?: string;
-  event_city?: string;
-  city?: string;
-  guests_count?: number | null;
-  guestCount?: number | null;
-  event_space?: string;
-  notes?: string;
-}) {
+export async function createOrUpdateMyEvent(payload: EventPayload) {
   const user = (await supabase.auth.getUser()).data.user;
 
   if (!user) {
@@ -75,7 +165,7 @@ export async function createOrUpdateMyEvent(payload: {
     'Meu Evento';
 
   const eventDate = payload.event_date || payload.eventDate || null;
-  const eventCity = payload.event_city || payload.city || 'Eunápolis';
+  const eventCity = normalizeCity(payload.event_city || payload.city);
   const guestsCount =
     payload.guests_count !== undefined
       ? payload.guests_count
@@ -106,51 +196,21 @@ export async function createOrUpdateMyEvent(payload: {
     updated_at: new Date().toISOString(),
   };
 
-  if (currentEvent?.id) {
-    const { data, error } = await supabase
-      .from('events')
-      .update(dataToSave)
-      .eq('id', currentEvent.id)
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Erro ao atualizar evento:', error);
-      throw error;
-    }
-
-    return data;
-  }
-
-  const { data, error } = await supabase
-    .from('events')
-    .insert([dataToSave])
-    .select()
-    .single();
-
-  if (error) {
-    console.error('Erro ao criar evento:', error);
+  try {
+    return await saveEventWithFallback({
+      currentEventId: currentEvent?.id,
+      dataToSave,
+    });
+  } catch (error) {
+    console.error(
+      currentEvent?.id ? 'Erro ao atualizar evento:' : 'Erro ao criar evento:',
+      error
+    );
     throw error;
   }
-
-  return data;
 }
 
-export async function updateMyEvent(payload: {
-  title?: string;
-  event_name?: string;
-  eventName?: string;
-  event_type?: string;
-  couple_name?: string;
-  event_date?: string;
-  eventDate?: string;
-  event_city?: string;
-  city?: string;
-  guests_count?: number | null;
-  guestCount?: number | null;
-  event_space?: string;
-  notes?: string;
-}) {
+export async function updateMyEvent(payload: EventPayload) {
   return createOrUpdateMyEvent(payload);
 }
 
