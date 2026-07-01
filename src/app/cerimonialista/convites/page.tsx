@@ -77,6 +77,22 @@ function getGuestsCount(event: any) {
   return event?.guests_count || event?.guest_count || null;
 }
 
+function cityAttendanceText(city: string) {
+  if (!city || city === 'Cidade não informada') {
+    return 'Cidade do evento não informada';
+  }
+
+  return `Atendimento em ${city}`;
+}
+
+function getSupplierCity(supplier: any) {
+  return supplier?.city || 'Cidade do fornecedor não informada';
+}
+
+function getSupplierName(supplier: any) {
+  return supplier?.business_name || 'Perfil profissional';
+}
+
 function statusClass(status: string) {
   if (status === 'aceito') return 'bg-green-50 text-green-700';
   if (status === 'recusado') return 'bg-red-50 text-red-700';
@@ -324,6 +340,8 @@ export default function ConvitesCerimonialistaPage() {
               const guests = getGuestsCount(event);
               const eventDate = formatDate(event?.event_date);
               const eventSpace = event?.event_space || 'Não informado';
+              const supplierName = getSupplierName(supplier);
+              const supplierCity = getSupplierCity(supplier);
 
               const isPending = invite.status === 'pendente';
               const isAccepted = invite.status === 'aceito';
@@ -385,6 +403,11 @@ export default function ConvitesCerimonialistaPage() {
                     <p className="mt-1 text-xs font-bold text-white/60">
                       Permissão: {invite.role || 'cerimonialista'}
                     </p>
+
+                    <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-2 text-xs font-extrabold text-[#f7d67b]">
+                      <MapPin size={14} />
+                      {cityAttendanceText(city)}
+                    </p>
                   </div>
 
                   <div className="mt-4 grid grid-cols-2 gap-3">
@@ -399,7 +422,7 @@ export default function ConvitesCerimonialistaPage() {
                     <div className="rounded-2xl bg-[#fbf7f1] p-3">
                       <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
                         <MapPin size={14} className="text-[#d99200]" />
-                        Cidade
+                        Cidade do evento
                       </p>
                       <p className="mt-1 text-sm font-extrabold">{city}</p>
                     </div>
@@ -424,6 +447,38 @@ export default function ConvitesCerimonialistaPage() {
                       </p>
                     </div>
                   </div>
+
+                  <div className="mt-4 rounded-[24px] bg-[#fff7e8] p-4 text-[#7a5200] ring-1 ring-[#f1e7cf]">
+                    <p className="flex items-center gap-2 text-xs font-extrabold">
+                      <MapPin size={15} />
+                      Cidade de atendimento
+                    </p>
+
+                    <h4 className="mt-2 text-base font-extrabold">
+                      {cityAttendanceText(city)}
+                    </h4>
+
+                    <p className="mt-2 text-xs leading-5">
+                      Ao abrir o evento ou solicitar fornecedores, use essa cidade como referência.
+                    </p>
+                  </div>
+
+                  {hasProfessionalProfile && (
+                    <div className="mt-3 rounded-[24px] bg-white p-4 ring-1 ring-[#f1e7cf]">
+                      <p className="flex items-center gap-2 text-xs font-extrabold text-gray-500">
+                        <Building2 size={15} className="text-[#d99200]" />
+                        Perfil profissional vinculado
+                      </p>
+
+                      <p className="mt-2 text-sm font-extrabold">
+                        {supplierName}
+                      </p>
+
+                      <p className="mt-1 text-xs font-bold text-gray-500">
+                        Cidade do profissional: {supplierCity}
+                      </p>
+                    </div>
+                  )}
 
                   <div className="mt-5 space-y-3">
                     {isPending && (
@@ -463,7 +518,7 @@ export default function ConvitesCerimonialistaPage() {
                         </p>
 
                         <Link
-                          href={`/cerimonialista/criar-perfil?redirect=/cerimonialista/evento/${invite.event_id}`}
+                          href={`/cerimonialista/criar-perfil?redirect=${encodeURIComponent(`/cerimonialista/evento/${invite.event_id}?cidade=${city}`)}`}
                           className="mt-4 block rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg"
                         >
                           Criar perfil profissional
@@ -475,7 +530,7 @@ export default function ConvitesCerimonialistaPage() {
                       <>
                         <div className="grid grid-cols-2 gap-3">
                           <Link
-                            href={`/cerimonialista/evento/${invite.event_id}`}
+                            href={`/cerimonialista/evento/${invite.event_id}?cidade=${encodeURIComponent(city)}`}
                             className="flex items-center justify-center gap-2 rounded-[22px] bg-black py-4 text-center font-extrabold text-white shadow-lg"
                           >
                             <ShieldCheck size={21} />
@@ -483,7 +538,7 @@ export default function ConvitesCerimonialistaPage() {
                           </Link>
 
                           <Link
-                            href={`/meu-evento/linha-do-tempo?evento=${invite.event_id}`}
+                            href={`/meu-evento/linha-do-tempo?evento=${invite.event_id}&cidade=${encodeURIComponent(city)}`}
                             className="flex items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg"
                           >
                             <Clock size={21} />
