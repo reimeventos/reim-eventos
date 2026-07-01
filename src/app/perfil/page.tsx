@@ -16,6 +16,8 @@ import {
   LogOut,
   LayoutDashboard,
   Mail,
+  MapPin,
+  MessageCircle,
   MessageSquare,
   Pencil,
   ShieldCheck,
@@ -24,6 +26,11 @@ import {
 } from 'lucide-react';
 import { Nav } from '@/components/Nav';
 import { supabase } from '@/lib/supabase';
+import {
+  getCerimonialistaNotifications,
+  getClientNotifications,
+  getSupplierNotifications,
+} from '@/lib/notifications';
 
 function getTestAccountType(email: string) {
   const normalized = email.toLowerCase();
@@ -63,6 +70,28 @@ function isCerimonialistaCategory(categoryName: string) {
   );
 }
 
+function cityAttendanceText(city?: string | null) {
+  if (!city || city === 'Cidade não informada') {
+    return 'Cidade do evento não informada';
+  }
+
+  return `Atendimento em ${city}`;
+}
+
+function getNotificationTitle(item: any) {
+  if (item?.hasUnreadMessage) return 'Nova mensagem';
+  if (item?.hasAdjustment) return 'Ajuste solicitado';
+  if (item?.isAccepted) return 'Orçamento aceito';
+  if (item?.hasResponse) return 'Resposta do fornecedor';
+  if (item?.isNewRequest) return 'Novo orçamento';
+  return 'Atualização do orçamento';
+}
+
+function getNotificationHref(item: any) {
+  if (item?.hasUnreadMessage && item?.chatHref) return item.chatHref;
+  return item?.href || item?.chatHref || '/orcamentos';
+}
+
 export default function PerfilPage() {
   const router = useRouter();
 
@@ -74,7 +103,67 @@ export default function PerfilPage() {
   const [supplierName, setSupplierName] = useState('');
   const [profileName, setProfileName] = useState('');
   const [hasCollaboratorAccess, setHasCollaboratorAccess] = useState(false);
+  const [clientNotifications, setClientNotifications] = useState<any>(null);
+  const [supplierNotifications, setSupplierNotifications] = useState<any>(null);
+  const [cerimonialistaNotifications, setCerimonialistaNotifications] =
+    useState<any>(null);
   const [errorMessage, setErrorMessage] = useState('');
+
+  async function loadNotifications(options: {
+    asClient?: boolean;
+    asSupplier?: boolean;
+    asCerimonialista?: boolean;
+  }) {
+    try {
+      const promises: Promise<void>[] = [];
+
+      if (options.asClient) {
+        promises.push(
+          getClientNotifications()
+            .then((data) => setClientNotifications(data))
+            .catch((error) => {
+              console.error('Erro ao carregar notificações do cliente:', error);
+              setClientNotifications(null);
+            })
+        );
+      } else {
+        setClientNotifications(null);
+      }
+
+      if (options.asSupplier) {
+        promises.push(
+          getSupplierNotifications()
+            .then((data) => setSupplierNotifications(data))
+            .catch((error) => {
+              console.error('Erro ao carregar notificações do fornecedor:', error);
+              setSupplierNotifications(null);
+            })
+        );
+      } else {
+        setSupplierNotifications(null);
+      }
+
+      if (options.asCerimonialista) {
+        promises.push(
+          getCerimonialistaNotifications()
+            .then((data) => setCerimonialistaNotifications(data))
+            .catch((error) => {
+              console.error(
+                'Erro ao carregar notificações da cerimonialista:',
+                error
+              );
+              setCerimonialistaNotifications(null);
+            })
+        );
+      } else {
+        setCerimonialistaNotifications(null);
+      }
+
+      await Promise.all(promises);
+    } catch (error) {
+      console.error('Erro ao carregar notificações:', error);
+    }
+  }
 
   async function loadUser() {
     try {
@@ -96,6 +185,9 @@ export default function PerfilPage() {
         setSupplier(null);
         setSupplierName('');
         setHasCollaboratorAccess(false);
+        setClientNotifications(null);
+        setSupplierNotifications(null);
+        setCerimonialistaNotifications(null);
         return;
       }
 
@@ -118,6 +210,9 @@ export default function PerfilPage() {
         setSupplier(null);
         setSupplierName('');
         setHasCollaboratorAccess(false);
+        setClientNotifications(null);
+        setSupplierNotifications(null);
+        setCerimonialistaNotifications(null);
         setAccountType('Admin');
         return;
       }
@@ -158,7 +253,14 @@ export default function PerfilPage() {
           .ilike('collaborator_email', email)
           .limit(1);
 
-        setHasCollaboratorAccess(Boolean(collaboratorData?.length));
+        const hasCerimonialAccess = Boolean(collaboratorData?.length);
+        setHasCollaboratorAccess(hasCerimonialAccess);
+
+        await loadNotifications({
+          asSupplier: true,
+          asCerimonialista: isCerimonialistaSupplier || hasCerimonialAccess,
+        });
+
         return;
       }
 
@@ -174,6 +276,11 @@ export default function PerfilPage() {
       if (collaboratorData && collaboratorData.length > 0) {
         setAccountType('Cerimonialista');
         setHasCollaboratorAccess(true);
+
+        await loadNotifications({
+          asCerimonialista: true,
+        });
+
         return;
       }
 
@@ -181,20 +288,24 @@ export default function PerfilPage() {
 
       if (testType === 'Fornecedor') {
         setAccountType('Fornecedor');
+        await loadNotifications({ asSupplier: true });
         return;
       }
 
       if (testType === 'Cerimonialista') {
         setAccountType('Cerimonialista');
+        await loadNotifications({ asCerimonialista: true });
         return;
       }
 
       if (testType === 'Cliente') {
         setAccountType('Cliente');
+        await loadNotifications({ asClient: true });
         return;
       }
 
       setAccountType('Cliente');
+      await loadNotifications({ asClient: true });
     } catch (error: any) {
       console.error('Erro ao carregar perfil:', error);
       setErrorMessage(error?.message || 'Não foi possível carregar o perfil.');
@@ -231,6 +342,39 @@ export default function PerfilPage() {
     accountType === 'Cerimonialista' && !supplier?.id;
   const isCliente = accountType === 'Cliente';
   const isAdmin = accountType === 'Admin';
+
+  const totalClientNotifications = clientNotifications?.total || 0;
+  const totalSupplierNotifications = supplierNotifications?.total || 0;
+  const totalCerimonialistaNotifications =
+    cerimonialistaNotifications?.total || 0;
+  const totalNotifications =
+    totalClientNotifications +
+    totalSupplierNotifications +
+    totalCerimonialistaNotifications;
+
+  const notificationPreview = [
+    ...(clientNotifications?.items || []).map((item: any) => ({
+      ...item,
+      group: 'Cliente',
+    })),
+    ...(supplierNotifications?.items || []).map((item: any) => ({
+      ...item,
+      group: 'Fornecedor',
+    })),
+    ...(cerimonialistaNotifications?.items || []).map((item: any) => ({
+      ...item,
+      group: 'Cerimonialista',
+    })),
+  ]
+    .filter(
+      (item: any) =>
+        item.hasUnreadMessage ||
+        item.hasResponse ||
+        item.hasAdjustment ||
+        item.isAccepted ||
+        item.isNewRequest
+    )
+    .slice(0, 3);
 
   const adminCards = [
     {
@@ -461,6 +605,98 @@ export default function PerfilPage() {
                   </div>
                 </div>
               </div>
+
+              {totalNotifications > 0 && (
+                <div className="mt-4 rounded-[26px] bg-[#151515] p-5 text-white shadow-lg">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#e3a925]">
+                      <Bell size={25} />
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-base font-extrabold">
+                            Notificações
+                          </p>
+
+                          <p className="mt-1 text-xs leading-5 text-white/70">
+                            Você tem {totalNotifications} alerta(s) entre cliente,
+                            fornecedor e cerimonialista.
+                          </p>
+                        </div>
+
+                        <span className="rounded-full bg-white px-3 py-1 text-xs font-extrabold text-[#151515]">
+                          {totalNotifications}
+                        </span>
+                      </div>
+
+                      <div className="mt-4 grid grid-cols-3 gap-2">
+                        <div className="rounded-2xl bg-white/10 p-2 text-center">
+                          <p className="text-lg font-extrabold">
+                            {totalClientNotifications}
+                          </p>
+                          <p className="mt-1 text-[10px] font-bold text-white/55">
+                            Cliente
+                          </p>
+                        </div>
+
+                        <div className="rounded-2xl bg-white/10 p-2 text-center">
+                          <p className="text-lg font-extrabold">
+                            {totalSupplierNotifications}
+                          </p>
+                          <p className="mt-1 text-[10px] font-bold text-white/55">
+                            Fornec.
+                          </p>
+                        </div>
+
+                        <div className="rounded-2xl bg-white/10 p-2 text-center">
+                          <p className="text-lg font-extrabold">
+                            {totalCerimonialistaNotifications}
+                          </p>
+                          <p className="mt-1 text-[10px] font-bold text-white/55">
+                            Cerim.
+                          </p>
+                        </div>
+                      </div>
+
+                      {notificationPreview.length > 0 && (
+                        <div className="mt-4 space-y-2">
+                          {notificationPreview.map((item: any) => (
+                            <Link
+                              key={`${item.group}-${item.id}`}
+                              href={getNotificationHref(item)}
+                              className="block rounded-2xl bg-white/10 p-3 ring-1 ring-white/10"
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <p className="text-xs font-extrabold text-[#f7d67b]">
+                                    {item.group} • {getNotificationTitle(item)}
+                                  </p>
+
+                                  <p className="mt-1 line-clamp-1 text-sm font-extrabold">
+                                    {item.supplierName || item.customerName || 'Orçamento'}
+                                  </p>
+
+                                  <p className="mt-1 flex items-center gap-1 text-xs font-bold text-white/65">
+                                    <MapPin size={12} />
+                                    {cityAttendanceText(item.eventCity)}
+                                  </p>
+                                </div>
+
+                                <MessageCircle
+                                  size={18}
+                                  className="shrink-0 text-[#e3a925]"
+                                />
+                              </div>
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {isAdmin && (
                 <div className="mt-4 rounded-[24px] bg-[#151515] p-5 text-white shadow-lg">
