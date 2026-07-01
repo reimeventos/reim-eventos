@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import {
   AlertCircle,
   ArrowLeft,
@@ -56,6 +56,49 @@ function getEventTitle(event: any) {
 
 function getEventCity(event: any) {
   return event?.event_city || event?.city || 'Cidade não informada';
+}
+
+function getCityFromEventOrUrl(event: any, cityFromUrl: string) {
+  return cityFromUrl || event?.event_city || event?.city || 'Cidade não informada';
+}
+
+function cityAttendanceText(city: string) {
+  if (!city || city === 'Cidade não informada') {
+    return 'Cidade do evento não informada';
+  }
+
+  return `Atendimento em ${city}`;
+}
+
+function getSupplierServiceCities(supplier: any) {
+  const mainCity = supplier?.city || '';
+  const serviceCities = Array.isArray(supplier?.service_cities)
+    ? supplier.service_cities
+    : [];
+
+  return Array.from(
+    new Set(
+      [mainCity, ...serviceCities]
+        .map((city: any) => String(city || '').trim())
+        .filter(Boolean)
+    )
+  );
+}
+
+function supplierAttendsCity(supplier: any, city: string) {
+  const selectedCity = String(city || '').trim().toLowerCase();
+
+  if (!selectedCity || selectedCity === 'cidade não informada') return false;
+
+  return getSupplierServiceCities(supplier).some(
+    (item) => item.toLowerCase() === selectedCity
+  );
+}
+
+function cityListText(cities: string[]) {
+  if (!cities.length) return 'Cidade não informada';
+
+  return cities.slice(0, 4).join(', ');
 }
 
 function getGuestsCount(event: any) {
@@ -169,7 +212,9 @@ function getStatusHelpText(status?: string) {
 
 export default function CerimonialistaEventoPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const eventId = String(params?.id || '');
+  const cityFromUrl = searchParams.get('cidade') || '';
 
   const [eventData, setEventData] = useState<any>(null);
   const [inviteData, setInviteData] = useState<any>(null);
@@ -194,6 +239,7 @@ export default function CerimonialistaEventoPage() {
           id,
           supplier_id,
           status,
+          event_city,
           created_at,
           quote_responses(
             id,
@@ -284,6 +330,7 @@ export default function CerimonialistaEventoPage() {
               business_name,
               description,
               city,
+              service_cities,
               whatsapp,
               average_price,
               rating_average,
@@ -316,7 +363,7 @@ export default function CerimonialistaEventoPage() {
 
   useEffect(() => {
     loadEvent();
-  }, [eventId]);
+  }, [eventId, cityFromUrl]);
 
   function getQuoteForSupplier(supplierId: string) {
     const supplierQuotes = quoteRequests.filter(
@@ -379,12 +426,12 @@ export default function CerimonialistaEventoPage() {
   }
 
   const title = getEventTitle(eventData);
-  const city = getEventCity(eventData);
+  const city = getCityFromEventOrUrl(eventData, cityFromUrl);
   const eventDate = formatDate(eventData?.event_date);
   const guests = getGuestsCount(eventData);
   const eventSpace = eventData?.event_space || 'Não informado';
   const ownerId = getOwnerId(eventData);
-  const returnUrl = `/cerimonialista/evento/${eventId}`;
+  const returnUrl = `/cerimonialista/evento/${eventId}?cidade=${encodeURIComponent(city)}`;
 
   const ownerName =
     inviteData?.owner_name ||
@@ -444,6 +491,11 @@ export default function CerimonialistaEventoPage() {
 
               <p className="mt-2 text-sm text-white/70">
                 Organize fornecedores e acompanhe orçamentos da cliente.
+              </p>
+
+              <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-2 text-xs font-extrabold text-[#f7d67b]">
+                <MapPin size={14} />
+                {cityAttendanceText(city)}
               </p>
             </div>
 
@@ -506,7 +558,7 @@ export default function CerimonialistaEventoPage() {
 
             <div className="mt-5 grid grid-cols-2 gap-3">
               <Link
-                href={`/buscar?cliente=${ownerId}&voltar=${encodeURIComponent(returnUrl)}`}
+                href={`/buscar?cliente=${ownerId}&cidade=${encodeURIComponent(city)}&voltar=${encodeURIComponent(returnUrl)}`}
                 className="flex items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-3 text-sm font-extrabold text-white shadow-lg"
               >
                 <Search size={17} />
@@ -577,6 +629,22 @@ export default function CerimonialistaEventoPage() {
                 </div>
               </div>
 
+              <div className="mt-5 rounded-[24px] bg-[#151515] p-4 text-white shadow-lg">
+                <p className="flex items-center gap-2 text-xs font-extrabold text-[#f7d67b]">
+                  <MapPin size={15} />
+                  Cidade do evento
+                </p>
+
+                <h2 className="mt-2 text-lg font-extrabold">
+                  {cityAttendanceText(city)}
+                </h2>
+
+                <p className="mt-1 text-xs leading-5 text-white/70">
+                  Use essa cidade para buscar fornecedores, solicitar orçamentos,
+                  acompanhar propostas e organizar o cronograma.
+                </p>
+              </div>
+
               <div className="mt-5 grid grid-cols-4 gap-2">
                 <div className="rounded-[20px] bg-white p-3 text-center shadow-sm ring-1 ring-[#f1e7cf]">
                   <p className="text-xl font-extrabold text-[#d99200]">
@@ -635,7 +703,7 @@ export default function CerimonialistaEventoPage() {
                   </div>
 
                   <Link
-                    href={`/buscar?cliente=${ownerId}&voltar=${encodeURIComponent(returnUrl)}`}
+                    href={`/buscar?cliente=${ownerId}&cidade=${encodeURIComponent(city)}&voltar=${encodeURIComponent(returnUrl)}`}
                     className="flex h-10 w-10 items-center justify-center rounded-full bg-[#e3a925] text-white shadow-lg"
                   >
                     <Plus size={21} />
@@ -655,7 +723,7 @@ export default function CerimonialistaEventoPage() {
                     </p>
 
                     <Link
-                      href={`/buscar?cliente=${ownerId}&voltar=${encodeURIComponent(returnUrl)}`}
+                      href={`/buscar?cliente=${ownerId}&cidade=${encodeURIComponent(city)}&voltar=${encodeURIComponent(returnUrl)}`}
                       className="mt-5 flex items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-3 text-sm font-extrabold text-white shadow-lg"
                     >
                       <Search size={18} />
@@ -674,11 +742,14 @@ export default function CerimonialistaEventoPage() {
                     const supplierId = supplier.id || item.supplier_id;
                     const categoryName = getCategoryName(supplier);
                     const supplierCity = supplier.city || 'Cidade não informada';
+                    const serviceCities = getSupplierServiceCities(supplier);
+                    const attendsEventCity = supplierAttendsCity(supplier, city);
                     const rating = formatRating(supplier.rating_average);
                     const price = formatPrice(supplier.average_price);
                     const coverImage = getCoverImage(supplier);
                     const quote = getQuoteForSupplier(supplierId);
                     const quoteStatus = quote?.status || '';
+                    const quoteEventCity = quote?.event_city || city;
                     const latestResponse = getLatestResponse(quote);
                     const isAccepted = quoteStatus === 'aceito' || quoteStatus === 'fechado';
                     const hasQuote = Boolean(quote?.id);
@@ -715,11 +786,28 @@ export default function CerimonialistaEventoPage() {
                               {categoryName}
                             </p>
 
-                            <div className="mt-2 flex items-center gap-2">
+                            <p className="mt-0.5 line-clamp-1 text-[11px] font-bold text-[#b97900]">
+                              {attendsEventCity
+                                ? `Atende ${city}`
+                                : `Fornecedor de ${supplierCity}`}
+                            </p>
+
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
                               <span
                                 className={`rounded-full px-2.5 py-1 text-[10px] font-extrabold ring-1 ${statusClass(quoteStatus)}`}
                               >
                                 {statusLabel(quoteStatus)}
+                              </span>
+
+                              <span
+                                className={
+                                  attendsEventCity
+                                    ? 'flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-[10px] font-extrabold text-green-700 ring-1 ring-green-100'
+                                    : 'flex items-center gap-1 rounded-full bg-[#fff7e8] px-2.5 py-1 text-[10px] font-extrabold text-[#b97900] ring-1 ring-[#f1e7cf]'
+                                }
+                              >
+                                <MapPin size={11} />
+                                {attendsEventCity ? city : supplierCity}
                               </span>
 
                               <span className="flex items-center gap-1 text-[10px] font-bold text-gray-400">
@@ -750,11 +838,30 @@ export default function CerimonialistaEventoPage() {
                               {getStatusHelpText(quoteStatus)}
                             </p>
 
+                            <div
+                              className={
+                                attendsEventCity
+                                  ? 'mt-4 rounded-2xl bg-green-50 p-4 text-green-700 ring-1 ring-green-100'
+                                  : 'mt-4 rounded-2xl bg-[#fff7e8] p-4 text-[#7a5200] ring-1 ring-[#f1e7cf]'
+                              }
+                            >
+                              <p className="flex items-center gap-2 text-xs font-extrabold">
+                                <MapPin size={15} />
+                                {attendsEventCity
+                                  ? `Atende ${city}`
+                                  : `Fornecedor de ${supplierCity}`}
+                              </p>
+
+                              <p className="mt-2 text-sm leading-5">
+                                Cidades atendidas: <strong>{cityListText(serviceCities)}</strong>
+                              </p>
+                            </div>
+
                             <div className="mt-4 grid grid-cols-2 gap-3">
                               <div className="rounded-2xl bg-white p-3">
                                 <p className="flex items-center gap-1 text-xs font-bold text-gray-500">
                                   <MapPin size={13} className="text-[#d99200]" />
-                                  Cidade
+                                  Cidade do fornecedor
                                 </p>
                                 <p className="mt-1 line-clamp-1 text-sm font-extrabold">
                                   {supplierCity}
@@ -774,7 +881,7 @@ export default function CerimonialistaEventoPage() {
                             {latestResponse && (
                               <div className="mt-3 rounded-2xl bg-[#fff7e8] p-3 ring-1 ring-[#f1e7cf]">
                                 <p className="text-xs font-bold text-[#b97900]">
-                                  Última proposta
+                                  Última proposta • {quoteEventCity}
                                 </p>
 
                                 <p className="mt-1 text-lg font-extrabold text-[#151515]">
@@ -789,7 +896,7 @@ export default function CerimonialistaEventoPage() {
 
                             <div className="mt-4 grid grid-cols-2 gap-3">
                               <Link
-                                href={`/fornecedor/${supplierId}?cliente=${ownerId}&voltar=${encodeURIComponent(returnUrl)}`}
+                                href={`/fornecedor/${supplierId}?cliente=${ownerId}&cidade=${encodeURIComponent(city)}&voltar=${encodeURIComponent(returnUrl)}`}
                                 className="flex items-center justify-center gap-2 rounded-[18px] bg-white py-3 text-center text-sm font-extrabold text-[#151515] ring-1 ring-[#f1e7cf]"
                               >
                                 <Camera size={16} className="text-[#d99200]" />
@@ -810,7 +917,7 @@ export default function CerimonialistaEventoPage() {
                                 </Link>
                               ) : (
                                 <Link
-                                  href={`/solicitar-orcamento?fornecedor=${supplierId}&cliente=${ownerId}&voltar=${encodeURIComponent(returnUrl)}`}
+                                  href={`/solicitar-orcamento?fornecedor=${supplierId}&cliente=${ownerId}&cidade=${encodeURIComponent(city)}&voltar=${encodeURIComponent(returnUrl)}`}
                                   className="flex items-center justify-center gap-2 rounded-[18px] bg-[#e3a925] py-3 text-center text-sm font-extrabold text-white shadow-lg"
                                 >
                                   <MessageCircle size={16} />
