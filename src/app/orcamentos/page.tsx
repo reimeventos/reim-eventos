@@ -53,6 +53,7 @@ export default function OrcamentosPage() {
             id,
             business_name,
             city,
+            service_cities,
             categories(name)
           ),
           quote_responses(
@@ -161,6 +162,50 @@ export default function OrcamentosPage() {
     return `Atendimento em ${city}`;
   }
 
+  function getSupplierServiceCities(supplier: any) {
+    const mainCity = supplier?.city || '';
+    const serviceCities = Array.isArray(supplier?.service_cities)
+      ? supplier.service_cities
+      : [];
+
+    return Array.from(
+      new Set(
+        [mainCity, ...serviceCities]
+          .map((city: any) => String(city || '').trim())
+          .filter(Boolean)
+      )
+    );
+  }
+
+  function supplierAttendsEventCity(supplier: any, city: string) {
+    const selectedCity = String(city || '').trim().toLowerCase();
+
+    if (!selectedCity || selectedCity === 'cidade não informada') return false;
+
+    return getSupplierServiceCities(supplier).some(
+      (item) => item.toLowerCase() === selectedCity
+    );
+  }
+
+  function cityListText(cities: string[]) {
+    if (!cities.length) return 'Cidade não informada';
+
+    return cities.slice(0, 4).join(', ');
+  }
+
+  function hasImportantStatus(item: any) {
+    return ['respondido', 'ajuste_solicitado', 'aceito', 'fechado'].includes(
+      item.status
+    );
+  }
+
+  function getStatusAlertText(status?: string) {
+    if (status === 'respondido') return 'O fornecedor respondeu sua solicitação.';
+    if (status === 'ajuste_solicitado') return 'Existe um ajuste solicitado neste orçamento.';
+    if (status === 'aceito' || status === 'fechado') return 'Este orçamento foi aceito.';
+    return '';
+  }
+
   function statusLabel(status?: string) {
     if (status === 'aguardando_resposta') return 'Aguardando';
     if (status === 'novo') return 'Aguardando';
@@ -266,7 +311,7 @@ export default function OrcamentosPage() {
 
     return messages.filter(
       (message: any) =>
-        message.sender_type === 'fornecedor' &&
+        message.sender_type !== 'cliente' &&
         message.read_by_client === false
     ).length;
   }
@@ -281,6 +326,14 @@ export default function OrcamentosPage() {
 
   const acceptedCount = orcamentos.filter(
     (item) => item.status === 'aceito' || item.status === 'fechado'
+  ).length;
+
+  const adjustmentCount = orcamentos.filter(
+    (item) => item.status === 'ajuste_solicitado'
+  ).length;
+
+  const importantStatusCount = orcamentos.filter((item) =>
+    hasImportantStatus(item)
   ).length;
 
   const cerimonialistaCount = orcamentos.filter(
@@ -347,6 +400,44 @@ export default function OrcamentosPage() {
                 </p>
               </div>
             </div>
+
+            {(totalUnreadMessages > 0 || importantStatusCount > 0) && (
+              <div className="mt-5 rounded-[24px] bg-white/10 p-4 ring-1 ring-white/10">
+                <p className="flex items-center gap-2 text-xs font-extrabold text-[#f7d67b]">
+                  <Bell size={15} />
+                  Alertas dos orçamentos
+                </p>
+
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  <div className="rounded-2xl bg-white/10 p-2 text-center">
+                    <p className="text-lg font-extrabold text-[#e3a925]">
+                      {totalUnreadMessages}
+                    </p>
+                    <p className="mt-1 text-[10px] font-bold text-white/55">
+                      Msgs
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl bg-white/10 p-2 text-center">
+                    <p className="text-lg font-extrabold text-yellow-300">
+                      {adjustmentCount}
+                    </p>
+                    <p className="mt-1 text-[10px] font-bold text-white/55">
+                      Ajustes
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl bg-white/10 p-2 text-center">
+                    <p className="text-lg font-extrabold text-green-300">
+                      {acceptedCount}
+                    </p>
+                    <p className="mt-1 text-[10px] font-bold text-white/55">
+                      Aceitos
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </section>
 
@@ -482,6 +573,11 @@ export default function OrcamentosPage() {
               const supplierName = item.suppliers?.business_name || 'Fornecedor';
               const supplierCity = item.suppliers?.city || 'Cidade não informada';
               const eventCity = item.event_city || 'Cidade não informada';
+              const serviceCities = getSupplierServiceCities(item.suppliers);
+              const attendsEventCity = supplierAttendsEventCity(
+                item.suppliers,
+                eventCity
+              );
               const supplierCategory = getSupplierCategory(item);
 
               const status = item.status || 'aguardando_resposta';
@@ -507,7 +603,11 @@ export default function OrcamentosPage() {
                       ? 'rounded-[24px] bg-white p-3 shadow-sm ring-2 ring-green-200'
                       : hasUnreadMessages
                         ? 'rounded-[24px] bg-white p-3 shadow-sm ring-2 ring-[#e3a925]'
-                        : 'rounded-[24px] bg-white p-3 shadow-sm ring-1 ring-[#f1e7cf]'
+                        : status === 'respondido'
+                          ? 'rounded-[24px] bg-white p-3 shadow-sm ring-2 ring-blue-100'
+                          : status === 'ajuste_solicitado'
+                            ? 'rounded-[24px] bg-white p-3 shadow-sm ring-2 ring-yellow-200'
+                            : 'rounded-[24px] bg-white p-3 shadow-sm ring-1 ring-[#f1e7cf]'
                   }
                 >
                   <button
@@ -542,6 +642,12 @@ export default function OrcamentosPage() {
                         {supplierCategory}
                       </p>
 
+                      {hasImportantStatus(item) && (
+                        <p className="mt-0.5 line-clamp-1 text-[11px] font-extrabold text-[#b97900]">
+                          {getStatusAlertText(status)}
+                        </p>
+                      )}
+
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         <span
                           className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-extrabold ring-1 ${statusClass(status)}`}
@@ -553,6 +659,17 @@ export default function OrcamentosPage() {
                         <span className="flex items-center gap-1 rounded-full bg-[#fff7e8] px-2.5 py-1 text-[10px] font-extrabold text-[#b97900] ring-1 ring-[#f1e7cf]">
                           <MapPin size={11} />
                           {eventCity}
+                        </span>
+
+                        <span
+                          className={
+                            attendsEventCity
+                              ? 'flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-[10px] font-extrabold text-green-700 ring-1 ring-green-100'
+                              : 'flex items-center gap-1 rounded-full bg-[#fff7e8] px-2.5 py-1 text-[10px] font-extrabold text-[#b97900] ring-1 ring-[#f1e7cf]'
+                          }
+                        >
+                          <Building2 size={11} />
+                          {attendsEventCity ? `Atende ${eventCity}` : supplierCity}
                         </span>
 
                         <span
@@ -593,6 +710,19 @@ export default function OrcamentosPage() {
                         </div>
                       )}
 
+                      {hasImportantStatus(item) && (
+                        <div className="mb-3 rounded-2xl bg-white p-4 ring-1 ring-[#f1e7cf]">
+                          <p className="flex items-center gap-2 text-xs font-extrabold text-[#b97900]">
+                            <StatusIcon size={15} />
+                            {statusLabel(status)}
+                          </p>
+
+                          <p className="mt-2 text-sm leading-5 text-gray-600">
+                            {getStatusAlertText(status)}
+                          </p>
+                        </div>
+                      )}
+
                       <div
                         className={`rounded-2xl px-4 py-3 text-sm font-bold ring-1 ${originInfo.className}`}
                       >
@@ -620,6 +750,26 @@ export default function OrcamentosPage() {
 
                         <p className="mt-1 text-xs leading-5 text-white/70">
                           Este pedido foi solicitado para essa cidade de atendimento.
+                        </p>
+                      </div>
+
+                      <div
+                        className={
+                          attendsEventCity
+                            ? 'mt-3 rounded-2xl bg-green-50 p-4 text-green-700 ring-1 ring-green-100'
+                            : 'mt-3 rounded-2xl bg-[#fff7e8] p-4 text-[#7a5200] ring-1 ring-[#f1e7cf]'
+                        }
+                      >
+                        <p className="flex items-center gap-2 text-xs font-extrabold">
+                          <Building2 size={15} />
+                          {attendsEventCity
+                            ? `Fornecedor atende ${eventCity}`
+                            : `Fornecedor de ${supplierCity}`}
+                        </p>
+
+                        <p className="mt-2 text-xs leading-5">
+                          Cidades atendidas:{' '}
+                          <strong>{cityListText(serviceCities)}</strong>
                         </p>
                       </div>
 
@@ -693,7 +843,7 @@ export default function OrcamentosPage() {
 
                       <div className="mt-5 grid grid-cols-2 gap-3">
                         <Link
-                          href={`/orcamentos/${item.id}`}
+                          href={`/orcamentos/${item.id}?cidade=${encodeURIComponent(eventCity)}`}
                           className="flex items-center justify-center gap-2 rounded-[18px] bg-[#e3a925] py-3 text-center text-sm font-extrabold text-white shadow-lg"
                         >
                           <FileText size={16} />
@@ -701,7 +851,7 @@ export default function OrcamentosPage() {
                         </Link>
 
                         <Link
-                          href={`/orcamentos/${item.id}/chat`}
+                          href={`/orcamentos/${item.id}/chat?cidade=${encodeURIComponent(eventCity)}`}
                           className={
                             hasUnreadMessages
                               ? 'relative flex items-center justify-center gap-2 rounded-[18px] bg-black py-3 text-center text-sm font-extrabold text-white shadow-lg ring-2 ring-[#e3a925]'
