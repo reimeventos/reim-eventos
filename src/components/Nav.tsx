@@ -119,14 +119,14 @@ export function Nav() {
           <div className="mt-1 text-[12px]">{secondLabel}</div>
         </Link>
 
-        <Link href={centerHref} className="-mt-10">
-          <div className="mx-auto flex h-[76px] w-[76px] items-center justify-center rounded-full bg-[#e3a925] text-white shadow-[0_8px_25px_rgba(227,169,37,.55)]">
-            <CenterIcon size={40} strokeWidth={2.4} />
-          </div>
-          <div className="mt-1 text-[12px] font-bold text-[#222]">
-            {centerLabel}
-          </div>
-        </Link>
+     <Link href={centerHref} className="-mt-8">
+  <div className="mx-auto flex h-[64px] w-[64px] items-center justify-center rounded-full bg-[#e3a925] text-white shadow-[0_8px_20px_rgba(227,169,37,.45)]">
+    <CenterIcon size={32} strokeWidth={2.4} />
+  </div>
+  <div className="mt-1 text-[11px] font-bold text-[#222]">
+    {centerLabel}
+  </div>
+</Link>
 
         <Link href={fourthHref} className="text-[#222]">
           <MessageSquare size={30} className="mx-auto" />
