@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import {
   ArrowLeft,
+  MapPin,
   MessageCircle,
   Send,
   User,
@@ -62,7 +63,14 @@ export default function ChatOrcamentoPage() {
             created_by_user_id,
             created_by_role,
             created_by_name,
-            created_by_email
+            created_by_email,
+            event_city,
+            event_type,
+            event_date,
+            event_space,
+            guests_count,
+            service_needed,
+            status
           `)
           .eq('id', requestId)
           .maybeSingle();
@@ -195,9 +203,46 @@ export default function ChatOrcamentoPage() {
     return 'Cliente';
   }
 
+  function formatEventDate(date?: string) {
+    if (!date) return 'Data não informada';
+
+    const [year, month, day] = date.split('-');
+
+    if (!year || !month || !day) return date;
+
+    return `${day}/${month}/${year}`;
+  }
+
+  function statusLabel(status?: string) {
+    if (status === 'novo' || status === 'aguardando_resposta') {
+      return 'Aguardando resposta';
+    }
+
+    if (status === 'respondido') return 'Respondido';
+    if (status === 'ajuste_solicitado') return 'Ajuste solicitado';
+    if (status === 'aceito' || status === 'fechado') return 'Aceito';
+
+    return status || 'Orçamento';
+  }
+
+  function cityAttendanceText(city: string) {
+    if (!city || city === 'Cidade não informada') {
+      return 'Cidade do evento não informada';
+    }
+
+    return `Atendimento em ${city}`;
+  }
+
   const supplierName = quote?.suppliers?.business_name || 'Fornecedor';
   const supplierCategory =
     quote?.suppliers?.categories?.name || 'Fornecedor de eventos';
+  const eventCity = quoteRequest?.event_city || 'Cidade não informada';
+  const eventType = quoteRequest?.event_type || 'Evento não informado';
+  const eventDate = formatEventDate(quoteRequest?.event_date);
+  const eventStatus = quoteRequest?.status || quote?.status || '';
+  const guestsCount = quoteRequest?.guests_count || 'Não informado';
+  const serviceNeeded =
+    quoteRequest?.service_needed || quote?.service_offered || supplierCategory;
 
   const isSupplierMode = senderType === 'fornecedor';
   const isCerimonialistaMode = senderType === 'cerimonialista';
@@ -231,6 +276,11 @@ export default function ChatOrcamentoPage() {
             <p className="mt-2 text-sm text-white/70">
               Converse sobre detalhes da proposta.
             </p>
+
+            <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-2 text-xs font-extrabold text-[#f7d67b]">
+              <MapPin size={14} />
+              {cityAttendanceText(eventCity)}
+            </p>
           </div>
         </section>
 
@@ -241,12 +291,50 @@ export default function ChatOrcamentoPage() {
                 <Building2 size={26} />
               </div>
 
-              <div>
+              <div className="min-w-0 flex-1">
                 <p className="text-xs font-bold text-gray-500">Fornecedor</p>
-                <h2 className="text-base font-extrabold">{supplierName}</h2>
-                <p className="text-xs text-gray-500">{supplierCategory}</p>
+                <h2 className="line-clamp-1 text-base font-extrabold">{supplierName}</h2>
+                <p className="line-clamp-1 text-xs text-gray-500">{supplierCategory}</p>
+              </div>
+
+              <span className="shrink-0 rounded-full bg-[#fff7e8] px-3 py-1 text-[10px] font-extrabold text-[#b97900] ring-1 ring-[#f1e7cf]">
+                {statusLabel(eventStatus)}
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-3 rounded-[24px] bg-[#151515] p-4 text-white shadow-sm">
+            <p className="flex items-center gap-2 text-xs font-extrabold text-[#f7d67b]">
+              <MapPin size={15} />
+              Cidade do atendimento
+            </p>
+
+            <h2 className="mt-2 text-lg font-extrabold">
+              {cityAttendanceText(eventCity)}
+            </h2>
+
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              <div className="rounded-2xl bg-white/10 p-2 text-center">
+                <p className="text-[10px] font-bold text-white/55">Evento</p>
+                <p className="mt-1 line-clamp-1 text-[11px] font-extrabold">
+                  {eventType}
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-white/10 p-2 text-center">
+                <p className="text-[10px] font-bold text-white/55">Data</p>
+                <p className="mt-1 text-[11px] font-extrabold">{eventDate}</p>
+              </div>
+
+              <div className="rounded-2xl bg-white/10 p-2 text-center">
+                <p className="text-[10px] font-bold text-white/55">Pessoas</p>
+                <p className="mt-1 text-[11px] font-extrabold">{guestsCount}</p>
               </div>
             </div>
+
+            <p className="mt-3 text-xs leading-5 text-white/70">
+              Serviço: <strong className="text-white">{serviceNeeded}</strong>
+            </p>
           </div>
 
           <div
@@ -372,7 +460,7 @@ export default function ChatOrcamentoPage() {
                   ? 'Responder como fornecedor...'
                   : isCerimonialistaMode
                     ? 'Responder como cerimonialista...'
-                    : 'Digite sua mensagem...'
+                    : `Digite sua mensagem sobre ${eventCity}...`
               }
             />
 
