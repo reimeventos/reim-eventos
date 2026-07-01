@@ -12,6 +12,7 @@ import {
   Clock,
   FileText,
   Heart,
+  MapPin,
   MessageCircle,
   RefreshCcw,
   Search,
@@ -34,6 +35,7 @@ type TimelineItem = {
   description: string;
   date: string;
   supplierName?: string;
+  eventCity?: string;
   href?: string;
   actor?: string;
 };
@@ -70,6 +72,28 @@ function getEventTitle(event: any) {
 
 function getEventOwnerId(event: any) {
   return event?.customer_id || event?.client_id || null;
+}
+
+function getEventCity(event: any) {
+  return event?.event_city || event?.city || 'Cidade não informada';
+}
+
+function cityAttendanceText(city: string) {
+  if (!city || city === 'Cidade não informada') {
+    return 'Cidade do evento não informada';
+  }
+
+  return `Atendimento em ${city}`;
+}
+
+function formatEventDate(date?: string) {
+  if (!date) return 'Data não informada';
+
+  const [year, month, day] = date.split('-');
+
+  if (!year || !month || !day) return date;
+
+  return `${day}/${month}/${year}`;
 }
 
 function getSupplierNameFromSaved(item: any) {
@@ -323,14 +347,16 @@ function LinhaDoTempoContent() {
 
   const timeline = useMemo(() => {
     const items: TimelineItem[] = [];
+    const eventCity = getEventCity(eventData);
 
     if (eventData?.created_at) {
       items.push({
         id: `event-${eventData.id}`,
         type: 'event_created',
         title: 'Evento criado',
-        description: getEventTitle(eventData),
+        description: `${getEventTitle(eventData)} • ${eventCity}`,
         date: eventData.created_at,
+        eventCity,
         actor: viewerMode === 'cerimonialista' ? 'Cliente' : 'Você',
       });
     }
@@ -345,13 +371,15 @@ function LinhaDoTempoContent() {
         description: supplierName,
         date: item.created_at,
         supplierName,
-        href: `/fornecedor/${item.supplier_id}`,
+        eventCity,
+        href: `/fornecedor/${item.supplier_id}?cidade=${encodeURIComponent(eventCity)}`,
       });
     });
 
     quotes.forEach((quote) => {
       const supplierName = getSupplierNameFromQuote(quote);
       const createdByRole = quote.created_by_role || 'cliente';
+      const quoteCity = quote.event_city || eventCity;
 
       items.push({
         id: `quote-${quote.id}`,
@@ -362,8 +390,9 @@ function LinhaDoTempoContent() {
             : 'Orçamento solicitado',
         description: `${supplierName} • ${
           quote.service_needed || 'Serviço não informado'
-        }`,
+        } • ${quoteCity}`,
         date: quote.created_at,
+        eventCity: quoteCity,
         supplierName,
         href: `/orcamentos/${quote.id}`,
         actor:
@@ -404,6 +433,7 @@ function LinhaDoTempoContent() {
             response.created_at ||
             quote.created_at,
           supplierName,
+          eventCity: quoteCity,
           href: `/orcamentos/${quote.id}`,
           actor:
             response.status === 'ajuste_solicitado' ||
@@ -433,6 +463,7 @@ function LinhaDoTempoContent() {
           description: message.message || 'Mensagem enviada',
           date: message.created_at,
           supplierName,
+          eventCity: quoteCity,
           href: `/orcamentos/${quote.id}/chat`,
           actor,
         });
@@ -458,10 +489,16 @@ function LinhaDoTempoContent() {
     return total + (quote.quote_messages || []).length;
   }, 0);
 
+  const eventCity = getEventCity(eventData);
+  const eventDate = formatEventDate(eventData?.event_date);
+  const eventSpace = eventData?.event_space || 'Espaço não informado';
+  const guestsCount =
+    eventData?.guests_count || eventData?.guest_count || 'Não informado';
+
   const backHref =
     viewerMode === 'cerimonialista'
       ? eventData?.id
-        ? `/cerimonialista/evento/${eventData.id}`
+        ? `/cerimonialista/evento/${eventData.id}?cidade=${encodeURIComponent(eventCity)}`
         : '/cerimonialista/convites'
       : '/meu-evento';
 
@@ -493,6 +530,11 @@ function LinhaDoTempoContent() {
 
                 <p className="mt-1 text-sm text-white/70">
                   Histórico completo do evento.
+                </p>
+
+                <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-2 text-xs font-extrabold text-[#f7d67b]">
+                  <MapPin size={14} />
+                  {cityAttendanceText(eventCity)}
                 </p>
               </div>
             </div>
@@ -538,8 +580,39 @@ function LinhaDoTempoContent() {
                       {getEventTitle(eventData)}
                     </h2>
 
-                    <p className="mt-2 text-sm font-bold text-gray-500">
-                      {eventData.event_city || eventData.city || 'Cidade não informada'}
+                    <p className="mt-2 flex items-center gap-2 text-sm font-bold text-gray-500">
+                      <MapPin size={14} className="text-[#d99200]" />
+                      {cityAttendanceText(eventCity)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-5 rounded-[24px] bg-[#151515] p-4 text-white shadow-lg">
+                <p className="flex items-center gap-2 text-xs font-extrabold text-[#f7d67b]">
+                  <MapPin size={15} />
+                  Cidade do evento
+                </p>
+
+                <h2 className="mt-2 text-lg font-extrabold">
+                  {cityAttendanceText(eventCity)}
+                </h2>
+
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  <div className="rounded-2xl bg-white/10 p-2 text-center">
+                    <p className="text-[10px] font-bold text-white/55">Data</p>
+                    <p className="mt-1 text-[11px] font-extrabold">{eventDate}</p>
+                  </div>
+
+                  <div className="rounded-2xl bg-white/10 p-2 text-center">
+                    <p className="text-[10px] font-bold text-white/55">Pessoas</p>
+                    <p className="mt-1 text-[11px] font-extrabold">{guestsCount}</p>
+                  </div>
+
+                  <div className="rounded-2xl bg-white/10 p-2 text-center">
+                    <p className="text-[10px] font-bold text-white/55">Espaço</p>
+                    <p className="mt-1 line-clamp-1 text-[11px] font-extrabold">
+                      {eventSpace}
                     </p>
                   </div>
                 </div>
@@ -589,12 +662,16 @@ function LinhaDoTempoContent() {
                 </h2>
 
                 <p className="mt-2 text-sm leading-5 text-white/70">
-                  Acompanhe em ordem tudo que aconteceu no evento: fornecedores salvos, pedidos enviados, propostas, ajustes, aceites e conversas.
+                  Acompanhe em ordem tudo que aconteceu no evento em {eventCity}: fornecedores salvos, pedidos enviados, propostas, ajustes, aceites e conversas.
                 </p>
 
                 <div className="mt-4 grid grid-cols-2 gap-3">
                   <Link
-                    href={viewerMode === 'cerimonialista' ? `/cerimonialista/evento/${eventData.id}` : '/meu-evento'}
+                    href={
+                      viewerMode === 'cerimonialista'
+                        ? `/cerimonialista/evento/${eventData.id}?cidade=${encodeURIComponent(eventCity)}`
+                        : '/meu-evento'
+                    }
                     className="rounded-[20px] bg-white py-3 text-center text-sm font-extrabold text-[#151515]"
                   >
                     Ver evento
@@ -678,6 +755,13 @@ function LinhaDoTempoContent() {
                               <p className="mt-2 flex items-center gap-1 text-xs font-bold text-gray-500">
                                 <Building2 size={13} className="text-[#d99200]" />
                                 {item.supplierName}
+                              </p>
+                            )}
+
+                            {item.eventCity && (
+                              <p className="mt-2 flex items-center gap-1 text-xs font-bold text-[#b97900]">
+                                <MapPin size={13} />
+                                {cityAttendanceText(item.eventCity)}
                               </p>
                             )}
 
