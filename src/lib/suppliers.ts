@@ -16,6 +16,7 @@ export type Supplier = {
   short_description?: string | null;
   category?: string | null;
   city?: string | null;
+  service_cities?: string[] | null;
   state?: string | null;
   address?: string | null;
   phone?: string | null;
@@ -94,6 +95,50 @@ export function getSupplierDisplayName(supplier?: Supplier | null) {
     supplier.name ||
     supplier.title ||
     "Fornecedor"
+  );
+}
+
+export function normalizeCityName(city?: string | null) {
+  return String(city || "").trim();
+}
+
+export function getSupplierServiceCities(supplier?: Supplier | null) {
+  if (!supplier) return [];
+
+  const mainCity = normalizeCityName(supplier.city);
+  const serviceCities = Array.isArray(supplier.service_cities)
+    ? supplier.service_cities
+    : [];
+
+  return Array.from(
+    new Set(
+      [mainCity, ...serviceCities]
+        .map((city) => normalizeCityName(city))
+        .filter(Boolean)
+    )
+  );
+}
+
+export function supplierAttendsCity(
+  supplier?: Supplier | null,
+  city?: string | null
+) {
+  const selectedCity = normalizeCityName(city).toLowerCase();
+
+  if (!supplier || !selectedCity) return false;
+
+  return getSupplierServiceCities(supplier).some(
+    (item) => item.toLowerCase() === selectedCity
+  );
+}
+
+export function getEventCityFromQuoteRequest(quoteRequest?: any) {
+  return (
+    quoteRequest?.event_city ||
+    quoteRequest?.city ||
+    quoteRequest?.event?.event_city ||
+    quoteRequest?.event?.city ||
+    "Cidade não informada"
   );
 }
 
@@ -285,6 +330,31 @@ export async function searchSuppliers(
   }
 
   return (data || []) as Supplier[];
+}
+
+export async function searchSuppliersByCity(
+  city?: string | null,
+  searchTerm = "",
+  categoryId?: string | null
+) {
+  const selectedCity = normalizeCityName(city);
+  const suppliers = await searchSuppliers(searchTerm, categoryId);
+
+  if (!selectedCity) return suppliers;
+
+  return suppliers.sort((a, b) => {
+    const aAttends = supplierAttendsCity(a, selectedCity) ? 1 : 0;
+    const bAttends = supplierAttendsCity(b, selectedCity) ? 1 : 0;
+
+    if (aAttends !== bAttends) return bAttends - aAttends;
+
+    const aFeatured = a.is_featured ? 1 : 0;
+    const bFeatured = b.is_featured ? 1 : 0;
+
+    if (aFeatured !== bFeatured) return bFeatured - aFeatured;
+
+    return 0;
+  });
 }
 
 export async function createSupplier(payload: Partial<Supplier>) {
@@ -572,7 +642,18 @@ export async function getSupplierStats(
 export async function getSupplierQuoteRequests(supplierId: string) {
   const { data, error } = await supabase
     .from("quote_requests")
-    .select("*")
+    .select(`
+      *,
+      quote_responses(*),
+      quote_messages(*),
+      suppliers(
+        id,
+        business_name,
+        city,
+        service_cities,
+        categories(name, slug)
+      )
+    `)
     .eq("supplier_id", supplierId)
     .order("created_at", { ascending: false });
 
@@ -638,7 +719,20 @@ export async function getQuoteResponsesBySupplier(supplierId: string) {
 export async function getSupplierLeadById(leadId: string) {
   const { data, error } = await supabase
     .from("quote_requests")
-    .select("*")
+    .select(`
+      *,
+      quote_responses(*),
+      quote_messages(*),
+      suppliers(
+        id,
+        owner_id,
+        business_name,
+        city,
+        service_cities,
+        whatsapp,
+        categories(name, slug)
+      )
+    `)
     .eq("id", leadId)
     .maybeSingle();
 
@@ -657,7 +751,33 @@ export async function getSupplierLead(leadId: string) {
 export async function getQuoteResponseByRequestId(quoteRequestId: string) {
   const { data, error } = await supabase
     .from("quote_responses")
-    .select("*")
+    .select(`
+      *,
+      suppliers(
+        id,
+        owner_id,
+        business_name,
+        city,
+        service_cities,
+        whatsapp,
+        categories(name, slug)
+      ),
+      quote_requests(
+        id,
+        event_city,
+        event_type,
+        event_date,
+        event_space,
+        guests_count,
+        service_needed,
+        status,
+        customer_id,
+        customer_name,
+        created_by_role,
+        created_by_name,
+        created_by_email
+      )
+    `)
     .eq("quote_request_id", quoteRequestId)
     .order("created_at", { ascending: false })
     .limit(1)
@@ -942,7 +1062,14 @@ export async function getSavedSuppliers(customerId?: string | null) {
 
   const { data, error } = await supabase
     .from("saved_suppliers")
-    .select("*, suppliers(*)")
+    .select(`
+      *,
+      suppliers(
+        *,
+        categories(name, slug),
+        media(file_url, is_cover, position, created_at)
+      )
+    `)
     .eq("customer_id", finalCustomerId)
     .order("created_at", { ascending: false });
 
@@ -1012,6 +1139,7 @@ const suppliersApi = {
   getActiveSuppliers,
   getFeaturedSuppliers,
   searchSuppliers,
+  searchSuppliersByCity,
 
   createSupplier,
   updateSupplier,
@@ -1068,6 +1196,10 @@ const suppliersApi = {
   toggleSaveSupplier,
 
   getSupplierDisplayName,
+  normalizeCityName,
+  getSupplierServiceCities,
+  supplierAttendsCity,
+  getEventCityFromQuoteRequest,
 };
 
 export default suppliersApi;
