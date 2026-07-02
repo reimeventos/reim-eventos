@@ -112,6 +112,46 @@ export default function LeadsFornecedorPage() {
     return `Atendimento em ${city}`;
   }
 
+  function getSupplierFromLead(lead: any) {
+    if (Array.isArray(lead.suppliers)) {
+      return lead.suppliers[0] || null;
+    }
+
+    return lead.suppliers || null;
+  }
+
+  function getSupplierServiceCities(lead: any) {
+    const supplier = getSupplierFromLead(lead);
+    const mainCity = supplier?.city || '';
+    const serviceCities = Array.isArray(supplier?.service_cities)
+      ? supplier.service_cities
+      : [];
+
+    return Array.from(
+      new Set(
+        [mainCity, ...serviceCities]
+          .map((city: any) => String(city || '').trim())
+          .filter(Boolean)
+      )
+    );
+  }
+
+  function supplierAttendsLeadCity(lead: any, city: string) {
+    const selectedCity = String(city || '').trim().toLowerCase();
+
+    if (!selectedCity || selectedCity === 'cidade não informada') return false;
+
+    return getSupplierServiceCities(lead).some(
+      (item) => item.toLowerCase() === selectedCity
+    );
+  }
+
+  function cityListText(cities: string[]) {
+    if (!cities.length) return 'Cidade não informada';
+
+    return cities.slice(0, 5).join(', ');
+  }
+
   function isSpaceService(service: string) {
     const normalized = String(service || '').toLowerCase();
 
@@ -199,8 +239,7 @@ export default function LeadsFornecedorPage() {
   function isUnreadForSupplier(message: any) {
     return (
       message.read_by_supplier === false &&
-      (message.sender_type === 'cliente' ||
-        message.sender_type === 'cerimonialista')
+      message.sender_type !== 'fornecedor'
     );
   }
 
@@ -235,7 +274,8 @@ export default function LeadsFornecedorPage() {
         .from('quote_messages')
         .update({ read_by_supplier: true })
         .eq('quote_request_id', leadId)
-        .eq('read_by_supplier', false);
+        .eq('read_by_supplier', false)
+        .neq('sender_type', 'fornecedor');
 
       if (error) throw error;
 
@@ -435,7 +475,7 @@ export default function LeadsFornecedorPage() {
                     : `${totalUnreadMessages} novas mensagens`}
                 </p>
                 <p className="mt-1 text-xs text-white/70">
-                  Abra o chat do orçamento ou marque como visto.
+                  Abra o chat para ver mensagens da cliente ou cerimonialista.
                 </p>
               </div>
             </div>
@@ -501,6 +541,8 @@ export default function LeadsFornecedorPage() {
               const serviceNeeded =
                 lead.service_needed || supplierCategory || 'Serviço não informado';
               const city = lead.event_city || 'Cidade não informada';
+              const serviceCities = getSupplierServiceCities(lead);
+              const attendsLeadCity = supplierAttendsLeadCity(lead, city);
               const eventDate = formatDate(lead.event_date);
               const eventSpace = lead.event_space || 'Não informado';
               const guests = lead.guests_count || 'Não informado';
@@ -581,6 +623,16 @@ export default function LeadsFornecedorPage() {
                           {cityAttendanceLabel(city)}
                         </span>
 
+                        <span
+                          className={
+                            attendsLeadCity
+                              ? 'rounded-full bg-green-50 px-2.5 py-1 text-[10px] font-extrabold text-green-700 ring-1 ring-green-100'
+                              : 'rounded-full bg-yellow-50 px-2.5 py-1 text-[10px] font-extrabold text-yellow-800 ring-1 ring-yellow-100'
+                          }
+                        >
+                          {attendsLeadCity ? `Atende ${city}` : 'Ver cidade'}
+                        </span>
+
                         <span className="rounded-full bg-gray-50 px-2.5 py-1 text-[10px] font-extrabold text-gray-600 ring-1 ring-gray-100">
                           {originInfo.label}
                         </span>
@@ -657,6 +709,11 @@ export default function LeadsFornecedorPage() {
                         <p className="mt-1 text-xs leading-5">
                           Este lead foi enviado para atendimento nesta cidade do evento.
                         </p>
+
+                        <p className="mt-2 text-xs leading-5">
+                          Cidades marcadas na vitrine:{' '}
+                          <strong>{cityListText(serviceCities)}</strong>
+                        </p>
                       </div>
 
                       {isAccepted && (
@@ -711,6 +768,10 @@ export default function LeadsFornecedorPage() {
                             {unreadMessages === 1
                               ? 'uma nova mensagem.'
                               : `${unreadMessages} novas mensagens.`}
+                          </p>
+
+                          <p className="mt-2 text-xs font-bold text-[#f7d67b]">
+                            {cityAttendanceLabel(city)}
                           </p>
                         </div>
                       )}
@@ -803,7 +864,7 @@ export default function LeadsFornecedorPage() {
                       <div className="mt-5 space-y-3">
                         {!isAccepted && (
                           <Link
-                            href={`/painel-fornecedor/leads/${lead.id}/responder`}
+                            href={`/painel-fornecedor/leads/${lead.id}/responder?cidade=${encodeURIComponent(city)}`}
                             className={
                               hasAdjustment
                                 ? 'flex items-center justify-center gap-2 rounded-[20px] bg-yellow-500 py-4 text-center font-extrabold text-white shadow-lg'
@@ -824,7 +885,7 @@ export default function LeadsFornecedorPage() {
 
                         <div className="grid grid-cols-2 gap-3">
                           <Link
-                            href={`/orcamentos/${lead.id}/chat`}
+                            href={`/orcamentos/${lead.id}/chat?cidade=${encodeURIComponent(city)}`}
                             className={
                               hasUnreadMessages
                                 ? 'relative flex items-center justify-center gap-2 rounded-[18px] bg-[#151515] py-3 text-center text-sm font-extrabold text-white ring-2 ring-[#e3a925]'
