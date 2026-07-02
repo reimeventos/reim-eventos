@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
   ArrowLeft,
@@ -39,6 +39,10 @@ function cityAttendanceText(city: string) {
   }
 
   return `Orçamento para atendimento em ${city}`;
+}
+
+function getCityFromOriginOrUrl(origin: any, cityFromUrl: string) {
+  return cityFromUrl || origin?.event_city || origin?.city || 'Cidade não informada';
 }
 
 function getOriginInfo(origin: any) {
@@ -79,7 +83,9 @@ function getOriginInfo(origin: any) {
 
 export default function OrcamentoRecebidoPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const requestId = String(params.id || '');
+  const cityFromUrl = searchParams.get('cidade') || '';
 
   const [quote, setQuote] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -133,7 +139,7 @@ export default function OrcamentoRecebidoPage() {
     }
 
     loadQuote();
-  }, [requestId]);
+  }, [requestId, cityFromUrl]);
 
   async function getMyEvent() {
     const { data: userData } = await supabase.auth.getUser();
@@ -337,7 +343,7 @@ export default function OrcamentoRecebidoPage() {
       setQuote(updatedQuote);
       setShowAdjustmentBox(false);
       setSuccessMessage(
-        'Orçamento aceito com sucesso! O fornecedor será informado pelo app.'
+        `Orçamento aceito com sucesso para atendimento em ${eventCity}! O fornecedor será informado pelo app.`
       );
 
       await loadCerimonialInviteStatus(updatedQuote);
@@ -380,7 +386,7 @@ export default function OrcamentoRecebidoPage() {
       });
 
       setSuccessMessage(
-        'Solicitação de ajuste enviada com sucesso! O fornecedor poderá revisar a proposta.'
+        `Solicitação de ajuste enviada com sucesso para atendimento em ${eventCity}! O fornecedor poderá revisar a proposta.`
       );
     } catch (error) {
       console.error(error);
@@ -396,7 +402,7 @@ export default function OrcamentoRecebidoPage() {
     quote?.suppliers?.categories?.name || 'Fornecedor de eventos';
   const supplierWhatsapp = quote?.suppliers?.whatsapp || '';
   const supplierInstagram = quote?.suppliers?.instagram || '';
-  const eventCity = quoteRequestOrigin?.event_city || 'Cidade não informada';
+  const eventCity = getCityFromOriginOrUrl(quoteRequestOrigin, cityFromUrl);
   const eventType = quoteRequestOrigin?.event_type || 'Evento não informado';
   const eventDate = quoteRequestOrigin?.event_date
     ? formatDateTime(quoteRequestOrigin.event_date)
@@ -616,7 +622,7 @@ export default function OrcamentoRecebidoPage() {
 
             <div className="relative z-10">
               <Link
-                href="/orcamentos"
+                href={`/orcamentos${eventCity && eventCity !== 'Cidade não informada' ? `?cidade=${encodeURIComponent(eventCity)}` : ''}`}
                 className="inline-flex items-center gap-2 text-sm font-bold text-[#e3a925]"
               >
                 <ArrowLeft size={17} />
@@ -984,7 +990,7 @@ export default function OrcamentoRecebidoPage() {
                       value={adjustmentNotes}
                       onChange={(event) => setAdjustmentNotes(event.target.value)}
                       className="mt-4 min-h-[120px] w-full resize-none rounded-[22px] bg-[#fbf7f1] px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400"
-                      placeholder="Ex: Gostaria de ajustar a forma de pagamento, incluir mais horas ou revisar o valor..."
+                      placeholder={`Ex: Gostaria de ajustar a forma de pagamento, incluir deslocamento para ${eventCity}, mais horas ou revisar o valor...`}
                     />
 
                     <button
@@ -1026,7 +1032,7 @@ export default function OrcamentoRecebidoPage() {
                   </button>
 
                   <Link
-                    href={`/orcamentos/${requestId}/chat`}
+                    href={`/orcamentos/${requestId}/chat?cidade=${encodeURIComponent(eventCity)}`}
                     className="flex w-full items-center justify-center gap-2 rounded-[24px] bg-black py-4 text-center font-extrabold text-white shadow-lg"
                   >
                     <MessageCircle size={21} />
