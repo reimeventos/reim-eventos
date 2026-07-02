@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
   ArrowLeft,
@@ -43,6 +43,40 @@ function cityAttendanceText(city: string) {
   }
 
   return `Atendimento solicitado em ${city}`;
+}
+
+function getCityFromLeadOrUrl(lead: any, cityFromUrl: string) {
+  return cityFromUrl || lead?.event_city || lead?.city || 'Cidade não informada';
+}
+
+function getSupplierFromLead(lead: any) {
+  if (Array.isArray(lead?.suppliers)) {
+    return lead.suppliers[0] || null;
+  }
+
+  return lead?.suppliers || null;
+}
+
+function getSupplierServiceCities(lead: any) {
+  const supplier = getSupplierFromLead(lead);
+  const mainCity = supplier?.city || '';
+  const serviceCities = Array.isArray(supplier?.service_cities)
+    ? supplier.service_cities
+    : [];
+
+  return Array.from(
+    new Set(
+      [mainCity, ...serviceCities]
+        .map((city: any) => String(city || '').trim())
+        .filter(Boolean)
+    )
+  );
+}
+
+function cityListText(cities: string[]) {
+  if (!cities.length) return 'Cidade não informada';
+
+  return cities.slice(0, 5).join(', ');
 }
 
 function isSpaceServiceText(service: string) {
@@ -192,7 +226,9 @@ function getSubscriptionAccess(subscription: any, visibility?: any) {
 
 export default function ResponderOrcamentoPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const leadId = String(params.id || '');
+  const cityFromUrl = searchParams.get('cidade') || '';
 
   const [lead, setLead] = useState<any>(null);
   const [latestResponse, setLatestResponse] = useState<any>(null);
@@ -234,7 +270,14 @@ export default function ResponderOrcamentoPage() {
         setProposalValue(last?.proposal_value || '');
         setPaymentTerms(last?.payment_terms || '');
         setProposalValidity(last?.proposal_validity || '');
-        setObservations(last?.observations || '');
+        setObservations(
+          last?.observations ||
+            (data?.event_city || cityFromUrl
+              ? `Proposta calculada considerando atendimento em ${
+                  cityFromUrl || data?.event_city
+                }.`
+              : '')
+        );
 
         if (data?.supplier_id) {
           const { data: visibilityData, error: visibilityError } =
@@ -274,7 +317,7 @@ export default function ResponderOrcamentoPage() {
       .finally(() => {
         setLoadingLead(false);
       });
-  }, [leadId]);
+  }, [leadId, cityFromUrl]);
 
   function formatDate(date?: string) {
     if (!date) return 'Data não informada';
@@ -384,6 +427,10 @@ export default function ResponderOrcamentoPage() {
     try {
       setSending(true);
 
+      const finalObservations =
+        observations.trim() ||
+        `Proposta calculada considerando atendimento em ${city}.`;
+
       await createQuoteResponse({
         quote_request_id: leadId,
         service_offered: serviceOffered,
@@ -391,7 +438,7 @@ export default function ResponderOrcamentoPage() {
         proposal_value: proposalValue,
         payment_terms: paymentTerms,
         proposal_validity: proposalValidity,
-        observations,
+        observations: finalObservations,
       });
 
       setLead({
@@ -415,7 +462,8 @@ export default function ResponderOrcamentoPage() {
   const clientName = lead?.customer_name || 'Cliente não informado';
   const eventType = lead?.event_type || 'Evento não informado';
   const eventDate = formatDate(lead?.event_date);
-  const city = lead?.event_city || 'Cidade não informada';
+  const city = getCityFromLeadOrUrl(lead, cityFromUrl);
+  const serviceCities = getSupplierServiceCities(lead);
   const guests = lead?.guests_count || 'Não informado';
   const eventSpace = lead?.event_space || 'Não informado';
   const notes = lead?.notes || 'Cliente não informou mensagem.';
@@ -475,9 +523,15 @@ export default function ResponderOrcamentoPage() {
                     {city}
                   </p>
 
-                  <p className="mt-3 inline-flex rounded-full bg-[#e3a925] px-3 py-1 text-[11px] font-extrabold text-white">
-                    {cityAttendanceText(city)}
-                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <p className="inline-flex rounded-full bg-[#e3a925] px-3 py-1 text-[11px] font-extrabold text-white">
+                      {cityAttendanceText(city)}
+                    </p>
+
+                    <p className="inline-flex rounded-full bg-white/10 px-3 py-1 text-[11px] font-extrabold text-white ring-1 ring-white/10">
+                      {originInfo.label}
+                    </p>
+                  </div>
                 </div>
 
                 <span
@@ -540,6 +594,10 @@ export default function ResponderOrcamentoPage() {
                   Use essa cidade como referência para calcular deslocamento,
                   disponibilidade, horários e valor da proposta.
                 </p>
+
+                <p className="mt-3 rounded-2xl bg-white/10 px-3 py-2 text-xs font-bold text-white/75">
+                  Cidades marcadas na vitrine: {cityListText(serviceCities)}
+                </p>
               </div>
 
               <div className={`mt-4 rounded-[24px] p-4 ring-1 ${originInfo.boxClass}`}>
@@ -580,7 +638,7 @@ export default function ResponderOrcamentoPage() {
                   <h2 className="text-lg font-extrabold">Resumo do pedido do cliente</h2>
 
                   <Link
-                    href={`/orcamentos/${leadId}/chat`}
+                    href={`/orcamentos/${leadId}/chat?cidade=${encodeURIComponent(city)}`}
                     className="flex items-center gap-2 rounded-full bg-black px-3 py-2 text-xs font-extrabold text-white"
                   >
                     <MessageCircle size={14} className="text-[#e3a925]" />
@@ -718,8 +776,8 @@ export default function ResponderOrcamentoPage() {
 
                   <p className="mt-1 text-sm text-gray-500">
                     {isAdjustmentRequested
-                      ? 'Os dados abaixo vieram da última proposta. Altere apenas o necessário.'
-                      : 'Essa resposta poderá virar um orçamento oficial dentro do app.'}
+                      ? `Os dados abaixo vieram da última proposta. Revise considerando atendimento em ${city}.`
+                      : `Essa resposta poderá virar um orçamento oficial dentro do app para atendimento em ${city}.`}
                   </p>
                 </div>
 
@@ -788,7 +846,7 @@ export default function ResponderOrcamentoPage() {
 
                   <label className="block">
                     <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
-                      Observações
+                      Observações sobre deslocamento e atendimento em {city}
                     </span>
                     <textarea
                       value={observations}
@@ -831,7 +889,7 @@ export default function ResponderOrcamentoPage() {
                     </button>
 
                     <Link
-                      href={`/orcamentos/${leadId}/chat`}
+                      href={`/orcamentos/${leadId}/chat?cidade=${encodeURIComponent(city)}`}
                       className="mt-3 flex w-full items-center justify-center gap-2 rounded-[24px] bg-black py-4 text-center font-extrabold text-white shadow-lg"
                     >
                       <MessageCircle size={21} />
@@ -842,7 +900,7 @@ export default function ResponderOrcamentoPage() {
 
                 <p className="mt-3 text-center text-xs leading-5 text-gray-500">
                   Depois de enviado, a cliente poderá abrir o orçamento dentro do app,
-                  aceitar, solicitar ajuste ou baixar PDF.
+                  aceitar, solicitar ajuste ou baixar PDF com atendimento em {city}.
                 </p>
               </section>
             </>
