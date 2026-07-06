@@ -39,6 +39,16 @@ function getResourceId(payload: any, request: NextRequest) {
   );
 }
 
+function isMercadoPagoTestWebhook(payload: any, resourceId: string) {
+  const id = String(resourceId || payload?.data?.id || payload?.id || '');
+
+  return (
+    id === '123456' ||
+    id === '123456789' ||
+    String(payload?.data?.id || '') === '123456'
+  );
+}
+
 function normalizePlan(plan: string) {
   const normalized = String(plan || '').toLowerCase();
 
@@ -317,6 +327,21 @@ async function upsertPaymentHistory(
 
 export async function POST(request: NextRequest) {
   try {
+    const payload = await request.json().catch(() => ({}));
+    const topic = getTopic(payload, request);
+    const resourceId = String(getResourceId(payload, request));
+
+    if (isMercadoPagoTestWebhook(payload, resourceId)) {
+      return NextResponse.json({
+        ok: true,
+        test: true,
+        message:
+          'Webhook de teste recebido com sucesso. O ID de teste do Mercado Pago não será consultado na API.',
+        topic,
+        resource_id: resourceId,
+      });
+    }
+
     const supabaseUrl = getRequiredEnv('NEXT_PUBLIC_SUPABASE_URL');
     const supabaseServiceRoleKey = getRequiredEnv('SUPABASE_SERVICE_ROLE_KEY');
 
@@ -326,10 +351,6 @@ export async function POST(request: NextRequest) {
         persistSession: false,
       },
     });
-
-    const payload = await request.json().catch(() => ({}));
-    const topic = getTopic(payload, request);
-    const resourceId = String(getResourceId(payload, request));
 
     if (!resourceId) {
       return NextResponse.json({
