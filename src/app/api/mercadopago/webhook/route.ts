@@ -17,6 +17,24 @@ function addMonths(date: Date, months: number) {
   return nextDate;
 }
 
+function getBillingMonths(subscription: any, externalReference?: string | null) {
+  const billingPeriod = String(subscription?.billing_period || '').toLowerCase();
+  const reference = String(externalReference || '');
+
+  if (billingPeriod === 'anual' || reference.includes(':billing:anual')) {
+    return 12;
+  }
+
+  if (
+    billingPeriod === 'trimestral' ||
+    reference.includes(':billing:trimestral')
+  ) {
+    return 3;
+  }
+
+  return 1;
+}
+
 function getTopic(payload: any, request: NextRequest) {
   return (
     payload?.type ||
@@ -425,7 +443,10 @@ export async function POST(request: NextRequest) {
       nextStatus = 'ativo';
       paymentStatus = 'approved';
       paidAt = new Date().toISOString();
-      dueDate = addMonths(new Date(), 1).toISOString();
+      dueDate = addMonths(
+        new Date(),
+        getBillingMonths(subscription, externalReference)
+      ).toISOString();
       canceledAt = null;
     }
 
@@ -441,6 +462,7 @@ export async function POST(request: NextRequest) {
 
     const updatePayload = {
       plan,
+      billing_period: subscription.billing_period || null,
       status: nextStatus,
       due_date: dueDate,
       payment_provider: 'mercadopago',
