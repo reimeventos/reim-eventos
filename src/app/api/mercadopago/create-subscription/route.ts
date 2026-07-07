@@ -173,6 +173,7 @@ export async function POST(request: NextRequest) {
     const planConfig = PLAN_CONFIG[plan];
     const billingConfig = BILLING_CONFIG[billingPeriod];
     const now = new Date();
+    const startDate = new Date(now.getTime() + 10 * 60 * 1000);
     const dueDate = addMonths(now, billingConfig.frequency);
     const externalReference = `supplier:${supplierId}:plan:${plan}:billing:${billingPeriod}:user:${userData.user.id}`;
 
@@ -197,7 +198,7 @@ export async function POST(request: NextRequest) {
         frequency_type: billingConfig.frequencyType,
         transaction_amount: transactionAmount,
         currency_id: 'BRL',
-        start_date: now.toISOString(),
+        start_date: startDate.toISOString(),
       },
     };
 
