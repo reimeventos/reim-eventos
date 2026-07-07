@@ -2,22 +2,26 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 type PlanKey = 'profissional' | 'premium';
+type BillingPeriod = 'mensal' | 'trimestral' | 'anual';
 
-const PLAN_CONFIG: Record<
-  PlanKey,
-  {
-    label: string;
-    amount: number;
-  }
-> = {
+const PLAN_CONFIG: Record<PlanKey, { label: string; monthlyAmount: number }> = {
   profissional: {
     label: 'Plano Profissional REIM EVENTOS',
-    amount: Number(process.env.MP_PLAN_PROFISSIONAL_AMOUNT || 49.9),
+    monthlyAmount: Number(process.env.MP_PLAN_PROFISSIONAL_AMOUNT || 49.9),
   },
   premium: {
     label: 'Plano Premium Destaque REIM EVENTOS',
-    amount: Number(process.env.MP_PLAN_PREMIUM_AMOUNT || 79.9),
+    monthlyAmount: Number(process.env.MP_PLAN_PREMIUM_AMOUNT || 89.9),
   },
+};
+
+const BILLING_CONFIG: Record<
+  BillingPeriod,
+  { label: string; frequency: number; frequencyType: 'months' }
+> = {
+  mensal: { label: 'Mensal', frequency: 1, frequencyType: 'months' },
+  trimestral: { label: 'Trimestral', frequency: 3, frequencyType: 'months' },
+  anual: { label: 'Anual', frequency: 12, frequencyType: 'months' },
 };
 
 function getRequiredEnv(name: string) {
@@ -28,6 +32,18 @@ function getRequiredEnv(name: string) {
   }
 
   return value;
+}
+
+function getSiteUrl() {
+  if (process.env.NEXT_PUBLIC_SITE_URL) {
+    return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, '');
+  }
+
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+
+  return 'http://localhost:3000';
 }
 
 function normalizePlan(plan: string): PlanKey | null {
@@ -52,10 +68,28 @@ function normalizePlan(plan: string): PlanKey | null {
   return null;
 }
 
+function normalizeBillingPeriod(period: string): BillingPeriod {
+  const normalized = String(period || '').toLowerCase().trim();
+
+  if (normalized === 'trimestral') return 'trimestral';
+  if (normalized === 'anual') return 'anual';
+
+  return 'mensal';
+}
+
 function addMonths(date: Date, months: number) {
   const nextDate = new Date(date);
   nextDate.setMonth(nextDate.getMonth() + months);
   return nextDate;
+}
+
+function getFallbackAmount(plan: PlanKey, billingPeriod: BillingPeriod) {
+  const monthlyAmount = PLAN_CONFIG[plan].monthlyAmount;
+
+  if (billingPeriod === 'trimestral') return monthlyAmount * 3;
+  if (billingPeriod === 'anual') return monthlyAmount * 12;
+
+  return monthlyAmount;
 }
 
 export async function POST(request: NextRequest) {
@@ -64,10 +98,7 @@ export async function POST(request: NextRequest) {
     const supabaseUrl = getRequiredEnv('NEXT_PUBLIC_SUPABASE_URL');
     const supabaseAnonKey = getRequiredEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY');
     const supabaseServiceRoleKey = getRequiredEnv('SUPABASE_SERVICE_ROLE_KEY');
-    const siteUrl =
-      process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : 'http://localhost:3000';
+    const siteUrl = getSiteUrl();
 
     const authHeader = request.headers.get('authorization') || '';
 
@@ -99,6 +130,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const supplierId = String(body?.supplier_id || '').trim();
     const plan = normalizePlan(String(body?.plan || ''));
+    const billingPeriod = normalizeBillingPeriod(
+      String(body?.billing_period || '')
+    );
 
     if (!supplierId) {
       return NextResponse.json(
@@ -120,9 +154,7 @@ export async function POST(request: NextRequest) {
       .eq('id', supplierId)
       .maybeSingle();
 
-    if (supplierError) {
-      throw supplierError;
-    }
+    if (supplierError) throw supplierError;
 
     if (!supplier?.id) {
       return NextResponse.json(
@@ -139,24 +171,31 @@ export async function POST(request: NextRequest) {
     }
 
     const planConfig = PLAN_CONFIG[plan];
+    const billingConfig = BILLING_CONFIG[billingPeriod];
     const now = new Date();
-    const dueDate = addMonths(now, 1);
-    const externalReference = `supplier:${supplierId}:plan:${plan}:user:${userData.user.id}`;
+    const dueDate = addMonths(now, billingConfig.frequency);
+    const externalReference = `supplier:${supplierId}:plan:${plan}:billing:${billingPeriod}:user:${userData.user.id}`;
 
-    const backUrl = `${siteUrl}/painel-fornecedor/planos?mp_status=retorno&plan=${plan}`;
+    const valueFromClient = Number(body?.value || 0);
+    const transactionAmount =
+      valueFromClient > 0
+        ? Number(valueFromClient.toFixed(2))
+        : Number(getFallbackAmount(plan, billingPeriod).toFixed(2));
+
+    const backUrl = `${siteUrl}/painel-fornecedor/planos?mp_status=retorno&plan=${plan}&billing=${billingPeriod}`;
     const notificationUrl = `${siteUrl}/api/mercadopago/webhook`;
 
     const mercadoPagoPayload = {
-      reason: planConfig.label,
+      reason: `${planConfig.label} - ${billingConfig.label}`,
       external_reference: externalReference,
       payer_email: userData.user.email,
       back_url: backUrl,
       notification_url: notificationUrl,
       status: 'pending',
       auto_recurring: {
-        frequency: 1,
-        frequency_type: 'months',
-        transaction_amount: planConfig.amount,
+        frequency: billingConfig.frequency,
+        frequency_type: billingConfig.frequencyType,
+        transaction_amount: transactionAmount,
         currency_id: 'BRL',
         start_date: now.toISOString(),
       },
@@ -200,7 +239,10 @@ export async function POST(request: NextRequest) {
       supplier_id: supplierId,
       plan,
       status: 'pendente',
+      value: transactionAmount,
       due_date: dueDate.toISOString(),
+      billing_period: billingPeriod,
+      is_featured: plan === 'premium',
       payment_provider: 'mercadopago',
       payment_status: 'pending',
       mercadopago_preapproval_id: mercadoPagoData?.id || null,
