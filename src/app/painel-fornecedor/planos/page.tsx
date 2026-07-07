@@ -289,13 +289,63 @@ export default function PlanosFornecedorPage() {
     const confirmed = window.confirm(
       planKey === 'teste_7_dias'
         ? 'Deseja iniciar o teste grátis de 7 dias para fornecedor?'
-        : `Deseja solicitar o plano ${plan.name} no período ${billingLabel}? Após o pagamento por PIX/link, o admin ativará sua assinatura.`
+        : `Você será direcionado para o Mercado Pago para assinar o plano ${plan.name} ${billingLabel}. Após a confirmação do pagamento, o acesso será liberado automaticamente.`
     );
 
     if (!confirmed) return;
 
     try {
       setRequestingPlan(planKey);
+
+      if (planKey !== 'teste_7_dias') {
+        const { data: sessionData, error: sessionError } =
+          await supabase.auth.getSession();
+
+        if (sessionError) throw sessionError;
+
+        const accessToken = sessionData.session?.access_token;
+
+        if (!accessToken) {
+          setErrorMessage('Sessão expirada. Faça login novamente para assinar.');
+          return;
+        }
+
+        const response = await fetch('/api/mercadopago/create-subscription', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            supplier_id: supplier.id,
+            plan: plan.key,
+            billing_period: billingPeriod,
+            value,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data?.error ||
+              'Não foi possível iniciar a assinatura no Mercado Pago.'
+          );
+        }
+
+        const paymentLink = data?.init_point || data?.sandbox_init_point || '';
+
+        if (!paymentLink) {
+          throw new Error('O Mercado Pago não retornou o link de pagamento.');
+        }
+
+        setSuccessMessage(
+          `Assinatura ${plan.name} criada. Abrindo pagamento no Mercado Pago...`
+        );
+
+        window.location.href = paymentLink;
+        return;
+      }
 
       const payload = {
         supplier_id: supplier.id,
@@ -305,6 +355,8 @@ export default function PlanosFornecedorPage() {
         due_date: dueDate,
         billing_period: billingPeriod,
         is_featured: plan.key === 'premium',
+        payment_provider: 'manual',
+        payment_status: 'free_trial',
         updated_at: new Date().toISOString(),
       };
 
@@ -323,11 +375,7 @@ export default function PlanosFornecedorPage() {
         if (error) throw error;
       }
 
-      setSuccessMessage(
-        plan.key === 'teste_7_dias'
-          ? 'Teste grátis de 7 dias iniciado para este fornecedor.'
-          : `Solicitação do plano ${plan.name} ${billingLabel} enviada. Aguarde a confirmação do pagamento pelo admin.`
-      );
+      setSuccessMessage('Teste grátis de 7 dias iniciado para este fornecedor.');
 
       await loadData();
     } catch (error: any) {
@@ -346,6 +394,10 @@ export default function PlanosFornecedorPage() {
   const currentBilling = subscription?.billing_period || 'mensal';
   const dueDate = subscription?.due_date || '';
   const hasSubscription = Boolean(subscription?.supplier_id);
+  const mercadoPagoPaymentLink =
+    subscription?.mercadopago_init_point ||
+    subscription?.mercadopago_sandbox_init_point ||
+    '';
 
   return (
     <main className="min-h-screen bg-black text-[#151515]">
@@ -466,7 +518,7 @@ export default function PlanosFornecedorPage() {
                     </h2>
 
                     <p className="mt-1 text-sm leading-5 text-gray-600">
-                      O período escolhido fica salvo para o admin aprovar e para relatórios de mensal, trimestral e anual.
+                      O teste grátis é liberado pelo app. Nos planos pagos, o fornecedor será direcionado para o Mercado Pago e a liberação será automática após confirmação do pagamento.
                     </p>
                   </div>
                 </div>
@@ -495,7 +547,7 @@ export default function PlanosFornecedorPage() {
                 </div>
 
                 <p className="mt-3 text-xs leading-5 text-gray-500">
-                  Mensal vence em 30 dias, trimestral em 90 dias e anual em 365 dias.
+                  O Mercado Pago confirma o pagamento automaticamente. Após aprovado, o fornecedor é liberado pelo webhook.
                 </p>
               </div>
 
@@ -618,37 +670,61 @@ export default function PlanosFornecedorPage() {
                               : 'mt-4 rounded-2xl bg-[#fbf7f1] p-3 text-xs font-bold text-gray-500'
                           }
                         >
-                          Valor solicitado: {formatMoney(selectedPrice)} • Período: {getBillingLabel(selectedBilling)}
+                          Valor no Mercado Pago: {formatMoney(selectedPrice)} • Período: {getBillingLabel(selectedBilling)}
                         </div>
                       )}
 
-                      <button
-                        type="button"
-                        onClick={() => handleRequestPlan(plan.key)}
-                        disabled={requestingPlan === plan.key || isActive || isPending || isTest}
-                        className={
-                          plan.key === 'premium'
-                            ? 'mt-5 flex w-full items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-sm font-extrabold text-white shadow-lg disabled:opacity-60'
-                            : 'mt-5 flex w-full items-center justify-center gap-2 rounded-[22px] bg-black py-4 text-sm font-extrabold text-white shadow-lg disabled:opacity-60'
-                        }
-                      >
-                        {requestingPlan === plan.key ? (
-                          <>
-                            <Loader2 size={18} className="animate-spin" />
-                            Solicitando...
-                          </>
-                        ) : isPending ? (
-                          'Aguardando confirmação'
-                        ) : isActive ? (
-                          'Plano atual'
-                        ) : isTest ? (
-                          'Teste em andamento'
-                        ) : plan.key === 'teste_7_dias' ? (
-                          hasSubscription ? 'Teste já utilizado' : 'Iniciar teste grátis'
-                        ) : (
-                          `Solicitar ${plan.name} ${getBillingLabel(selectedBilling)}`
-                        )}
-                      </button>
+                      {isPending && isCurrent && mercadoPagoPaymentLink ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            window.location.href = mercadoPagoPaymentLink;
+                          }}
+                          className={
+                            plan.key === 'premium'
+                              ? 'mt-5 flex w-full items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-sm font-extrabold text-white shadow-lg'
+                              : 'mt-5 flex w-full items-center justify-center gap-2 rounded-[22px] bg-black py-4 text-sm font-extrabold text-white shadow-lg'
+                          }
+                        >
+                          Continuar pagamento no Mercado Pago
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleRequestPlan(plan.key)}
+                          disabled={
+                            requestingPlan === plan.key ||
+                            isActive ||
+                            isPending ||
+                            isTest ||
+                            (plan.key === 'teste_7_dias' && hasSubscription)
+                          }
+                          className={
+                            plan.key === 'premium'
+                              ? 'mt-5 flex w-full items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-sm font-extrabold text-white shadow-lg disabled:opacity-60'
+                              : 'mt-5 flex w-full items-center justify-center gap-2 rounded-[22px] bg-black py-4 text-sm font-extrabold text-white shadow-lg disabled:opacity-60'
+                          }
+                        >
+                          {requestingPlan === plan.key ? (
+                            <>
+                              <Loader2 size={18} className="animate-spin" />
+                              {plan.key === 'teste_7_dias'
+                                ? 'Iniciando...'
+                                : 'Abrindo Mercado Pago...'}
+                            </>
+                          ) : isPending ? (
+                            'Aguardando pagamento'
+                          ) : isActive ? (
+                            'Plano atual'
+                          ) : isTest ? (
+                            'Teste em andamento'
+                          ) : plan.key === 'teste_7_dias' ? (
+                            hasSubscription ? 'Teste já utilizado' : 'Iniciar teste grátis'
+                          ) : (
+                            'Assinar com Mercado Pago'
+                          )}
+                        </button>
+                      )}
                     </div>
                   );
                 })}
