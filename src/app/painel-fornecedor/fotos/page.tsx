@@ -506,19 +506,23 @@ export default function FotosFornecedorPage() {
                           className="relative block h-24 w-full bg-[#151515]"
                         >
                           {isVideo ? (
-                            <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-[#151515] via-[#2a2110] to-[#d99200] px-3 text-center text-white">
-                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-[#d99200] shadow-lg">
-                                <Video size={22} />
+                            <>
+                              <video
+                                src={getVideoPreviewUrl(item.file_url)}
+                                className="h-full w-full object-cover"
+                                muted
+                                playsInline
+                                preload="metadata"
+                              />
+
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-black/5 to-black/20" />
+
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-[#d99200] shadow-lg">
+                                  <PlayCircle size={28} />
+                                </div>
                               </div>
-
-                              <p className="mt-3 text-xs font-extrabold">
-                                Vídeo
-                              </p>
-
-                              <p className="mt-1 text-[10px] font-bold text-white/70">
-                                Assistir
-                              </p>
-                            </div>
+                            </>
                           ) : (
                             <img
                               src={item.file_url}
@@ -542,21 +546,19 @@ export default function FotosFornecedorPage() {
                         </button>
 
                         <div className="space-y-1.5 p-2">
-                          {!isVideo && (
-                            <button
-                              type="button"
-                              onClick={() => handleSetCover(item.id)}
-                              disabled={settingCoverId === item.id || isCover}
-                              className="flex w-full items-center justify-center gap-2 rounded-[14px] bg-[#fbf7f1] py-1.5 text-[10px] font-extrabold text-[#151515] ring-1 ring-[#f1e7cf] disabled:opacity-60"
-                            >
-                              <Star size={12} className="text-[#d99200]" />
-                              {settingCoverId === item.id
-                                ? 'Salvando...'
-                                : isCover
-                                  ? 'Capa'
-                                  : 'Capa'}
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleSetCover(item.id)}
+                            disabled={settingCoverId === item.id || isCover}
+                            className="flex w-full items-center justify-center gap-2 rounded-[14px] bg-[#fbf7f1] py-1.5 text-[10px] font-extrabold text-[#151515] ring-1 ring-[#f1e7cf] disabled:opacity-60"
+                          >
+                            <Star size={12} className="text-[#d99200]" />
+                            {settingCoverId === item.id
+                              ? 'Salvando...'
+                              : isCover
+                                ? 'Capa'
+                                : 'Marcar capa'}
+                          </button>
 
                           <button
                             type="button"
