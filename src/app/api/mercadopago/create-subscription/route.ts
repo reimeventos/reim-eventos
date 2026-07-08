@@ -177,11 +177,20 @@ export async function POST(request: NextRequest) {
     const dueDate = addMonths(now, billingConfig.frequency);
     const externalReference = `supplier:${supplierId}:plan:${plan}:billing:${billingPeriod}:user:${userData.user.id}`;
 
-    const valueFromClient = Number(body?.value || 0);
-    const transactionAmount =
-      valueFromClient > 0
-        ? Number(valueFromClient.toFixed(2))
-        : Number(getFallbackAmount(plan, billingPeriod).toFixed(2));
+    /*
+     * IMPORTANTE:
+     * O valor não deve vir da tela, porque a página de planos tem preços
+     * visuais/hardcoded. Para testes e produção, o valor oficial fica no
+     * servidor via variáveis de ambiente:
+     *
+     * MP_PLAN_PROFISSIONAL_AMOUNT
+     * MP_PLAN_PREMIUM_AMOUNT
+     *
+     * Assim, para teste, MP_PLAN_PREMIUM_AMOUNT=5 gera Premium Mensal R$ 5,00.
+     */
+    const transactionAmount = Number(
+      getFallbackAmount(plan, billingPeriod).toFixed(2)
+    );
 
     const backUrl = `${siteUrl}/painel-fornecedor/planos?mp_status=retorno&plan=${plan}&billing=${billingPeriod}`;
     const notificationUrl = `${siteUrl}/api/mercadopago/webhook`;
