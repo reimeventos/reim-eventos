@@ -17,11 +17,11 @@ const PLAN_CONFIG: Record<PlanKey, { label: string; monthlyAmount: number }> = {
 
 const BILLING_CONFIG: Record<
   BillingPeriod,
-  { label: string; frequency: number; frequencyType: 'months' }
+  { label: string; months: number; days: number }
 > = {
-  mensal: { label: 'Mensal', frequency: 1, frequencyType: 'months' },
-  trimestral: { label: 'Trimestral', frequency: 3, frequencyType: 'months' },
-  anual: { label: 'Anual', frequency: 12, frequencyType: 'months' },
+  mensal: { label: 'Mensal', months: 1, days: 30 },
+  trimestral: { label: 'Trimestral', months: 3, days: 90 },
+  anual: { label: 'Anual', months: 12, days: 365 },
 };
 
 function getRequiredEnv(name: string) {
@@ -77,9 +77,9 @@ function normalizeBillingPeriod(period: string): BillingPeriod {
   return 'mensal';
 }
 
-function addMonths(date: Date, months: number) {
+function addDays(date: Date, days: number) {
   const nextDate = new Date(date);
-  nextDate.setMonth(nextDate.getMonth() + months);
+  nextDate.setDate(nextDate.getDate() + days);
   return nextDate;
 }
 
@@ -172,68 +172,77 @@ export async function POST(request: NextRequest) {
 
     const planConfig = PLAN_CONFIG[plan];
     const billingConfig = BILLING_CONFIG[billingPeriod];
-    const now = new Date();
-    const startDate = new Date(now.getTime() + 10 * 60 * 1000);
-    const dueDate = addMonths(now, billingConfig.frequency);
-    const externalReference = `supplier:${supplierId}:plan:${plan}:billing:${billingPeriod}:user:${userData.user.id}`;
 
     /*
-     * IMPORTANTE:
-     * O valor não deve vir da tela, porque a página de planos tem preços
-     * visuais/hardcoded. Para testes e produção, o valor oficial fica no
-     * servidor via variáveis de ambiente:
-     *
-     * MP_PLAN_PROFISSIONAL_AMOUNT
-     * MP_PLAN_PREMIUM_AMOUNT
-     *
-     * Assim, para teste, MP_PLAN_PREMIUM_AMOUNT=5 gera Premium Mensal R$ 5,00.
+     * Valor oficial vem do servidor/Vercel.
+     * MP_PLAN_PREMIUM_AMOUNT=5 deixa o Premium Mensal em R$ 5,00 para teste.
      */
     const transactionAmount = Number(
       getFallbackAmount(plan, billingPeriod).toFixed(2)
     );
 
-    const backUrl = `${siteUrl}/painel-fornecedor/planos?mp_status=retorno&plan=${plan}&billing=${billingPeriod}`;
+    const dueDate = addDays(new Date(), billingConfig.days);
+    const externalReference = `supplier:${supplierId}:plan:${plan}:billing:${billingPeriod}:checkout_pro:user:${userData.user.id}`;
+
+    const successUrl = `${siteUrl}/painel-fornecedor/planos?mp_status=success&plan=${plan}&billing=${billingPeriod}`;
+    const pendingUrl = `${siteUrl}/painel-fornecedor/planos?mp_status=pending&plan=${plan}&billing=${billingPeriod}`;
+    const failureUrl = `${siteUrl}/painel-fornecedor/planos?mp_status=failure&plan=${plan}&billing=${billingPeriod}`;
     const notificationUrl = `${siteUrl}/api/mercadopago/webhook`;
 
-    const mercadoPagoPayload = {
-      reason: `${planConfig.label} - ${billingConfig.label}`,
+    const preferencePayload = {
       external_reference: externalReference,
-      payer_email: userData.user.email,
-      back_url: backUrl,
       notification_url: notificationUrl,
-      status: 'pending',
-      auto_recurring: {
-        frequency: billingConfig.frequency,
-        frequency_type: billingConfig.frequencyType,
-        transaction_amount: transactionAmount,
-        currency_id: 'BRL',
-        start_date: startDate.toISOString(),
+      back_urls: {
+        success: successUrl,
+        pending: pendingUrl,
+        failure: failureUrl,
+      },
+      auto_return: 'approved',
+      items: [
+        {
+          id: `${plan}-${billingPeriod}`,
+          title: `${planConfig.label} - ${billingConfig.label}`,
+          description: `Acesso REIM EVENTOS por ${billingConfig.days} dias.`,
+          quantity: 1,
+          unit_price: transactionAmount,
+          currency_id: 'BRL',
+        },
+      ],
+      metadata: {
+        supplier_id: supplierId,
+        plan,
+        billing_period: billingPeriod,
+        user_id: userData.user.id,
+        checkout_type: 'checkout_pro',
+      },
+      payer: {
+        email: userData.user.email || undefined,
       },
     };
 
     const mercadoPagoResponse = await fetch(
-      'https://api.mercadopago.com/preapproval',
+      'https://api.mercadopago.com/checkout/preferences',
       {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${mercadoPagoAccessToken}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(mercadoPagoPayload),
+        body: JSON.stringify(preferencePayload),
       }
     );
 
     const mercadoPagoData = await mercadoPagoResponse.json();
 
     if (!mercadoPagoResponse.ok) {
-      console.error('Erro Mercado Pago:', mercadoPagoData);
+      console.error('Erro Mercado Pago Checkout Pro:', mercadoPagoData);
 
       return NextResponse.json(
         {
           error:
             mercadoPagoData?.message ||
             mercadoPagoData?.error ||
-            'Não foi possível criar assinatura no Mercado Pago.',
+            'Não foi possível criar o pagamento no Mercado Pago.',
           details: mercadoPagoData,
         },
         { status: mercadoPagoResponse.status }
@@ -255,12 +264,16 @@ export async function POST(request: NextRequest) {
       is_featured: plan === 'premium',
       payment_provider: 'mercadopago',
       payment_status: 'pending',
-      mercadopago_preapproval_id: mercadoPagoData?.id || null,
+      checkout_type: 'checkout_pro',
+      mercadopago_preference_id: mercadoPagoData?.id || null,
+      mercadopago_preapproval_id: null,
+      mercadopago_payment_id: null,
       mercadopago_payer_email: userData.user.email || null,
-      mercadopago_status: mercadoPagoData?.status || 'pending',
+      mercadopago_status: 'pending',
       mercadopago_external_reference: externalReference,
       mercadopago_init_point: mercadoPagoData?.init_point || null,
-      mercadopago_sandbox_init_point: mercadoPagoData?.sandbox_init_point || null,
+      mercadopago_sandbox_init_point:
+        mercadoPagoData?.sandbox_init_point || null,
       webhook_raw: mercadoPagoData,
       updated_at: new Date().toISOString(),
     };
@@ -300,12 +313,12 @@ export async function POST(request: NextRequest) {
       ok: true,
       supplier_id: supplierId,
       subscription: savedSubscription,
-      mercadopago_preapproval_id: mercadoPagoData?.id || null,
+      mercadopago_preference_id: mercadoPagoData?.id || null,
       init_point: initPoint,
       sandbox_init_point: mercadoPagoData?.sandbox_init_point || null,
     });
   } catch (error: any) {
-    console.error('Erro ao criar assinatura Mercado Pago:', error);
+    console.error('Erro ao criar Checkout Pro Mercado Pago:', error);
 
     return NextResponse.json(
       {
