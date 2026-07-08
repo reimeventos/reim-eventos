@@ -1,737 +1,361 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import {
-  ArrowLeft,
-  AlertCircle,
-  CheckCircle2,
-  Crown,
-  Loader2,
-  ShieldCheck,
-  Sparkles,
-  Star,
-  Zap,
-} from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { useEffect, useState } from "react";
+import { Crown, CheckCircle, Loader2, AlertCircle, ArrowLeft } from "lucide-react";
+import Link from "next/link";
+import { supabase } from "@/lib/supabase";
 
-type PlanKey = 'teste_7_dias' | 'premium' | 'profissional';
-type BillingPeriod = 'mensal' | 'trimestral' | 'anual';
-
-const billingOptions: {
-  key: BillingPeriod;
-  label: string;
-  shortLabel: string;
-  days: number;
-}[] = [
-  {
-    key: 'mensal',
-    label: 'Mensal',
-    shortLabel: 'mês',
-    days: 30,
-  },
-  {
-    key: 'trimestral',
-    label: 'Trimestral',
-    shortLabel: '3 meses',
-    days: 90,
-  },
-  {
-    key: 'anual',
-    label: 'Anual',
-    shortLabel: 'ano',
-    days: 365,
-  },
-];
-
-const planPrices: Record<
-  Exclude<PlanKey, 'teste_7_dias'>,
-  Record<BillingPeriod, number>
-> = {
-  profissional: {
-    mensal: 49.9,
-    trimestral: 149.7,
-    anual: 598.8,
-  },
-  premium: {
-    mensal: 89.9,
-    trimestral: 269.7,
-    anual: 1078.8,
-  },
+type Supplier = {
+  id: string;
+  business_name: string | null;
+  name: string | null;
+  owner_id: string | null;
+  status: string | null;
+  is_featured: boolean | null;
 };
 
-const plans: {
-  key: PlanKey;
-  name: string;
-  statusOnRequest: 'teste' | 'pendente';
-  highlight: string;
-  icon: any;
-  badge?: string;
-  features: string[];
-}[] = [
-  {
-    key: 'teste_7_dias',
-    name: 'Teste grátis',
-    statusOnRequest: 'teste',
-    highlight: 'Para fornecedores conhecerem a plataforma',
-    icon: Star,
-    features: [
-      'Vitrine liberada por 7 dias',
-      'Receber pedidos de orçamento',
-      'Responder propostas',
-      'Chat com clientes',
-      'Fotos e vídeos para testar a vitrine',
-    ],
-  },
-  {
-    key: 'profissional',
-    name: 'Profissional',
-    statusOnRequest: 'pendente',
-    highlight: 'Plano pago de entrada para fornecedores',
-    icon: Zap,
-    features: [
-      'Vitrine profissional ativa',
-      'Receber pedidos de orçamento',
-      'Responder propostas',
-      'Chat com clientes',
-      'Galeria com fotos e vídeos',
-      'Acesso ao painel de leads',
-    ],
-  },
-  {
-    key: 'premium',
-    name: 'Premium Destaque',
-    statusOnRequest: 'pendente',
-    highlight: 'Plano top para ter mais visibilidade',
-    icon: Crown,
-    badge: 'Mais completo',
-    features: [
-      'Tudo do plano Profissional',
-      'Destaque na busca',
-      'Selo Premium na vitrine',
-      'Aparece em fornecedores em destaque',
-      'Maior visibilidade para clientes',
-      'Prioridade em campanhas e chamadas futuras',
-    ],
-  },
-];
-
-function getPlanLabel(plan?: string) {
-  if (plan === 'premium') return 'Premium Destaque';
-  if (plan === 'profissional') return 'Profissional';
-  if (plan === 'teste_7_dias' || plan === 'gratuito') return 'Teste grátis';
-  return 'Sem plano';
-}
-
-function getStatusLabel(status?: string) {
-  if (status === 'ativo') return 'Ativo';
-  if (status === 'teste') return 'Teste 7 dias';
-  if (status === 'pendente') return 'Pendente';
-  if (status === 'cancelado') return 'Cancelado';
-  if (status === 'expirado') return 'Expirado';
-  return 'Sem assinatura';
-}
-
-function getBillingLabel(period?: string) {
-  if (period === 'trimestral') return 'Trimestral';
-  if (period === 'anual') return 'Anual';
-  return 'Mensal';
-}
-
-function getStatusClass(status?: string) {
-  if (status === 'ativo') return 'bg-green-50 text-green-700 ring-green-100';
-  if (status === 'teste') return 'bg-blue-50 text-blue-700 ring-blue-100';
-  if (status === 'pendente') return 'bg-yellow-50 text-yellow-800 ring-yellow-100';
-  if (status === 'cancelado' || status === 'expirado') {
-    return 'bg-red-50 text-red-700 ring-red-100';
-  }
-
-  return 'bg-gray-50 text-gray-600 ring-gray-100';
-}
-
-function addDays(date: Date, days: number) {
-  const copy = new Date(date);
-  copy.setDate(copy.getDate() + days);
-  return copy.toISOString().split('T')[0];
-}
-
-function formatDate(date?: string) {
-  if (!date) return 'Não informado';
-
-  const [year, month, day] = String(date).split('-');
-
-  if (!year || !month || !day) return date;
-
-  return `${day}/${month}/${year}`;
-}
-
-function formatMoney(value: number) {
-  return value.toLocaleString('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  });
-}
-
-function getBillingDays(period: BillingPeriod) {
-  return billingOptions.find((item) => item.key === period)?.days || 30;
-}
-
-function getPlanPrice(planKey: PlanKey, period: BillingPeriod) {
-  if (planKey === 'teste_7_dias') return 0;
-  return planPrices[planKey][period];
-}
-
-function getPlanPriceLabel(planKey: PlanKey, period: BillingPeriod) {
-  if (planKey === 'teste_7_dias') return '7 dias grátis';
-
-  const option = billingOptions.find((item) => item.key === period);
-
-  return `${formatMoney(getPlanPrice(planKey, period))} / ${option?.shortLabel || 'mês'}`;
-}
+type Subscription = {
+  id: string;
+  supplier_id: string;
+  plan: string | null;
+  status: string | null;
+  mercadopago_status: string | null;
+  checkout_url: string | null;
+  paid_at: string | null;
+  expires_at: string | null;
+};
 
 export default function PlanosFornecedorPage() {
-  const [supplier, setSupplier] = useState<any>(null);
-  const [subscription, setSubscription] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [requestingPlan, setRequestingPlan] = useState('');
-  const [selectedBilling, setSelectedBilling] = useState<BillingPeriod>('mensal');
-  const [errorMessage, setErrorMessage] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [supplier, setSupplier] = useState<Supplier | null>(null);
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [paymentMessage, setPaymentMessage] = useState("");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const pagamento = params.get("pagamento");
+
+    if (pagamento === "sucesso") {
+      setPaymentMessage(
+        "Pagamento recebido. Estamos confirmando com o Mercado Pago. Em alguns instantes seu plano será ativado."
+      );
+    }
+
+    if (pagamento === "pendente") {
+      setPaymentMessage(
+        "Seu pagamento está pendente. Assim que for aprovado, seu plano Premium será ativado automaticamente."
+      );
+    }
+
+    if (pagamento === "falha") {
+      setPaymentMessage(
+        "O pagamento não foi concluído. Você pode tentar novamente quando quiser."
+      );
+    }
+
+    loadData();
+  }, []);
 
   async function loadData() {
     try {
       setLoading(true);
-      setErrorMessage('');
-      setSuccessMessage('');
+      setError("");
 
-      const { data: userData } = await supabase.auth.getUser();
-      const user = userData.user;
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
 
-      if (!user) {
-        setSupplier(null);
-        setSubscription(null);
-        setErrorMessage('Faça login como fornecedor para acessar os planos.');
+      if (userError || !user) {
+        setError("Você precisa estar logado como fornecedor para acessar os planos.");
         return;
       }
 
       const { data: supplierData, error: supplierError } = await supabase
-        .from('suppliers')
-        .select('id,business_name,status,is_featured,owner_id')
-        .eq('owner_id', user.id)
+        .from("suppliers")
+        .select("id, business_name, name, owner_id, status, is_featured")
+        .eq("owner_id", user.id)
         .maybeSingle();
 
-      if (supplierError) throw supplierError;
+      if (supplierError) {
+        console.error("Erro ao buscar fornecedor:", supplierError);
+        setError("Erro ao buscar seus dados de fornecedor.");
+        return;
+      }
 
-      if (!supplierData?.id) {
-        setSupplier(null);
-        setSubscription(null);
-        setErrorMessage('Perfil de fornecedor não encontrado para esta conta.');
+      if (!supplierData) {
+        setError("Nenhum fornecedor encontrado para este usuário.");
         return;
       }
 
       setSupplier(supplierData);
 
       const { data: subscriptionData, error: subscriptionError } = await supabase
-        .from('supplier_subscriptions')
-        .select('*')
-        .eq('supplier_id', supplierData.id)
-        .order('created_at', { ascending: false })
-        .limit(1);
+        .from("supplier_subscriptions")
+        .select(
+          "id, supplier_id, plan, status, mercadopago_status, checkout_url, paid_at, expires_at"
+        )
+        .eq("supplier_id", supplierData.id)
+        .maybeSingle();
 
-      if (subscriptionError) throw subscriptionError;
-
-      const currentSubscription = subscriptionData?.[0] || null;
-
-      setSubscription(currentSubscription);
-
-      if (
-        currentSubscription?.billing_period === 'mensal' ||
-        currentSubscription?.billing_period === 'trimestral' ||
-        currentSubscription?.billing_period === 'anual'
-      ) {
-        setSelectedBilling(currentSubscription.billing_period);
+      if (subscriptionError) {
+        console.error("Erro ao buscar assinatura:", subscriptionError);
       }
-    } catch (error: any) {
-      console.error('Erro ao carregar planos:', error);
-      setErrorMessage(error?.message || 'Não foi possível carregar os planos.');
+
+      if (subscriptionData) {
+        setSubscription(subscriptionData);
+      }
+    } catch (err) {
+      console.error("Erro geral ao carregar planos:", err);
+      setError("Erro inesperado ao carregar a página de planos.");
     } finally {
       setLoading(false);
     }
   }
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  async function handleRequestPlan(planKey: PlanKey) {
-    setErrorMessage('');
-    setSuccessMessage('');
-
-    if (!supplier?.id) {
-      setErrorMessage('Perfil de fornecedor não carregado.');
-      return;
-    }
-
-    const plan = plans.find((item) => item.key === planKey);
-
-    if (!plan) return;
-
-    const billingPeriod: BillingPeriod =
-      planKey === 'teste_7_dias' ? 'mensal' : selectedBilling;
-
-    const billingLabel = getBillingLabel(billingPeriod);
-    const value = getPlanPrice(planKey, billingPeriod);
-    const dueDate =
-      planKey === 'teste_7_dias'
-        ? addDays(new Date(), 7)
-        : addDays(new Date(), getBillingDays(billingPeriod));
-
-    const confirmed = window.confirm(
-      planKey === 'teste_7_dias'
-        ? 'Deseja iniciar o teste grátis de 7 dias para fornecedor?'
-        : `Você será direcionado para o Mercado Pago para pagar o plano ${plan.name} ${billingLabel}. Após a confirmação do pagamento, o acesso será liberado automaticamente.`
-    );
-
-    if (!confirmed) return;
-
+  async function handlePremiumCheckout() {
     try {
-      setRequestingPlan(planKey);
-
-      if (planKey !== 'teste_7_dias') {
-        const { data: sessionData, error: sessionError } =
-          await supabase.auth.getSession();
-
-        if (sessionError) throw sessionError;
-
-        const accessToken = sessionData.session?.access_token;
-
-        if (!accessToken) {
-          setErrorMessage('Sessão expirada. Faça login novamente para assinar.');
-          return;
-        }
-
-        const response = await fetch('/api/mercadopago/create-checkout', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({
-            supplier_id: supplier.id,
-            plan: plan.key,
-            billing_period: billingPeriod,
-            value,
-          }),
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(
-            data?.error ||
-              'Não foi possível iniciar a assinatura no Mercado Pago.'
-          );
-        }
-
-        const paymentLink = data?.init_point || data?.sandbox_init_point || '';
-
-        if (!paymentLink) {
-          throw new Error('O Mercado Pago não retornou o link de pagamento.');
-        }
-
-        setSuccessMessage(
-          `Pagamento ${plan.name} criado. Abrindo Mercado Pago...`
-        );
-
-        window.location.href = paymentLink;
+      if (!supplier?.id) {
+        setError("Fornecedor não encontrado.");
         return;
       }
 
-      const payload = {
-        supplier_id: supplier.id,
-        plan: plan.key,
-        status: plan.statusOnRequest,
-        value,
-        due_date: dueDate,
-        billing_period: billingPeriod,
-        is_featured: plan.key === 'premium',
-        payment_provider: 'manual',
-        payment_status: 'free_trial',
-        updated_at: new Date().toISOString(),
-      };
+      setCheckoutLoading(true);
+      setError("");
 
-      if (subscription?.supplier_id) {
-        const { error } = await supabase
-          .from('supplier_subscriptions')
-          .update(payload)
-          .eq('supplier_id', supplier.id);
+      const response = await fetch("/api/mercadopago/create-checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          supplier_id: supplier.id,
+        }),
+      });
 
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from('supplier_subscriptions')
-          .insert(payload);
+      const data = await response.json();
 
-        if (error) throw error;
+      if (!response.ok) {
+        console.error("Erro ao criar checkout:", data);
+        setError(data?.error || "Erro ao iniciar pagamento.");
+        return;
       }
 
-      setSuccessMessage('Teste grátis de 7 dias iniciado para este fornecedor.');
+      if (!data?.checkout_url) {
+        setError("Checkout não retornou URL de pagamento.");
+        return;
+      }
 
-      await loadData();
-    } catch (error: any) {
-      console.error('Erro ao solicitar plano:', error);
-      setErrorMessage(
-        error?.message ||
-          'Não foi possível solicitar este plano. Verifique as permissões no Supabase.'
-      );
+      window.location.href = data.checkout_url;
+    } catch (err) {
+      console.error("Erro ao iniciar checkout:", err);
+      setError("Erro inesperado ao iniciar pagamento.");
     } finally {
-      setRequestingPlan('');
+      setCheckoutLoading(false);
     }
   }
 
-  const currentPlan = subscription?.plan || '';
-  const currentStatus = subscription?.status || '';
-  const currentBilling = subscription?.billing_period || 'mensal';
-  const dueDate = subscription?.due_date || '';
-  const hasSubscription = Boolean(subscription?.supplier_id);
-  const mercadoPagoPaymentLink =
-    subscription?.mercadopago_init_point ||
-    subscription?.mercadopago_sandbox_init_point ||
-    '';
+  const isPremiumActive =
+    subscription?.plan === "premium" &&
+    subscription?.status === "ativo";
+
+  const isPending =
+    subscription?.plan === "premium" &&
+    subscription?.status === "pendente";
 
   return (
-    <main className="min-h-screen bg-black text-[#151515]">
-      <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] pb-10 shadow-2xl">
-        <section className="relative overflow-hidden rounded-b-[34px] bg-black px-6 pb-8 pt-7 text-white">
-          <div className="absolute inset-0 bg-[url('/layout01-fundo.png')] bg-cover bg-center opacity-45" />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/85 to-black" />
+    <main className="min-h-screen bg-[#0b0b0f] text-white">
+      <div className="mx-auto max-w-5xl px-4 py-6">
+        <Link
+          href="/painel-fornecedor"
+          className="mb-6 inline-flex items-center gap-2 text-sm text-zinc-300 hover:text-white"
+        >
+          <ArrowLeft size={18} />
+          Voltar ao painel
+        </Link>
 
-          <div className="relative z-10">
-            <Link
-              href="/painel-fornecedor"
-              className="inline-flex items-center gap-2 text-sm font-bold text-[#e3a925]"
-            >
-              <ArrowLeft size={17} />
-              Voltar
-            </Link>
+        <section className="mb-8 rounded-3xl border border-yellow-500/20 bg-gradient-to-br from-zinc-950 via-zinc-900 to-black p-6 shadow-2xl">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-yellow-500/30 bg-yellow-500/10 px-3 py-1 text-sm text-yellow-300">
+                <Crown size={16} />
+                Planos do fornecedor
+              </div>
 
-            <div className="mt-6">
-              <p className="text-xs font-bold uppercase tracking-[0.25em] text-[#e3a925]">
-                Assinatura do fornecedor
-              </p>
-
-              <h1 className="mt-2 font-serif text-[34px] leading-tight">
-                Planos da vitrine
+              <h1 className="text-2xl font-bold md:text-4xl">
+                Destaque sua empresa no REIM EVENTOS
               </h1>
 
-              <p className="mt-2 text-sm text-white/70">
-                Clientes usam grátis. A cobrança é apenas para fornecedores.
+              <p className="mt-3 max-w-2xl text-sm text-zinc-300 md:text-base">
+                Ative o plano Premium Mensal e deixe seu fornecedor visível para
+                clientes encontrarem, salvarem e solicitarem orçamento.
               </p>
             </div>
 
-            {supplier && (
-              <div className="mt-6 rounded-[28px] bg-white/10 p-4 backdrop-blur">
-                <p className="text-xs font-bold text-white/60">Fornecedor</p>
-                <h2 className="mt-1 line-clamp-1 text-xl font-extrabold">
-                  {supplier.business_name || 'Minha vitrine'}
-                </h2>
-
-                <div className="mt-4 grid grid-cols-4 gap-2">
-                  <div className="rounded-2xl bg-black/25 p-3 text-center">
-                    <Crown size={18} className="mx-auto text-[#e3a925]" />
-                    <p className="mt-1 text-[10px] font-bold text-white/50">
-                      Plano
-                    </p>
-                    <p className="mt-1 text-[12px] font-extrabold">
-                      {getPlanLabel(currentPlan)}
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl bg-black/25 p-3 text-center">
-                    <ShieldCheck size={18} className="mx-auto text-[#e3a925]" />
-                    <p className="mt-1 text-[10px] font-bold text-white/50">
-                      Status
-                    </p>
-                    <p className="mt-1 text-[12px] font-extrabold">
-                      {getStatusLabel(currentStatus)}
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl bg-black/25 p-3 text-center">
-                    <Sparkles size={18} className="mx-auto text-[#e3a925]" />
-                    <p className="mt-1 text-[10px] font-bold text-white/50">
-                      Período
-                    </p>
-                    <p className="mt-1 text-[12px] font-extrabold">
-                      {getBillingLabel(currentBilling)}
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl bg-black/25 p-3 text-center">
-                    <Sparkles size={18} className="mx-auto text-[#e3a925]" />
-                    <p className="mt-1 text-[10px] font-bold text-white/50">
-                      Vence
-                    </p>
-                    <p className="mt-1 text-[12px] font-extrabold">
-                      {formatDate(dueDate)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
+            <div className="rounded-2xl border border-yellow-500/20 bg-black/40 p-4 text-center">
+              <p className="text-sm text-zinc-400">Premium Mensal</p>
+              <p className="mt-1 text-3xl font-black text-yellow-300">R$ 5</p>
+              <p className="text-xs text-zinc-500">pagamento avulso</p>
+            </div>
           </div>
         </section>
 
-        <section className="px-6 pt-6">
-          {loading && (
-            <div className="rounded-[28px] bg-white p-6 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-              <Loader2 size={36} className="mx-auto animate-spin text-[#d99200]" />
-              <p className="mt-3 text-sm font-bold text-gray-500">
-                Carregando planos...
-              </p>
-            </div>
-          )}
+        {loading && (
+          <div className="flex items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-950 p-8 text-zinc-300">
+            <Loader2 className="mr-2 animate-spin" size={20} />
+            Carregando planos...
+          </div>
+        )}
 
-          {!loading && errorMessage && (
-            <div className="mb-4 rounded-[22px] bg-red-50 p-4 text-sm font-bold leading-5 text-red-700 ring-1 ring-red-100">
-              {errorMessage}
-            </div>
-          )}
+        {!loading && error && (
+          <div className="mb-6 flex items-start gap-3 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
+            <AlertCircle className="mt-0.5 shrink-0" size={20} />
+            <span>{error}</span>
+          </div>
+        )}
 
-          {!loading && successMessage && (
-            <div className="mb-4 rounded-[22px] bg-green-50 p-4 text-sm font-bold leading-5 text-green-700 ring-1 ring-green-100">
-              {successMessage}
-            </div>
-          )}
+        {!loading && paymentMessage && (
+          <div className="mb-6 flex items-start gap-3 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-4 text-sm text-yellow-100">
+            <AlertCircle className="mt-0.5 shrink-0" size={20} />
+            <span>{paymentMessage}</span>
+          </div>
+        )}
 
-          {!loading && supplier && (
-            <>
-              <div className="rounded-[24px] bg-white p-4 shadow-sm ring-1 ring-[#f1e7cf]">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]">
-                    <AlertCircle size={23} />
-                  </div>
+        {!loading && supplier && (
+          <div className="grid gap-6 md:grid-cols-2">
+            <section className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-zinc-900">
+                  <CheckCircle className="text-zinc-300" size={22} />
+                </div>
+                <div>
+                  <h2 className="font-bold">Plano Atual</h2>
+                  <p className="text-sm text-zinc-400">
+                    {supplier.business_name || supplier.name || "Fornecedor"}
+                  </p>
+                </div>
+              </div>
 
-                  <div>
-                    <h2 className="text-base font-extrabold">
-                      Escolha o plano e o período
-                    </h2>
+              {isPremiumActive ? (
+                <div className="rounded-2xl border border-green-500/30 bg-green-500/10 p-4">
+                  <p className="font-semibold text-green-300">
+                    Premium ativo
+                  </p>
+                  <p className="mt-1 text-sm text-green-100/80">
+                    Seu fornecedor está ativo e destacado no REIM EVENTOS.
+                  </p>
 
-                    <p className="mt-1 text-sm leading-5 text-gray-600">
-                      O teste grátis é liberado pelo app. Nos planos pagos, o fornecedor será direcionado para o Mercado Pago. Pagou, libera automaticamente pelo período escolhido. Quando vencer, aparece a opção de renovar.
+                  {subscription?.expires_at && (
+                    <p className="mt-3 text-xs text-green-100/60">
+                      Válido até:{" "}
+                      {new Date(subscription.expires_at).toLocaleDateString(
+                        "pt-BR"
+                      )}
                     </p>
-                  </div>
+                  )}
+                </div>
+              ) : isPending ? (
+                <div className="rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-4">
+                  <p className="font-semibold text-yellow-300">
+                    Pagamento pendente
+                  </p>
+                  <p className="mt-1 text-sm text-yellow-100/80">
+                    Seu checkout foi iniciado. Após aprovação do Mercado Pago,
+                    o plano será ativado automaticamente.
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-zinc-700 bg-zinc-900 p-4">
+                  <p className="font-semibold text-zinc-100">
+                    Plano gratuito/inativo
+                  </p>
+                  <p className="mt-1 text-sm text-zinc-400">
+                    Ative o Premium para aparecer com destaque e receber mais
+                    pedidos de orçamento.
+                  </p>
+                </div>
+              )}
+
+              <button
+                onClick={loadData}
+                className="mt-4 w-full rounded-xl border border-zinc-700 px-4 py-3 text-sm font-semibold text-zinc-200 hover:bg-zinc-900"
+              >
+                Atualizar status
+              </button>
+            </section>
+
+            <section className="rounded-3xl border border-yellow-500/30 bg-gradient-to-br from-yellow-500/10 via-zinc-950 to-zinc-950 p-6 shadow-xl">
+              <div className="mb-5 flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-yellow-500/20">
+                  <Crown className="text-yellow-300" size={25} />
+                </div>
+                <div>
+                  <h2 className="text-xl font-black text-yellow-300">
+                    Premium Mensal
+                  </h2>
+                  <p className="text-sm text-zinc-300">
+                    Pagamento único válido por 30 dias
+                  </p>
                 </div>
               </div>
 
-              <div className="mt-5 rounded-[24px] bg-white p-4 shadow-sm ring-1 ring-[#f1e7cf]">
-                <p className="text-sm font-extrabold">
-                  Período de cobrança
-                </p>
-
-                <div className="mt-3 grid grid-cols-3 gap-2">
-                  {billingOptions.map((option) => (
-                    <button
-                      key={option.key}
-                      type="button"
-                      onClick={() => setSelectedBilling(option.key)}
-                      className={
-                        selectedBilling === option.key
-                          ? 'rounded-[18px] bg-[#e3a925] px-2 py-3 text-xs font-extrabold text-white shadow-sm'
-                          : 'rounded-[18px] bg-[#fbf7f1] px-2 py-3 text-xs font-extrabold text-gray-500 ring-1 ring-[#f1e7cf]'
-                      }
-                    >
-                      {option.label}
-                    </button>
-                  ))}
+              <div className="mb-5">
+                <div className="flex items-end gap-2">
+                  <span className="text-5xl font-black text-white">R$ 5</span>
+                  <span className="mb-2 text-sm text-zinc-400">/ mês</span>
                 </div>
-
-                <p className="mt-3 text-xs leading-5 text-gray-500">
-                  O Mercado Pago confirma o pagamento automaticamente. Após aprovado, o fornecedor é liberado pelo webhook. Quando vencer, basta renovar.
-                </p>
               </div>
 
-              <div className="mt-5 space-y-4">
-                {plans.map((plan) => {
-                  const PlanIcon = plan.icon;
-                  const isCurrent = currentPlan === plan.key;
-                  const isPending = isCurrent && currentStatus === 'pendente';
-                  const isActive = isCurrent && currentStatus === 'ativo';
-                  const isTest = isCurrent && currentStatus === 'teste';
-                  const selectedPrice = getPlanPrice(plan.key, selectedBilling);
+              <ul className="mb-6 space-y-3 text-sm text-zinc-200">
+                <li className="flex gap-2">
+                  <CheckCircle className="shrink-0 text-yellow-300" size={18} />
+                  Fornecedor ativo na busca pública
+                </li>
+                <li className="flex gap-2">
+                  <CheckCircle className="shrink-0 text-yellow-300" size={18} />
+                  Destaque na vitrine do REIM EVENTOS
+                </li>
+                <li className="flex gap-2">
+                  <CheckCircle className="shrink-0 text-yellow-300" size={18} />
+                  Recebimento de pedidos de orçamento
+                </li>
+                <li className="flex gap-2">
+                  <CheckCircle className="shrink-0 text-yellow-300" size={18} />
+                  Validade de 30 dias após aprovação
+                </li>
+              </ul>
 
-                  return (
-                    <div
-                      key={plan.key}
-                      className={
-                        plan.key === 'premium'
-                          ? 'rounded-[28px] bg-[#151515] p-5 text-white shadow-lg ring-2 ring-[#e3a925]'
-                          : 'rounded-[28px] bg-white p-5 shadow-sm ring-1 ring-[#f1e7cf]'
-                      }
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-start gap-3">
-                          <div
-                            className={
-                              plan.key === 'premium'
-                                ? 'flex h-12 w-12 items-center justify-center rounded-2xl bg-[#e3a925] text-white'
-                                : 'flex h-12 w-12 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]'
-                            }
-                          >
-                            <PlanIcon size={26} />
-                          </div>
+              <button
+                onClick={handlePremiumCheckout}
+                disabled={checkoutLoading}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-yellow-400 px-5 py-4 text-base font-black text-black shadow-lg hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {checkoutLoading ? (
+                  <>
+                    <Loader2 className="animate-spin" size={20} />
+                    Abrindo pagamento...
+                  </>
+                ) : isPremiumActive ? (
+                  <>
+                    <Crown size={20} />
+                    Renovar Premium por R$ 5
+                  </>
+                ) : (
+                  <>
+                    <Crown size={20} />
+                    Ativar Premium por R$ 5
+                  </>
+                )}
+              </button>
 
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h3 className="text-lg font-extrabold">
-                                {plan.name}
-                              </h3>
-
-                              {plan.badge && (
-                                <span className="rounded-full bg-[#e3a925] px-2 py-1 text-[9px] font-extrabold text-white">
-                                  {plan.badge}
-                                </span>
-                              )}
-                            </div>
-
-                            <p
-                              className={
-                                plan.key === 'premium'
-                                  ? 'mt-1 text-sm text-white/70'
-                                  : 'mt-1 text-sm text-gray-500'
-                              }
-                            >
-                              {plan.highlight}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="text-right">
-                          <p
-                            className={
-                              plan.key === 'premium'
-                                ? 'text-base font-extrabold text-[#f7d67b]'
-                                : 'text-base font-extrabold text-[#151515]'
-                            }
-                          >
-                            {getPlanPriceLabel(plan.key, selectedBilling)}
-                          </p>
-
-                          {plan.key !== 'teste_7_dias' && (
-                            <p
-                              className={
-                                plan.key === 'premium'
-                                  ? 'mt-1 text-[11px] font-bold text-white/50'
-                                  : 'mt-1 text-[11px] font-bold text-gray-500'
-                              }
-                            >
-                              {getBillingLabel(selectedBilling)}
-                            </p>
-                          )}
-
-                          {isCurrent && (
-                            <span
-                              className={`mt-2 inline-block rounded-full px-3 py-1 text-[10px] font-extrabold ring-1 ${getStatusClass(currentStatus)}`}
-                            >
-                              {getStatusLabel(currentStatus)}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="mt-4 space-y-2">
-                        {plan.features.map((feature) => (
-                          <div
-                            key={feature}
-                            className={
-                              plan.key === 'premium'
-                                ? 'flex items-center gap-2 text-sm text-white/80'
-                                : 'flex items-center gap-2 text-sm text-gray-700'
-                            }
-                          >
-                            <CheckCircle2
-                              size={16}
-                              className={
-                                plan.key === 'premium'
-                                  ? 'text-[#f7d67b]'
-                                  : 'text-green-600'
-                              }
-                            />
-                            {feature}
-                          </div>
-                        ))}
-                      </div>
-
-                      {plan.key !== 'teste_7_dias' && (
-                        <div
-                          className={
-                            plan.key === 'premium'
-                              ? 'mt-4 rounded-2xl bg-white/10 p-3 text-xs font-bold text-white/70'
-                              : 'mt-4 rounded-2xl bg-[#fbf7f1] p-3 text-xs font-bold text-gray-500'
-                          }
-                        >
-                          Valor no Mercado Pago: {formatMoney(selectedPrice)} • Período: {getBillingLabel(selectedBilling)}
-                        </div>
-                      )}
-
-                      {isPending && isCurrent && mercadoPagoPaymentLink ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            window.location.href = mercadoPagoPaymentLink;
-                          }}
-                          className={
-                            plan.key === 'premium'
-                              ? 'mt-5 flex w-full items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-sm font-extrabold text-white shadow-lg'
-                              : 'mt-5 flex w-full items-center justify-center gap-2 rounded-[22px] bg-black py-4 text-sm font-extrabold text-white shadow-lg'
-                          }
-                        >
-                          Continuar pagamento no Mercado Pago
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => handleRequestPlan(plan.key)}
-                          disabled={
-                            requestingPlan === plan.key ||
-                            isActive ||
-                            isPending ||
-                            isTest ||
-                            (plan.key === 'teste_7_dias' && hasSubscription)
-                          }
-                          className={
-                            plan.key === 'premium'
-                              ? 'mt-5 flex w-full items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-sm font-extrabold text-white shadow-lg disabled:opacity-60'
-                              : 'mt-5 flex w-full items-center justify-center gap-2 rounded-[22px] bg-black py-4 text-sm font-extrabold text-white shadow-lg disabled:opacity-60'
-                          }
-                        >
-                          {requestingPlan === plan.key ? (
-                            <>
-                              <Loader2 size={18} className="animate-spin" />
-                              {plan.key === 'teste_7_dias'
-                                ? 'Iniciando...'
-                                : 'Abrindo Mercado Pago...'}
-                            </>
-                          ) : isPending ? (
-                            'Aguardando pagamento'
-                          ) : isActive ? (
-                            'Plano atual'
-                          ) : isTest ? (
-                            'Teste em andamento'
-                          ) : plan.key === 'teste_7_dias' ? (
-                            hasSubscription ? 'Teste já utilizado' : 'Iniciar teste grátis'
-                          ) : (
-                            'Pagar com Mercado Pago'
-                          )}
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </>
-          )}
-        </section>
+              <p className="mt-3 text-center text-xs text-zinc-500">
+                Você será redirecionado para o Checkout Pro do Mercado Pago.
+              </p>
+            </section>
+          </div>
+        )}
       </div>
     </main>
   );
