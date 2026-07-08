@@ -1,17 +1,24 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Crown, CheckCircle, Loader2, AlertCircle, ArrowLeft } from "lucide-react";
+import {
+  Crown,
+  CheckCircle,
+  Loader2,
+  AlertCircle,
+  ArrowLeft,
+} from "lucide-react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
 type Supplier = {
   id: string;
-  business_name: string | null;
-  name: string | null;
-  owner_id: string | null;
-  status: string | null;
-  is_featured: boolean | null;
+  owner_id?: string | null;
+  business_name?: string | null;
+  name?: string | null;
+  company_name?: string | null;
+  status?: string | null;
+  is_featured?: boolean | null;
 };
 
 type Subscription = {
@@ -19,10 +26,10 @@ type Subscription = {
   supplier_id: string;
   plan: string | null;
   status: string | null;
-  mercadopago_status: string | null;
-  checkout_url: string | null;
-  paid_at: string | null;
-  expires_at: string | null;
+  mercadopago_status?: string | null;
+  checkout_url?: string | null;
+  paid_at?: string | null;
+  expires_at?: string | null;
 };
 
 export default function PlanosFornecedorPage() {
@@ -75,13 +82,16 @@ export default function PlanosFornecedorPage() {
 
       const { data: supplierData, error: supplierError } = await supabase
         .from("suppliers")
-        .select("id, business_name, name, owner_id, status, is_featured")
+        .select("*")
         .eq("owner_id", user.id)
+        .limit(1)
         .maybeSingle();
 
       if (supplierError) {
         console.error("Erro ao buscar fornecedor:", supplierError);
-        setError("Erro ao buscar seus dados de fornecedor.");
+        setError(
+          `Erro ao buscar fornecedor: ${supplierError.message || "erro desconhecido"}`
+        );
         return;
       }
 
@@ -90,14 +100,13 @@ export default function PlanosFornecedorPage() {
         return;
       }
 
-      setSupplier(supplierData);
+      setSupplier(supplierData as Supplier);
 
       const { data: subscriptionData, error: subscriptionError } = await supabase
         .from("supplier_subscriptions")
-        .select(
-          "id, supplier_id, plan, status, mercadopago_status, checkout_url, paid_at, expires_at"
-        )
+        .select("*")
         .eq("supplier_id", supplierData.id)
+        .limit(1)
         .maybeSingle();
 
       if (subscriptionError) {
@@ -105,7 +114,9 @@ export default function PlanosFornecedorPage() {
       }
 
       if (subscriptionData) {
-        setSubscription(subscriptionData);
+        setSubscription(subscriptionData as Subscription);
+      } else {
+        setSubscription(null);
       }
     } catch (err) {
       console.error("Erro geral ao carregar planos:", err);
@@ -157,13 +168,17 @@ export default function PlanosFornecedorPage() {
     }
   }
 
+  const supplierName =
+    supplier?.business_name ||
+    supplier?.company_name ||
+    supplier?.name ||
+    "Fornecedor";
+
   const isPremiumActive =
-    subscription?.plan === "premium" &&
-    subscription?.status === "ativo";
+    subscription?.plan === "premium" && subscription?.status === "ativo";
 
   const isPending =
-    subscription?.plan === "premium" &&
-    subscription?.status === "pendente";
+    subscription?.plan === "premium" && subscription?.status === "pendente";
 
   return (
     <main className="min-h-screen bg-[#0b0b0f] text-white">
@@ -232,17 +247,13 @@ export default function PlanosFornecedorPage() {
                 </div>
                 <div>
                   <h2 className="font-bold">Plano Atual</h2>
-                  <p className="text-sm text-zinc-400">
-                    {supplier.business_name || supplier.name || "Fornecedor"}
-                  </p>
+                  <p className="text-sm text-zinc-400">{supplierName}</p>
                 </div>
               </div>
 
               {isPremiumActive ? (
                 <div className="rounded-2xl border border-green-500/30 bg-green-500/10 p-4">
-                  <p className="font-semibold text-green-300">
-                    Premium ativo
-                  </p>
+                  <p className="font-semibold text-green-300">Premium ativo</p>
                   <p className="mt-1 text-sm text-green-100/80">
                     Seu fornecedor está ativo e destacado no REIM EVENTOS.
                   </p>
