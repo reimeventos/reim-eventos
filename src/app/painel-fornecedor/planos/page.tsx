@@ -289,7 +289,7 @@ export default function PlanosFornecedorPage() {
     const confirmed = window.confirm(
       planKey === 'teste_7_dias'
         ? 'Deseja iniciar o teste grátis de 7 dias para fornecedor?'
-        : `Você será direcionado para o Mercado Pago para assinar o plano ${plan.name} ${billingLabel}. Após a confirmação do pagamento, o acesso será liberado automaticamente.`
+        : `Você será direcionado para o Mercado Pago para pagar o plano ${plan.name} ${billingLabel}. Após a confirmação do pagamento, o acesso será liberado automaticamente.`
     );
 
     if (!confirmed) return;
@@ -310,7 +310,7 @@ export default function PlanosFornecedorPage() {
           return;
         }
 
-        const response = await fetch('/api/mercadopago/create-subscription', {
+        const response = await fetch('/api/mercadopago/create-checkout', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -340,7 +340,7 @@ export default function PlanosFornecedorPage() {
         }
 
         setSuccessMessage(
-          `Assinatura ${plan.name} criada. Abrindo pagamento no Mercado Pago...`
+          `Pagamento ${plan.name} criado. Abrindo Mercado Pago...`
         );
 
         window.location.href = paymentLink;
@@ -518,7 +518,7 @@ export default function PlanosFornecedorPage() {
                     </h2>
 
                     <p className="mt-1 text-sm leading-5 text-gray-600">
-                      O teste grátis é liberado pelo app. Nos planos pagos, o fornecedor será direcionado para o Mercado Pago e a liberação será automática após confirmação do pagamento.
+                      O teste grátis é liberado pelo app. Nos planos pagos, o fornecedor será direcionado para o Mercado Pago. Pagou, libera automaticamente pelo período escolhido. Quando vencer, aparece a opção de renovar.
                     </p>
                   </div>
                 </div>
@@ -547,7 +547,7 @@ export default function PlanosFornecedorPage() {
                 </div>
 
                 <p className="mt-3 text-xs leading-5 text-gray-500">
-                  O Mercado Pago confirma o pagamento automaticamente. Após aprovado, o fornecedor é liberado pelo webhook.
+                  O Mercado Pago confirma o pagamento automaticamente. Após aprovado, o fornecedor é liberado pelo webhook. Quando vencer, basta renovar.
                 </p>
               </div>
 
@@ -721,7 +721,7 @@ export default function PlanosFornecedorPage() {
                           ) : plan.key === 'teste_7_dias' ? (
                             hasSubscription ? 'Teste já utilizado' : 'Iniciar teste grátis'
                           ) : (
-                            'Assinar com Mercado Pago'
+                            'Pagar com Mercado Pago'
                           )}
                         </button>
                       )}
