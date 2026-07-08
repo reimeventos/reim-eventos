@@ -53,6 +53,83 @@ function cleanFileName(name: string) {
     .toLowerCase();
 }
 
+function VideoThumbnail({
+  url,
+  label = 'Vídeo',
+}: {
+  url: string;
+  label?: string;
+}) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [ready, setReady] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  function handleLoadedMetadata() {
+    const video = videoRef.current;
+
+    if (!video) return;
+
+    try {
+      video.currentTime = 0.35;
+    } catch (error) {
+      console.error('Não foi possível posicionar o vídeo para miniatura:', error);
+    }
+  }
+
+  function handleCanPlay() {
+    setReady(true);
+  }
+
+  if (failed) {
+    return (
+      <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-[#151515] via-[#2a2110] to-[#d99200] px-3 text-center text-white">
+        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-[#d99200] shadow-lg">
+          <PlayCircle size={28} />
+        </div>
+
+        <p className="mt-2 text-[10px] font-extrabold">
+          {label}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <video
+        ref={videoRef}
+        src={url}
+        className="h-full w-full object-cover"
+        muted
+        playsInline
+        preload="auto"
+        onLoadedMetadata={handleLoadedMetadata}
+        onLoadedData={handleCanPlay}
+        onCanPlay={handleCanPlay}
+        onError={() => setFailed(true)}
+      />
+
+      <div
+        className={
+          ready
+            ? 'absolute inset-0 bg-gradient-to-t from-black/45 via-black/0 to-black/15'
+            : 'absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#151515] via-[#2a2110] to-[#d99200]'
+        }
+      >
+        {!ready && (
+          <Loader2 size={22} className="animate-spin text-[#e3a925]" />
+        )}
+      </div>
+
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-[#d99200] shadow-lg">
+          <PlayCircle size={28} />
+        </div>
+      </div>
+    </>
+  );
+}
+
 export default function FotosFornecedorPage() {
   const inputRef = useRef<HTMLInputElement | null>(null);
 
@@ -506,23 +583,7 @@ export default function FotosFornecedorPage() {
                           className="relative block h-24 w-full bg-[#151515]"
                         >
                           {isVideo ? (
-                            <>
-                              <video
-                                src={getVideoPreviewUrl(item.file_url)}
-                                className="h-full w-full object-cover"
-                                muted
-                                playsInline
-                                preload="metadata"
-                              />
-
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-black/5 to-black/20" />
-
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-[#d99200] shadow-lg">
-                                  <PlayCircle size={28} />
-                                </div>
-                              </div>
-                            </>
+                            <VideoThumbnail url={item.file_url} />
                           ) : (
                             <img
                               src={item.file_url}
