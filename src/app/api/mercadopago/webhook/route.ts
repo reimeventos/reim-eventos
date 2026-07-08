@@ -1,444 +1,230 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
-function getRequiredEnv(name: string) {
-  const value = process.env[name];
+export const dynamic = "force-dynamic";
 
-  if (!value) {
-    throw new Error(`Variável de ambiente ausente: ${name}`);
-  }
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const mercadoPagoAccessToken = process.env.MERCADOPAGO_ACCESS_TOKEN!;
 
-  return value;
-}
+const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey);
 
-function getTopic(payload: any, request: NextRequest) {
-  return (
-    payload?.type ||
-    payload?.topic ||
-    payload?.action?.split('.')?.[0] ||
-    request.nextUrl.searchParams.get('type') ||
-    request.nextUrl.searchParams.get('topic') ||
-    ''
-  );
-}
-
-function getResourceId(payload: any, request: NextRequest) {
-  return (
-    payload?.data?.id ||
-    payload?.id ||
-    payload?.resource ||
-    request.nextUrl.searchParams.get('data.id') ||
-    request.nextUrl.searchParams.get('id') ||
-    ''
-  );
-}
-
-function isMercadoPagoTestWebhook(payload: any, resourceId: string) {
-  const id = String(resourceId || payload?.data?.id || payload?.id || '');
-
-  return (
-    id === '123456' ||
-    id === '123456789' ||
-    String(payload?.data?.id || '') === '123456'
-  );
-}
-
-function normalizePlan(plan: string) {
-  const normalized = String(plan || '').toLowerCase();
-
-  if (normalized.includes('premium')) return 'premium';
-  if (normalized.includes('profissional')) return 'profissional';
-
-  return normalized || 'profissional';
-}
-
-function parseExternalReference(reference?: string | null) {
-  const text = String(reference || '');
-  const parts = text.split(':');
-
-  const supplierIndex = parts.indexOf('supplier');
-  const planIndex = parts.indexOf('plan');
-  const billingIndex = parts.indexOf('billing');
-
-  return {
-    supplierId:
-      supplierIndex >= 0 && parts[supplierIndex + 1]
-        ? parts[supplierIndex + 1]
-        : '',
-    plan:
-      planIndex >= 0 && parts[planIndex + 1]
-        ? normalizePlan(parts[planIndex + 1])
-        : '',
-    billingPeriod:
-      billingIndex >= 0 && parts[billingIndex + 1]
-        ? parts[billingIndex + 1]
-        : '',
+type MercadoPagoPayment = {
+  id?: number | string;
+  status?: string;
+  external_reference?: string;
+  preference_id?: string;
+  metadata?: {
+    supplier_id?: string;
+    plan?: string;
+    source?: string;
   };
-}
+};
 
-function getBillingDays(subscription: any, externalReference?: string | null) {
-  const billingPeriod = String(subscription?.billing_period || '').toLowerCase();
-  const reference = String(externalReference || '');
-
-  if (billingPeriod === 'anual' || reference.includes(':billing:anual')) {
-    return 365;
-  }
-
-  if (
-    billingPeriod === 'trimestral' ||
-    reference.includes(':billing:trimestral')
-  ) {
-    return 90;
-  }
-
-  return 30;
-}
-
-function addDays(date: Date, days: number) {
-  const nextDate = new Date(date);
-  nextDate.setDate(nextDate.getDate() + days);
-  return nextDate;
-}
-
-function isApprovedPayment(payment: any) {
-  const status = String(payment?.status || '').toLowerCase();
-
-  return status === 'approved' || status === 'authorized';
-}
-
-function isFailedPayment(payment: any) {
-  const status = String(payment?.status || '').toLowerCase();
-
-  return (
-    status === 'rejected' ||
-    status === 'cancelled' ||
-    status === 'canceled' ||
-    status === 'refunded' ||
-    status === 'charged_back'
-  );
-}
-
-async function fetchMercadoPagoPayment(paymentId: string) {
-  const accessToken = getRequiredEnv('MERCADO_PAGO_ACCESS_TOKEN');
-
-  const response = await fetch(
-    `https://api.mercadopago.com/v1/payments/${paymentId}`,
-    {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      cache: 'no-store',
-    }
-  );
+async function getPaymentFromMercadoPago(paymentId: string) {
+  const response = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${mercadoPagoAccessToken}`,
+      "Content-Type": "application/json",
+    },
+  });
 
   const data = await response.json();
 
   if (!response.ok) {
-    console.error('Erro ao consultar pagamento Mercado Pago:', data);
-    throw new Error(
-      data?.message ||
-        data?.error ||
-        'Não foi possível consultar pagamento no Mercado Pago.'
-    );
+    console.error("Erro ao consultar pagamento Mercado Pago:", data);
+    throw new Error("Erro ao consultar pagamento no Mercado Pago.");
   }
 
-  return data;
+  return data as MercadoPagoPayment;
 }
 
-async function findSubscriptionByPayment(supabaseAdmin: any, payment: any) {
-  const paymentId = String(payment?.id || '');
-  const preferenceId = String(payment?.preference_id || '');
-  const externalReference = String(payment?.external_reference || '');
-
-  if (paymentId) {
-    const { data } = await supabaseAdmin
-      .from('supplier_subscriptions')
-      .select('*')
-      .eq('mercadopago_payment_id', paymentId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (data?.id) return data;
-  }
-
-  if (preferenceId) {
-    const { data } = await supabaseAdmin
-      .from('supplier_subscriptions')
-      .select('*')
-      .eq('mercadopago_preference_id', preferenceId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (data?.id) return data;
-  }
-
-  if (externalReference) {
-    const { data } = await supabaseAdmin
-      .from('supplier_subscriptions')
-      .select('*')
-      .eq('mercadopago_external_reference', externalReference)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (data?.id) return data;
-  }
-
-  const parsed = parseExternalReference(externalReference);
-
-  if (parsed.supplierId) {
-    const { data } = await supabaseAdmin
-      .from('supplier_subscriptions')
-      .select('*')
-      .eq('supplier_id', parsed.supplierId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (data?.id) return data;
-  }
-
-  return null;
+function addDays(date: Date, days: number) {
+  const newDate = new Date(date);
+  newDate.setDate(newDate.getDate() + days);
+  return newDate;
 }
 
-async function upsertPaymentHistory(
-  supabaseAdmin: any,
-  subscription: any,
-  payment: any,
-  webhookPayload: any
-) {
-  const paymentId = String(payment?.id || '');
-
-  const paymentPayload = {
-    supplier_id: subscription?.supplier_id || null,
-    subscription_id: subscription?.id || null,
-    provider: 'mercadopago',
-    mercadopago_payment_id: paymentId || null,
-    mercadopago_preapproval_id: null,
-    mercadopago_external_reference:
-      payment?.external_reference ||
-      subscription?.mercadopago_external_reference ||
-      null,
-    plan: subscription?.plan || null,
-    amount:
-      payment?.transaction_amount ||
-      payment?.transaction_details?.total_paid_amount ||
-      subscription?.value ||
-      null,
-    currency: payment?.currency_id || 'BRL',
-    status: payment?.status || null,
-    status_detail: payment?.status_detail || null,
-    payment_method_id: payment?.payment_method_id || null,
-    payment_type_id: payment?.payment_type_id || null,
-    payer_email:
-      payment?.payer?.email ||
-      subscription?.mercadopago_payer_email ||
-      null,
-    paid_at: isApprovedPayment(payment) ? new Date().toISOString() : null,
-    approved_at: isApprovedPayment(payment) ? new Date().toISOString() : null,
-    due_date: subscription?.due_date || null,
-    raw: {
-      webhook: webhookPayload,
-      mercado_pago: payment,
-    },
-    updated_at: new Date().toISOString(),
-  };
-
-  if (paymentId) {
-    const { data: existingPayment } = await supabaseAdmin
-      .from('supplier_payments')
-      .select('id')
-      .eq('mercadopago_payment_id', paymentId)
-      .limit(1)
-      .maybeSingle();
-
-    if (existingPayment?.id) {
-      await supabaseAdmin
-        .from('supplier_payments')
-        .update(paymentPayload)
-        .eq('id', existingPayment.id);
-
-      return;
-    }
-  }
-
-  await supabaseAdmin.from('supplier_payments').insert(paymentPayload);
-}
-
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
-    const payload = await request.json().catch(() => ({}));
-    const topic = getTopic(payload, request);
-    const resourceId = String(getResourceId(payload, request));
-
-    if (isMercadoPagoTestWebhook(payload, resourceId)) {
-      return NextResponse.json({
-        ok: true,
-        test: true,
-        message:
-          'Webhook de teste recebido com sucesso. O ID de teste do Mercado Pago não será consultado na API.',
-        topic,
-        resource_id: resourceId,
-      });
+    if (!supabaseUrl || !supabaseServiceRoleKey) {
+      return NextResponse.json(
+        { error: "Variáveis do Supabase não configuradas." },
+        { status: 500 }
+      );
     }
 
-    if (!resourceId) {
+    if (!mercadoPagoAccessToken) {
+      return NextResponse.json(
+        { error: "MERCADOPAGO_ACCESS_TOKEN não configurado." },
+        { status: 500 }
+      );
+    }
+
+    const body = await request.json();
+
+    console.log("Webhook Mercado Pago recebido:", JSON.stringify(body));
+
+    const paymentId =
+      body?.data?.id ||
+      body?.id ||
+      body?.resource?.split?.("/")?.pop?.();
+
+    const type = body?.type || body?.topic;
+
+    if (!paymentId) {
       return NextResponse.json({
-        ok: true,
+        success: true,
         ignored: true,
-        reason: 'Webhook sem resource id.',
+        reason: "Webhook sem paymentId.",
       });
     }
 
-    const normalizedTopic = String(topic || '').toLowerCase();
-
-    if (!normalizedTopic.includes('payment')) {
+    if (type && type !== "payment") {
       return NextResponse.json({
-        ok: true,
+        success: true,
         ignored: true,
-        reason: `Tópico não tratado no Checkout Pro: ${topic}`,
+        reason: `Tipo ignorado: ${type}`,
       });
     }
 
-    const supabaseUrl = getRequiredEnv('NEXT_PUBLIC_SUPABASE_URL');
-    const supabaseServiceRoleKey = getRequiredEnv('SUPABASE_SERVICE_ROLE_KEY');
+    const payment = await getPaymentFromMercadoPago(String(paymentId));
 
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    });
+    const mpPaymentId = payment.id ? String(payment.id) : String(paymentId);
+    const mpStatus = payment.status || "unknown";
+    const preferenceId = payment.preference_id || null;
+    const externalReference = payment.external_reference || null;
+    const supplierIdFromMetadata = payment.metadata?.supplier_id || null;
 
-    const payment = await fetchMercadoPagoPayment(resourceId);
-    const subscription = await findSubscriptionByPayment(supabaseAdmin, payment);
+    let supplierId: string | null = supplierIdFromMetadata;
 
-    if (!subscription?.id) {
-      console.error('Assinatura REIM não localizada para pagamento:', {
-        topic,
-        resourceId,
-        payment,
-      });
+    if (!supplierId && externalReference?.startsWith("supplier:")) {
+      const parts = externalReference.split(":");
+      supplierId = parts[1] || null;
+    }
+
+    if (!supplierId && preferenceId) {
+      const { data: subscriptionByPreference } = await supabaseAdmin
+        .from("supplier_subscriptions")
+        .select("supplier_id")
+        .eq("mercadopago_preference_id", preferenceId)
+        .maybeSingle();
+
+      supplierId = subscriptionByPreference?.supplier_id || null;
+    }
+
+    if (!supplierId && externalReference) {
+      const { data: subscriptionByReference } = await supabaseAdmin
+        .from("supplier_subscriptions")
+        .select("supplier_id")
+        .eq("mercadopago_external_reference", externalReference)
+        .maybeSingle();
+
+      supplierId = subscriptionByReference?.supplier_id || null;
+    }
+
+    if (!supplierId) {
+      console.error("Fornecedor não identificado no webhook:", payment);
 
       return NextResponse.json({
-        ok: true,
+        success: true,
         ignored: true,
-        reason: 'Assinatura local não encontrada.',
+        reason: "Fornecedor não identificado.",
       });
     }
 
-    const externalReference =
-      payment?.external_reference ||
-      subscription.mercadopago_external_reference ||
-      null;
+    const now = new Date();
+    const isApproved = mpStatus === "approved";
 
-    const parsed = parseExternalReference(externalReference);
-    const plan = normalizePlan(parsed.plan || subscription.plan || '');
-    const billingPeriod =
-      parsed.billingPeriod || subscription.billing_period || 'mensal';
+    const subscriptionStatus = isApproved ? "ativo" : "pendente";
+    const paidAt = isApproved ? now.toISOString() : null;
+    const expiresAt = isApproved ? addDays(now, 30).toISOString() : null;
 
-    let nextStatus = subscription.status || 'pendente';
-    let paymentStatus = payment?.status || subscription.payment_status || 'pending';
-    let dueDate = subscription.due_date || null;
-    let paidAt = subscription.paid_at || null;
-    let canceledAt = subscription.canceled_at || null;
-
-    if (isApprovedPayment(payment)) {
-      nextStatus = 'ativo';
-      paymentStatus = 'approved';
-      paidAt = new Date().toISOString();
-      dueDate = addDays(
-        new Date(),
-        getBillingDays(subscription, externalReference)
-      ).toISOString();
-      canceledAt = null;
-    }
-
-    if (isFailedPayment(payment)) {
-      nextStatus = 'pendente';
-      paymentStatus = payment?.status || 'rejected';
-    }
-
-    const updatePayload = {
-      plan,
-      billing_period: billingPeriod,
-      status: nextStatus,
-      value:
-        payment?.transaction_amount ||
-        payment?.transaction_details?.total_paid_amount ||
-        subscription.value ||
-        null,
-      due_date: dueDate,
-      is_featured: plan === 'premium',
-      payment_provider: 'mercadopago',
-      payment_status: paymentStatus,
-      paid_at: paidAt,
-      canceled_at: canceledAt,
-      checkout_type: 'checkout_pro',
-      mercadopago_payment_id: payment?.id ? String(payment.id) : null,
-      mercadopago_payer_email:
-        payment?.payer?.email ||
-        subscription.mercadopago_payer_email ||
-        null,
-      mercadopago_status: payment?.status || null,
-      mercadopago_external_reference: externalReference,
-      last_webhook_at: new Date().toISOString(),
-      webhook_last_event: payload?.action || topic || 'payment',
-      webhook_raw: {
-        webhook: payload,
-        mercado_pago: {
-          kind: 'payment',
-          payment,
-        },
-      },
-      updated_at: new Date().toISOString(),
+    const updatePayload: Record<string, unknown> = {
+      plan: "premium",
+      status: subscriptionStatus,
+      mercadopago_payment_id: mpPaymentId,
+      mercadopago_status: mpStatus,
     };
 
-    const { error: updateError } = await supabaseAdmin
-      .from('supplier_subscriptions')
-      .update(updatePayload)
-      .eq('id', subscription.id);
+    if (preferenceId) {
+      updatePayload.mercadopago_preference_id = preferenceId;
+    }
 
-    if (updateError) throw updateError;
+    if (externalReference) {
+      updatePayload.mercadopago_external_reference = externalReference;
+    }
 
-    if (isApprovedPayment(payment) && subscription.supplier_id) {
-      const { error: supplierError } = await supabaseAdmin
-        .from('suppliers')
-        .update({
-          status: 'ativo',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', subscription.supplier_id);
+    if (isApproved) {
+      updatePayload.paid_at = paidAt;
+      updatePayload.expires_at = expiresAt;
+    }
 
-      if (supplierError) {
-        console.error('Não foi possível ativar supplier.status:', supplierError);
+    const { data: existingSubscription } = await supabaseAdmin
+      .from("supplier_subscriptions")
+      .select("id")
+      .eq("supplier_id", supplierId)
+      .maybeSingle();
+
+    if (existingSubscription?.id) {
+      const { error: updateError } = await supabaseAdmin
+        .from("supplier_subscriptions")
+        .update(updatePayload)
+        .eq("id", existingSubscription.id);
+
+      if (updateError) {
+        console.error("Erro ao atualizar assinatura pelo webhook:", updateError);
+
+        return NextResponse.json(
+          { error: "Erro ao atualizar assinatura." },
+          { status: 500 }
+        );
+      }
+    } else {
+      const { error: insertError } = await supabaseAdmin
+        .from("supplier_subscriptions")
+        .insert({
+          supplier_id: supplierId,
+          ...updatePayload,
+        });
+
+      if (insertError) {
+        console.error("Erro ao criar assinatura pelo webhook:", insertError);
+
+        return NextResponse.json(
+          { error: "Erro ao criar assinatura." },
+          { status: 500 }
+        );
       }
     }
 
-    await upsertPaymentHistory(supabaseAdmin, subscription, payment, payload);
+    if (isApproved) {
+      const { error: supplierUpdateError } = await supabaseAdmin
+        .from("suppliers")
+        .update({
+          status: "ativo",
+          is_featured: true,
+        })
+        .eq("id", supplierId);
+
+      if (supplierUpdateError) {
+        console.error("Erro ao ativar fornecedor premium:", supplierUpdateError);
+      }
+    }
 
     return NextResponse.json({
-      ok: true,
-      topic,
-      resource_id: resourceId,
-      subscription_id: subscription.id,
-      supplier_id: subscription.supplier_id,
-      status: nextStatus,
-      payment_status: paymentStatus,
+      success: true,
+      supplier_id: supplierId,
+      payment_id: mpPaymentId,
+      mercadopago_status: mpStatus,
+      subscription_status: subscriptionStatus,
     });
-  } catch (error: any) {
-    console.error('Erro no webhook Mercado Pago Checkout Pro:', error);
+  } catch (error) {
+    console.error("Erro geral webhook Mercado Pago:", error);
 
     return NextResponse.json(
-      {
-        ok: false,
-        error:
-          error?.message || 'Erro ao processar webhook Mercado Pago Checkout Pro.',
-      },
+      { error: "Erro interno no webhook Mercado Pago." },
       { status: 500 }
     );
   }
@@ -446,7 +232,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET() {
   return NextResponse.json({
-    ok: true,
-    route: 'mercadopago-webhook-checkout-pro',
+    success: true,
+    message: "Webhook Mercado Pago REIM EVENTOS ativo.",
   });
 }
