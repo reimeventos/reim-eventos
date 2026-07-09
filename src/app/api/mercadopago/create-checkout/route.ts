@@ -14,8 +14,38 @@ const supabaseAdmin = createClient(
   supabaseServiceRoleKey
 );
 
+type BillingPeriod = 'mensal' | 'trimestral' | 'anual';
+
 type CreateCheckoutBody = {
   supplier_id?: string;
+  billing_period?: BillingPeriod;
+};
+
+const PLAN_CONFIG: Record<
+  BillingPeriod,
+  {
+    amount: number;
+    days: number;
+    label: string;
+  }
+> = {
+  mensal: {
+    amount: 25,
+    days: 30,
+    label: 'Mensal',
+  },
+
+  trimestral: {
+    amount: 65,
+    days: 90,
+    label: 'Trimestral',
+  },
+
+  anual: {
+    amount: 250,
+    days: 365,
+    label: 'Anual',
+  },
 };
 
 export async function POST(request: Request) {
@@ -46,6 +76,13 @@ export async function POST(request: Request) {
 
     const supplierId = body?.supplier_id;
 
+    const billingPeriod: BillingPeriod =
+      body?.billing_period === 'trimestral'
+        ? 'trimestral'
+        : body?.billing_period === 'anual'
+          ? 'anual'
+          : 'mensal';
+
     if (!supplierId) {
       return NextResponse.json(
         {
@@ -57,9 +94,10 @@ export async function POST(request: Request) {
       );
     }
 
+    const planConfig = PLAN_CONFIG[billingPeriod];
+
     /*
-     * Busca o fornecedor usando somente campos que sabemos
-     * que existem na tabela suppliers do REIM EVENTOS.
+     * Busca o fornecedor.
      */
     const {
       data: supplier,
@@ -102,22 +140,33 @@ export async function POST(request: Request) {
       );
     }
 
-    const planName = 'Premium Mensal';
+    const planName = `Premium ${planConfig.label}`;
 
-    const amount = 5;
+    const amount = planConfig.amount;
 
     const externalReference =
-      `supplier:${supplier.id}:premium_mensal:${Date.now()}`;
+      `supplier:${supplier.id}:premium:${billingPeriod}:${Date.now()}`;
 
+    /*
+     * Cria a preferência no Mercado Pago.
+     *
+     * O valor vem exclusivamente do servidor.
+     * O navegador não decide o preço.
+     */
     const preferencePayload = {
       items: [
         {
-          id: 'reim-premium-mensal',
-          title: 'REIM EVENTOS - Premium Mensal',
+          id: `reim-premium-${billingPeriod}`,
+
+          title: `REIM EVENTOS - Premium ${planConfig.label}`,
+
           description:
-            'Plano Premium Mensal para fornecedor REIM EVENTOS',
+            `Plano Premium ${planConfig.label} para fornecedor REIM EVENTOS`,
+
           quantity: 1,
+
           currency_id: 'BRL',
+
           unit_price: amount,
         },
       ],
@@ -148,7 +197,15 @@ export async function POST(request: Request) {
 
       metadata: {
         supplier_id: supplier.id,
-        plan: 'premium_mensal',
+
+        plan: 'premium',
+
+        billing_period: billingPeriod,
+
+        amount,
+
+        duration_days: planConfig.days,
+
         source: 'reim_eventos',
       },
     };
@@ -211,11 +268,11 @@ export async function POST(request: Request) {
     }
 
     /*
-     * Aqui apenas registramos que o checkout foi criado.
-     * O plano NÃO fica ativo ainda.
+     * Registra checkout pendente.
      *
-     * A ativação acontece somente quando o webhook
-     * receber confirmação de pagamento approved.
+     * O plano ainda NÃO fica ativo.
+     * A ativação acontece somente depois da confirmação
+     * do pagamento pelo webhook.
      */
     const subscriptionPayload = {
       supplier_id: supplier.id,
@@ -226,7 +283,7 @@ export async function POST(request: Request) {
 
       value: amount,
 
-      billing_period: 'mensal',
+      billing_period: billingPeriod,
 
       mercadopago_preference_id: preferenceId,
 
@@ -330,9 +387,15 @@ export async function POST(request: Request) {
 
       checkout_url: checkoutUrl,
 
-      plan: planName,
+      plan: 'premium',
+
+      plan_name: planName,
+
+      billing_period: billingPeriod,
 
       amount,
+
+      duration_days: planConfig.days,
     });
   } catch (error: any) {
     console.error(
