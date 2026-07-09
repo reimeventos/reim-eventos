@@ -31,7 +31,10 @@ const billingOptions: {
   },
 ];
 
-const planPrices: Record<Exclude<PlanKey, 'teste_7_dias'>, Record<BillingPeriod, number>> = {
+const planPrices: Record<
+  Exclude<PlanKey, 'teste_7_dias'>,
+  Record<BillingPeriod, number>
+> = {
   premium: {
     mensal: 5,
   },
@@ -98,9 +101,18 @@ function getBillingLabel(period?: string) {
 }
 
 function getStatusClass(status?: string) {
-  if (status === 'ativo') return 'bg-green-50 text-green-700 ring-green-100';
-  if (status === 'teste') return 'bg-blue-50 text-blue-700 ring-blue-100';
-  if (status === 'pendente') return 'bg-yellow-50 text-yellow-800 ring-yellow-100';
+  if (status === 'ativo') {
+    return 'bg-green-50 text-green-700 ring-green-100';
+  }
+
+  if (status === 'teste') {
+    return 'bg-blue-50 text-blue-700 ring-blue-100';
+  }
+
+  if (status === 'pendente') {
+    return 'bg-yellow-50 text-yellow-800 ring-yellow-100';
+  }
+
   if (status === 'cancelado' || status === 'expirado') {
     return 'bg-red-50 text-red-700 ring-red-100';
   }
@@ -142,7 +154,9 @@ function getPlanPriceLabel(planKey: PlanKey, period: BillingPeriod) {
 
   const option = billingOptions.find((item) => item.key === period);
 
-  return `${formatMoney(getPlanPrice(planKey, period))} / ${option?.shortLabel || 'mês'}`;
+  return `${formatMoney(getPlanPrice(planKey, period))} / ${
+    option?.shortLabel || 'mês'
+  }`;
 }
 
 export default function PlanosFornecedorPage() {
@@ -150,7 +164,8 @@ export default function PlanosFornecedorPage() {
   const [subscription, setSubscription] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [requestingPlan, setRequestingPlan] = useState('');
-  const [selectedBilling, setSelectedBilling] = useState<BillingPeriod>('mensal');
+  const [selectedBilling, setSelectedBilling] =
+    useState<BillingPeriod>('mensal');
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [paymentMessage, setPaymentMessage] = useState('');
@@ -163,25 +178,8 @@ export default function PlanosFornecedorPage() {
       const params = new URLSearchParams(window.location.search);
       const pagamento = params.get('pagamento');
 
-      if (pagamento === 'sucesso') {
-        setPaymentMessage(
-          'Pagamento recebido. Estamos confirmando com o Mercado Pago. Em alguns instantes seu plano será ativado.'
-        );
-      }
-
-      if (pagamento === 'pendente') {
-        setPaymentMessage(
-          'Seu pagamento está pendente. Assim que for aprovado, seu plano Premium será ativado automaticamente.'
-        );
-      }
-
-      if (pagamento === 'falha') {
-        setPaymentMessage(
-          'O pagamento não foi concluído. Você pode tentar novamente quando quiser.'
-        );
-      }
-
-      const { data: userData, error: userError } = await supabase.auth.getUser();
+      const { data: userData, error: userError } =
+        await supabase.auth.getUser();
 
       if (userError) throw userError;
 
@@ -190,7 +188,10 @@ export default function PlanosFornecedorPage() {
       if (!user) {
         setSupplier(null);
         setSubscription(null);
-        setErrorMessage('Faça login como fornecedor para acessar os planos.');
+        setPaymentMessage('');
+        setErrorMessage(
+          'Faça login como fornecedor para acessar os planos.'
+        );
         return;
       }
 
@@ -206,13 +207,19 @@ export default function PlanosFornecedorPage() {
       if (!supplierData?.id) {
         setSupplier(null);
         setSubscription(null);
-        setErrorMessage('Perfil de fornecedor não encontrado para esta conta.');
+        setPaymentMessage('');
+        setErrorMessage(
+          'Perfil de fornecedor não encontrado para esta conta.'
+        );
         return;
       }
 
       setSupplier(supplierData);
 
-      const { data: subscriptionData, error: subscriptionError } = await supabase
+      const {
+        data: subscriptionData,
+        error: subscriptionError,
+      } = await supabase
         .from('supplier_subscriptions')
         .select('*')
         .eq('supplier_id', supplierData.id)
@@ -222,11 +229,39 @@ export default function PlanosFornecedorPage() {
       if (subscriptionError) throw subscriptionError;
 
       const currentSubscription = subscriptionData?.[0] || null;
+
       setSubscription(currentSubscription);
       setSelectedBilling('mensal');
+
+      const isPremiumActive =
+        currentSubscription?.plan === 'premium' &&
+        currentSubscription?.status === 'ativo';
+
+      if (pagamento === 'sucesso') {
+        if (isPremiumActive) {
+          setPaymentMessage('');
+        } else {
+          setPaymentMessage(
+            'Pagamento recebido. Estamos confirmando com o Mercado Pago. Em alguns instantes seu plano será ativado.'
+          );
+        }
+      } else if (pagamento === 'pendente') {
+        setPaymentMessage(
+          'Seu pagamento está pendente. Assim que for aprovado, seu plano Premium será ativado automaticamente.'
+        );
+      } else if (pagamento === 'falha') {
+        setPaymentMessage(
+          'O pagamento não foi concluído. Você pode tentar novamente quando quiser.'
+        );
+      } else {
+        setPaymentMessage('');
+      }
     } catch (error: any) {
       console.error('Erro ao carregar planos:', error);
-      setErrorMessage(error?.message || 'Não foi possível carregar os planos.');
+
+      setErrorMessage(
+        error?.message || 'Não foi possível carregar os planos.'
+      );
     } finally {
       setLoading(false);
     }
@@ -281,17 +316,21 @@ export default function PlanosFornecedorPage() {
 
         if (!response.ok) {
           throw new Error(
-            data?.error || 'Não foi possível iniciar o pagamento no Mercado Pago.'
+            data?.error ||
+              'Não foi possível iniciar o pagamento no Mercado Pago.'
           );
         }
 
         const paymentLink = data?.checkout_url;
 
         if (!paymentLink) {
-          throw new Error('O Mercado Pago não retornou o link de pagamento.');
+          throw new Error(
+            'O Mercado Pago não retornou o link de pagamento.'
+          );
         }
 
         setSuccessMessage('Abrindo pagamento no Mercado Pago...');
+
         window.location.href = paymentLink;
         return;
       }
@@ -319,16 +358,21 @@ export default function PlanosFornecedorPage() {
 
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('supplier_subscriptions').insert(payload);
+        const { error } = await supabase
+          .from('supplier_subscriptions')
+          .insert(payload);
 
         if (error) throw error;
       }
 
-      setSuccessMessage('Teste grátis de 7 dias iniciado para este fornecedor.');
+      setSuccessMessage(
+        'Teste grátis de 7 dias iniciado para este fornecedor.'
+      );
 
       await loadData();
     } catch (error: any) {
       console.error('Erro ao solicitar plano:', error);
+
       setErrorMessage(
         error?.message ||
           'Não foi possível solicitar este plano. Verifique as permissões no Supabase.'
@@ -341,8 +385,11 @@ export default function PlanosFornecedorPage() {
   const currentPlan = subscription?.plan || '';
   const currentStatus = subscription?.status || '';
   const currentBilling = subscription?.billing_period || 'mensal';
-  const dueDate = subscription?.due_date || subscription?.expires_at || '';
+  const dueDate =
+    subscription?.due_date || subscription?.expires_at || '';
+
   const hasSubscription = Boolean(subscription?.supplier_id);
+
   const mercadoPagoPaymentLink = subscription?.checkout_url || '';
 
   return (
@@ -350,6 +397,7 @@ export default function PlanosFornecedorPage() {
       <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] pb-10 shadow-2xl">
         <section className="relative overflow-hidden rounded-b-[34px] bg-black px-6 pb-8 pt-7 text-white">
           <div className="absolute inset-0 bg-[url('/layout01-fundo.png')] bg-cover bg-center opacity-45" />
+
           <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/85 to-black" />
 
           <div className="relative z-10">
@@ -377,47 +425,73 @@ export default function PlanosFornecedorPage() {
 
             {supplier && (
               <div className="mt-6 rounded-[28px] bg-white/10 p-4 backdrop-blur">
-                <p className="text-xs font-bold text-white/60">Fornecedor</p>
+                <p className="text-xs font-bold text-white/60">
+                  Fornecedor
+                </p>
+
                 <h2 className="mt-1 line-clamp-1 text-xl font-extrabold">
-                  {supplier.business_name || supplier.company_name || supplier.name || 'Minha vitrine'}
+                  {supplier.business_name ||
+                    supplier.company_name ||
+                    supplier.name ||
+                    'Minha vitrine'}
                 </h2>
 
                 <div className="mt-4 grid grid-cols-4 gap-2">
                   <div className="rounded-2xl bg-black/25 p-3 text-center">
-                    <Crown size={18} className="mx-auto text-[#e3a925]" />
+                    <Crown
+                      size={18}
+                      className="mx-auto text-[#e3a925]"
+                    />
+
                     <p className="mt-1 text-[10px] font-bold text-white/50">
                       Plano
                     </p>
+
                     <p className="mt-1 text-[12px] font-extrabold">
                       {getPlanLabel(currentPlan)}
                     </p>
                   </div>
 
                   <div className="rounded-2xl bg-black/25 p-3 text-center">
-                    <ShieldCheck size={18} className="mx-auto text-[#e3a925]" />
+                    <ShieldCheck
+                      size={18}
+                      className="mx-auto text-[#e3a925]"
+                    />
+
                     <p className="mt-1 text-[10px] font-bold text-white/50">
                       Status
                     </p>
+
                     <p className="mt-1 text-[12px] font-extrabold">
                       {getStatusLabel(currentStatus)}
                     </p>
                   </div>
 
                   <div className="rounded-2xl bg-black/25 p-3 text-center">
-                    <Sparkles size={18} className="mx-auto text-[#e3a925]" />
+                    <Sparkles
+                      size={18}
+                      className="mx-auto text-[#e3a925]"
+                    />
+
                     <p className="mt-1 text-[10px] font-bold text-white/50">
                       Período
                     </p>
+
                     <p className="mt-1 text-[12px] font-extrabold">
                       {getBillingLabel(currentBilling)}
                     </p>
                   </div>
 
                   <div className="rounded-2xl bg-black/25 p-3 text-center">
-                    <Sparkles size={18} className="mx-auto text-[#e3a925]" />
+                    <Sparkles
+                      size={18}
+                      className="mx-auto text-[#e3a925]"
+                    />
+
                     <p className="mt-1 text-[10px] font-bold text-white/50">
                       Vence
                     </p>
+
                     <p className="mt-1 text-[12px] font-extrabold">
                       {formatDate(dueDate)}
                     </p>
@@ -431,7 +505,11 @@ export default function PlanosFornecedorPage() {
         <section className="px-6 pt-6">
           {loading && (
             <div className="rounded-[28px] bg-white p-6 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-              <Loader2 size={36} className="mx-auto animate-spin text-[#d99200]" />
+              <Loader2
+                size={36}
+                className="mx-auto animate-spin text-[#d99200]"
+              />
+
               <p className="mt-3 text-sm font-bold text-gray-500">
                 Carregando planos...
               </p>
@@ -470,7 +548,9 @@ export default function PlanosFornecedorPage() {
                     </h2>
 
                     <p className="mt-1 text-sm leading-5 text-gray-600">
-                      O teste grátis é liberado pelo app. No Premium, o fornecedor será direcionado para o Mercado Pago e a liberação será automática após confirmação do pagamento.
+                      O teste grátis é liberado pelo app. No Premium, o
+                      fornecedor será direcionado para o Mercado Pago e a
+                      liberação será automática após confirmação do pagamento.
                     </p>
                   </div>
                 </div>
@@ -486,7 +566,9 @@ export default function PlanosFornecedorPage() {
                     <button
                       key={option.key}
                       type="button"
-                      onClick={() => setSelectedBilling(option.key)}
+                      onClick={() =>
+                        setSelectedBilling(option.key)
+                      }
                       className={
                         selectedBilling === option.key
                           ? 'rounded-[18px] bg-[#e3a925] px-2 py-3 text-xs font-extrabold text-white shadow-sm'
@@ -499,18 +581,31 @@ export default function PlanosFornecedorPage() {
                 </div>
 
                 <p className="mt-3 text-xs leading-5 text-gray-500">
-                  O plano Premium Mensal custa R$ 5 e vence em 30 dias. O Mercado Pago confirma o pagamento automaticamente. Após aprovado, o fornecedor é liberado pelo webhook.
+                  O plano Premium Mensal custa R$ 5 e vence em 30 dias. O
+                  Mercado Pago confirma o pagamento automaticamente. Após
+                  aprovado, o fornecedor é liberado pelo webhook.
                 </p>
               </div>
 
               <div className="mt-5 space-y-4">
                 {plans.map((plan) => {
                   const PlanIcon = plan.icon;
+
                   const isCurrent = currentPlan === plan.key;
-                  const isPending = isCurrent && currentStatus === 'pendente';
-                  const isActive = isCurrent && currentStatus === 'ativo';
-                  const isTest = isCurrent && currentStatus === 'teste';
-                  const selectedPrice = getPlanPrice(plan.key, selectedBilling);
+
+                  const isPending =
+                    isCurrent && currentStatus === 'pendente';
+
+                  const isActive =
+                    isCurrent && currentStatus === 'ativo';
+
+                  const isTest =
+                    isCurrent && currentStatus === 'teste';
+
+                  const selectedPrice = getPlanPrice(
+                    plan.key,
+                    selectedBilling
+                  );
 
                   return (
                     <div
@@ -566,7 +661,10 @@ export default function PlanosFornecedorPage() {
                                 : 'text-base font-extrabold text-[#151515]'
                             }
                           >
-                            {getPlanPriceLabel(plan.key, selectedBilling)}
+                            {getPlanPriceLabel(
+                              plan.key,
+                              selectedBilling
+                            )}
                           </p>
 
                           {plan.key !== 'teste_7_dias' && (
@@ -611,6 +709,7 @@ export default function PlanosFornecedorPage() {
                                   : 'text-green-600'
                               }
                             />
+
                             {feature}
                           </div>
                         ))}
@@ -624,15 +723,20 @@ export default function PlanosFornecedorPage() {
                               : 'mt-4 rounded-2xl bg-[#fbf7f1] p-3 text-xs font-bold text-gray-500'
                           }
                         >
-                          Valor no Mercado Pago: {formatMoney(selectedPrice)} • Período: {getBillingLabel(selectedBilling)}
+                          Valor no Mercado Pago:{' '}
+                          {formatMoney(selectedPrice)} • Período:{' '}
+                          {getBillingLabel(selectedBilling)}
                         </div>
                       )}
 
-                      {isPending && isCurrent && mercadoPagoPaymentLink ? (
+                      {isPending &&
+                      isCurrent &&
+                      mercadoPagoPaymentLink ? (
                         <button
                           type="button"
                           onClick={() => {
-                            window.location.href = mercadoPagoPaymentLink;
+                            window.location.href =
+                              mercadoPagoPaymentLink;
                           }}
                           className={
                             plan.key === 'premium'
@@ -645,13 +749,16 @@ export default function PlanosFornecedorPage() {
                       ) : (
                         <button
                           type="button"
-                          onClick={() => handleRequestPlan(plan.key)}
+                          onClick={() =>
+                            handleRequestPlan(plan.key)
+                          }
                           disabled={
                             requestingPlan === plan.key ||
                             isActive ||
                             isPending ||
                             isTest ||
-                            (plan.key === 'teste_7_dias' && hasSubscription)
+                            (plan.key === 'teste_7_dias' &&
+                              hasSubscription)
                           }
                           className={
                             plan.key === 'premium'
@@ -661,7 +768,11 @@ export default function PlanosFornecedorPage() {
                         >
                           {requestingPlan === plan.key ? (
                             <>
-                              <Loader2 size={18} className="animate-spin" />
+                              <Loader2
+                                size={18}
+                                className="animate-spin"
+                              />
+
                               {plan.key === 'teste_7_dias'
                                 ? 'Iniciando...'
                                 : 'Abrindo Mercado Pago...'}
@@ -673,7 +784,9 @@ export default function PlanosFornecedorPage() {
                           ) : isTest ? (
                             'Teste em andamento'
                           ) : plan.key === 'teste_7_dias' ? (
-                            hasSubscription ? 'Teste já utilizado' : 'Iniciar teste grátis'
+                            hasSubscription
+                              ? 'Teste já utilizado'
+                              : 'Iniciar teste grátis'
                           ) : (
                             'Assinar Premium por R$ 5'
                           )}
