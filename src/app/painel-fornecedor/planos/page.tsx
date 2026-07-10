@@ -107,10 +107,7 @@ const plans: {
 function getPlanLabel(plan?: string) {
   if (plan === 'premium') return 'Premium Destaque';
 
-  if (
-    plan === 'teste_7_dias' ||
-    plan === 'gratuito'
-  ) {
+  if (plan === 'teste_7_dias' || plan === 'gratuito') {
     return 'Teste grátis';
   }
 
@@ -119,34 +116,17 @@ function getPlanLabel(plan?: string) {
 
 function getStatusLabel(status?: string) {
   if (status === 'ativo') return 'Ativo';
-
-  if (status === 'teste') {
-    return 'Teste 7 dias';
-  }
-
-  if (status === 'pendente') {
-    return 'Pendente';
-  }
-
-  if (status === 'cancelado') {
-    return 'Cancelado';
-  }
-
-  if (status === 'expirado') {
-    return 'Expirado';
-  }
+  if (status === 'teste') return 'Teste 7 dias';
+  if (status === 'pendente') return 'Pendente';
+  if (status === 'cancelado') return 'Cancelado';
+  if (status === 'expirado') return 'Expirado';
 
   return 'Sem assinatura';
 }
 
 function getBillingLabel(period?: string) {
-  if (period === 'trimestral') {
-    return 'Trimestral';
-  }
-
-  if (period === 'anual') {
-    return 'Anual';
-  }
+  if (period === 'trimestral') return 'Trimestral';
+  if (period === 'anual') return 'Anual';
 
   return 'Mensal';
 }
@@ -164,10 +144,7 @@ function getStatusClass(status?: string) {
     return 'bg-yellow-50 text-yellow-800 ring-yellow-100';
   }
 
-  if (
-    status === 'cancelado' ||
-    status === 'expirado'
-  ) {
+  if (status === 'cancelado' || status === 'expirado') {
     return 'bg-red-50 text-red-700 ring-red-100';
   }
 
@@ -176,25 +153,18 @@ function getStatusClass(status?: string) {
 
 function addDays(date: Date, days: number) {
   const copy = new Date(date);
-
   copy.setDate(copy.getDate() + days);
 
   return copy.toISOString().split('T')[0];
 }
 
 function formatDate(date?: string) {
-  if (!date) {
-    return 'Não informado';
-  }
+  if (!date) return 'Não informado';
 
   const cleanDate = String(date).split('T')[0];
+  const [year, month, day] = cleanDate.split('-');
 
-  const [year, month, day] =
-    cleanDate.split('-');
-
-  if (!year || !month || !day) {
-    return date;
-  }
+  if (!year || !month || !day) return date;
 
   return `${day}/${month}/${year}`;
 }
@@ -210,9 +180,7 @@ function getPlanPrice(
   planKey: PlanKey,
   period: BillingPeriod
 ) {
-  if (planKey === 'teste_7_dias') {
-    return 0;
-  }
+  if (planKey === 'teste_7_dias') return 0;
 
   return planPrices[planKey][period];
 }
@@ -235,36 +203,17 @@ function getPlanPriceLabel(
 }
 
 export default function PlanosFornecedorPage() {
-  const [supplier, setSupplier] =
-    useState<any>(null);
-
-  const [subscription, setSubscription] =
-    useState<any>(null);
-
-  const [loading, setLoading] =
-    useState(true);
-
-  const [requestingPlan, setRequestingPlan] =
-    useState('');
-
-  const [
-    selectedBilling,
-    setSelectedBilling,
-  ] = useState<BillingPeriod>('mensal');
-
-  const [
-    contractAccepted,
-    setContractAccepted,
-  ] = useState(false);
-
-  const [errorMessage, setErrorMessage] =
-    useState('');
-
-  const [successMessage, setSuccessMessage] =
-    useState('');
-
-  const [paymentMessage, setPaymentMessage] =
-    useState('');
+  const [supplier, setSupplier] = useState<any>(null);
+  const [subscription, setSubscription] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [requestingPlan, setRequestingPlan] = useState('');
+  const [selectedBilling, setSelectedBilling] =
+    useState<BillingPeriod>('mensal');
+  const [contractAccepted, setContractAccepted] =
+    useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+  const [paymentMessage, setPaymentMessage] = useState('');
 
   async function loadData() {
     try {
@@ -275,8 +224,7 @@ export default function PlanosFornecedorPage() {
         window.location.search
       );
 
-      const pagamento =
-        params.get('pagamento');
+      const pagamento = params.get('pagamento');
 
       const {
         data: userData,
@@ -335,10 +283,7 @@ export default function PlanosFornecedorPage() {
       } = await supabase
         .from('supplier_subscriptions')
         .select('*')
-        .eq(
-          'supplier_id',
-          supplierData.id
-        )
+        .eq('supplier_id', supplierData.id)
         .order('created_at', {
           ascending: false,
         })
@@ -354,12 +299,9 @@ export default function PlanosFornecedorPage() {
       setSubscription(currentSubscription);
 
       if (
-        currentSubscription?.billing_period ===
-          'mensal' ||
-        currentSubscription?.billing_period ===
-          'trimestral' ||
-        currentSubscription?.billing_period ===
-          'anual'
+        currentSubscription?.billing_period === 'mensal' ||
+        currentSubscription?.billing_period === 'trimestral' ||
+        currentSubscription?.billing_period === 'anual'
       ) {
         setSelectedBilling(
           currentSubscription.billing_period
@@ -367,10 +309,8 @@ export default function PlanosFornecedorPage() {
       }
 
       const isPremiumActive =
-        currentSubscription?.plan ===
-          'premium' &&
-        currentSubscription?.status ===
-          'ativo';
+        currentSubscription?.plan === 'premium' &&
+        currentSubscription?.status === 'ativo';
 
       if (pagamento === 'sucesso') {
         if (isPremiumActive) {
@@ -380,15 +320,11 @@ export default function PlanosFornecedorPage() {
             'Pagamento recebido. Estamos confirmando com o Mercado Pago. Em alguns instantes seu plano será ativado.'
           );
         }
-      } else if (
-        pagamento === 'pendente'
-      ) {
+      } else if (pagamento === 'pendente') {
         setPaymentMessage(
           'Seu pagamento está pendente. Assim que for aprovado, seu plano Premium será ativado automaticamente.'
         );
-      } else if (
-        pagamento === 'falha'
-      ) {
+      } else if (pagamento === 'falha') {
         setPaymentMessage(
           'O pagamento não foi concluído. Você pode tentar novamente quando quiser.'
         );
@@ -418,13 +354,7 @@ export default function PlanosFornecedorPage() {
     period: BillingPeriod
   ) {
     setSelectedBilling(period);
-
-    /*
-     * Obriga o fornecedor a confirmar novamente
-     * o aceite após trocar o período ou valor.
-     */
     setContractAccepted(false);
-
     setErrorMessage('');
     setSuccessMessage('');
   }
@@ -456,34 +386,70 @@ export default function PlanosFornecedorPage() {
       );
     }
 
+    const userMetadata =
+      user.user_metadata || {};
+
+    const acceptedByName =
+      userMetadata.full_name ||
+      userMetadata.name ||
+      userMetadata.nome ||
+      supplier.responsible_name ||
+      supplier.contact_name ||
+      supplier.owner_name ||
+      supplier.business_name ||
+      '';
+
+    const acceptedByEmail =
+      user.email ||
+      supplier.email ||
+      supplier.contact_email ||
+      '';
+
+    const acceptedByPhone =
+      user.phone ||
+      userMetadata.phone ||
+      userMetadata.telefone ||
+      userMetadata.whatsapp ||
+      supplier.phone ||
+      supplier.telefone ||
+      supplier.whatsapp ||
+      supplier.contact_phone ||
+      '';
+
+    const supplierBusinessName =
+      supplier.business_name ||
+      supplier.company_name ||
+      supplier.name ||
+      'Fornecedor REIM EVENTOS';
+
     const {
+      data: acceptanceData,
       error: acceptanceError,
     } = await supabase
-      .from(
-        'supplier_contract_acceptances'
-      )
+      .from('supplier_contract_acceptances')
       .insert({
         supplier_id: supplier.id,
-
         user_id: user.id,
-
-        contract_version:
-          CONTRACT_VERSION,
-
+        contract_version: CONTRACT_VERSION,
         plan: 'premium',
-
-        billing_period:
-          billingPeriod,
-
+        billing_period: billingPeriod,
         price,
-
+        accepted_by_name:
+          acceptedByName || null,
+        accepted_by_email:
+          acceptedByEmail || null,
+        accepted_by_phone:
+          acceptedByPhone || null,
+        supplier_business_name:
+          supplierBusinessName,
         user_agent:
           typeof navigator !== 'undefined'
             ? navigator.userAgent
             : null,
-
         ip_address: null,
-      });
+      })
+      .select('id')
+      .single();
 
     if (acceptanceError) {
       console.error(
@@ -495,6 +461,8 @@ export default function PlanosFornecedorPage() {
         `Não foi possível registrar o aceite do contrato: ${acceptanceError.message}`
       );
     }
+
+    return acceptanceData;
   }
 
   async function handleRequestPlan(
@@ -559,36 +527,29 @@ export default function PlanosFornecedorPage() {
       setRequestingPlan(planKey);
 
       if (planKey === 'premium') {
-        /*
-         * Primeiro registra o aceite.
-         * Só depois cria o Checkout Pro.
-         */
-        await saveContractAcceptance(
-          billingPeriod,
-          value
-        );
+        const acceptance =
+          await saveContractAcceptance(
+            billingPeriod,
+            value
+          );
 
         const response = await fetch(
           '/api/mercadopago/create-checkout',
           {
             method: 'POST',
-
             headers: {
               'Content-Type':
                 'application/json',
             },
-
             body: JSON.stringify({
               supplier_id: supplier.id,
-
               billing_period:
                 billingPeriod,
             }),
           }
         );
 
-        const data =
-          await response.json();
+        const data = await response.json();
 
         if (!response.ok) {
           throw new Error(
@@ -599,6 +560,33 @@ export default function PlanosFornecedorPage() {
 
         const paymentLink =
           data?.checkout_url;
+
+        if (
+          acceptance?.id &&
+          data?.preference_id
+        ) {
+          const {
+            error: acceptanceUpdateError,
+          } = await supabase
+            .from(
+              'supplier_contract_acceptances'
+            )
+            .update({
+              mercadopago_preference_id:
+                data.preference_id,
+            })
+            .eq(
+              'id',
+              acceptance.id
+            );
+
+          if (acceptanceUpdateError) {
+            console.error(
+              'Não foi possível vincular a preferência do Mercado Pago ao aceite:',
+              acceptanceUpdateError
+            );
+          }
+        }
 
         if (!paymentLink) {
           throw new Error(
@@ -616,9 +604,6 @@ export default function PlanosFornecedorPage() {
         return;
       }
 
-      /*
-       * Teste grátis.
-       */
       const dueDate = addDays(
         new Date(),
         7
@@ -626,35 +611,21 @@ export default function PlanosFornecedorPage() {
 
       const payload = {
         supplier_id: supplier.id,
-
         plan: plan.key,
-
-        status:
-          plan.statusOnRequest,
-
+        status: plan.statusOnRequest,
         value,
-
         due_date: dueDate,
-
-        billing_period:
-          billingPeriod,
-
+        billing_period: billingPeriod,
         is_featured: false,
-
         payment_provider: 'manual',
-
-        payment_status:
-          'free_trial',
-
+        payment_status: 'free_trial',
         updated_at:
           new Date().toISOString(),
       };
 
       if (subscription?.supplier_id) {
         const { error } = await supabase
-          .from(
-            'supplier_subscriptions'
-          )
+          .from('supplier_subscriptions')
           .update(payload)
           .eq(
             'supplier_id',
@@ -666,9 +637,7 @@ export default function PlanosFornecedorPage() {
         }
       } else {
         const { error } = await supabase
-          .from(
-            'supplier_subscriptions'
-          )
+          .from('supplier_subscriptions')
           .insert(payload);
 
         if (error) {
@@ -745,9 +714,7 @@ export default function PlanosFornecedorPage() {
               </h1>
 
               <p className="mt-2 text-sm text-white/70">
-                Clientes usam grátis. A
-                cobrança é apenas para
-                fornecedores.
+                Clientes usam grátis. A cobrança é apenas para fornecedores.
               </p>
             </div>
 
@@ -850,26 +817,23 @@ export default function PlanosFornecedorPage() {
             </div>
           )}
 
-          {!loading &&
-            errorMessage && (
-              <div className="mb-4 rounded-[22px] bg-red-50 p-4 text-sm font-bold leading-5 text-red-700 ring-1 ring-red-100">
-                {errorMessage}
-              </div>
-            )}
+          {!loading && errorMessage && (
+            <div className="mb-4 rounded-[22px] bg-red-50 p-4 text-sm font-bold leading-5 text-red-700 ring-1 ring-red-100">
+              {errorMessage}
+            </div>
+          )}
 
-          {!loading &&
-            successMessage && (
-              <div className="mb-4 rounded-[22px] bg-green-50 p-4 text-sm font-bold leading-5 text-green-700 ring-1 ring-green-100">
-                {successMessage}
-              </div>
-            )}
+          {!loading && successMessage && (
+            <div className="mb-4 rounded-[22px] bg-green-50 p-4 text-sm font-bold leading-5 text-green-700 ring-1 ring-green-100">
+              {successMessage}
+            </div>
+          )}
 
-          {!loading &&
-            paymentMessage && (
-              <div className="mb-4 rounded-[22px] bg-yellow-50 p-4 text-sm font-bold leading-5 text-yellow-800 ring-1 ring-yellow-100">
-                {paymentMessage}
-              </div>
-            )}
+          {!loading && paymentMessage && (
+            <div className="mb-4 rounded-[22px] bg-yellow-50 p-4 text-sm font-bold leading-5 text-yellow-800 ring-1 ring-yellow-100">
+              {paymentMessage}
+            </div>
+          )}
 
           {!loading && supplier && (
             <>
@@ -881,20 +845,11 @@ export default function PlanosFornecedorPage() {
 
                   <div>
                     <h2 className="text-base font-extrabold">
-                      Escolha o plano e o
-                      período
+                      Escolha o plano e o período
                     </h2>
 
                     <p className="mt-1 text-sm leading-5 text-gray-600">
-                      No plano Premium, o
-                      fornecedor escolhe o
-                      período, aceita o
-                      contrato e é
-                      direcionado para o
-                      Mercado Pago. Após a
-                      confirmação do
-                      pagamento, a ativação
-                      é automática.
+                      No plano Premium, o fornecedor escolhe o período, aceita o contrato e é direcionado para o Mercado Pago. Após a confirmação do pagamento, a ativação é automática.
                     </p>
                   </div>
                 </div>
@@ -967,17 +922,13 @@ export default function PlanosFornecedorPage() {
                 </div>
 
                 <p className="mt-3 text-xs leading-5 text-gray-500">
-                  Mensal: R$ 25 por 30 dias.
-                  Trimestral: R$ 65 por 90
-                  dias. Anual: R$ 250 por 365
-                  dias.
+                  Mensal: R$ 25 por 30 dias. Trimestral: R$ 65 por 90 dias. Anual: R$ 250 por 365 dias.
                 </p>
               </div>
 
               <div className="mt-5 space-y-4">
                 {plans.map((plan) => {
-                  const PlanIcon =
-                    plan.icon;
+                  const PlanIcon = plan.icon;
 
                   const isCurrent =
                     currentPlan === plan.key;
@@ -1131,8 +1082,7 @@ export default function PlanosFornecedorPage() {
                         )}
                       </div>
 
-                      {plan.key ===
-                        'premium' && (
+                      {plan.key === 'premium' && (
                         <>
                           <div className="mt-4 rounded-2xl bg-white/10 p-3 text-xs font-bold text-white/70">
                             Valor no Mercado Pago:{' '}
@@ -1154,16 +1104,11 @@ export default function PlanosFornecedorPage() {
 
                               <div>
                                 <p className="text-sm font-extrabold text-white">
-                                  Contrato do
-                                  Fornecedor
+                                  Contrato do Fornecedor
                                 </p>
 
                                 <p className="mt-1 text-xs leading-5 text-white/60">
-                                  Leia o contrato
-                                  e os Termos de
-                                  Uso antes de
-                                  continuar para o
-                                  pagamento.
+                                  Leia o contrato e os Termos de Uso antes de continuar para o pagamento.
                                 </p>
                               </div>
                             </div>
@@ -1210,15 +1155,8 @@ export default function PlanosFornecedorPage() {
                               />
 
                               <span className="text-xs font-bold leading-5 text-white/80">
-                                Li e aceito o
-                                Contrato do
-                                Fornecedor, versão{' '}
-                                {
-                                  CONTRACT_VERSION
-                                }
-                                , e os Termos de
-                                Uso do REIM
-                                EVENTOS.
+                                Li e aceito o Contrato do Fornecedor, versão{' '}
+                                {CONTRACT_VERSION}, e os Termos de Uso do REIM EVENTOS.
                               </span>
                             </label>
 
@@ -1226,10 +1164,7 @@ export default function PlanosFornecedorPage() {
                               !isActive &&
                               !isPending && (
                                 <p className="mt-3 text-center text-[11px] font-bold text-[#f7d67b]">
-                                  Marque a caixa
-                                  acima para
-                                  liberar o
-                                  pagamento.
+                                  Marque a caixa acima para liberar o pagamento.
                                 </p>
                               )}
                           </div>
@@ -1252,8 +1187,7 @@ export default function PlanosFornecedorPage() {
                               : 'mt-5 flex w-full items-center justify-center gap-2 rounded-[22px] bg-black py-4 text-sm font-extrabold text-white shadow-lg'
                           }
                         >
-                          Continuar pagamento no
-                          Mercado Pago
+                          Continuar pagamento no Mercado Pago
                         </button>
                       ) : (
                         <button
