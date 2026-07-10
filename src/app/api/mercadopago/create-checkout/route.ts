@@ -1,20 +1,37 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { sendTransactionalEmail } from '@/lib/email';
 
 export const dynamic = 'force-dynamic';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const mercadoPagoAccessToken = process.env.MERCADOPAGO_ACCESS_TOKEN!;
+const supabaseUrl =
+  process.env.NEXT_PUBLIC_SUPABASE_URL!;
+
+const supabaseServiceRoleKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+const mercadoPagoAccessToken =
+  process.env.MERCADOPAGO_ACCESS_TOKEN!;
+
 const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL || 'https://reim-eventos.vercel.app';
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  'https://reim-eventos.vercel.app';
 
 const supabaseAdmin = createClient(
   supabaseUrl,
-  supabaseServiceRoleKey
+  supabaseServiceRoleKey,
+  {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  }
 );
 
-type BillingPeriod = 'mensal' | 'trimestral' | 'anual';
+type BillingPeriod =
+  | 'mensal'
+  | 'trimestral'
+  | 'anual';
 
 type CreateCheckoutBody = {
   supplier_id?: string;
@@ -48,12 +65,301 @@ const PLAN_CONFIG: Record<
   },
 };
 
-export async function POST(request: Request) {
+function formatMoney(value: number) {
+  return value.toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  });
+}
+
+async function getSupplierEmailData(
+  supplierId: string
+) {
+  const {
+    data: supplier,
+    error: supplierError,
+  } = await supabaseAdmin
+    .from('suppliers')
+    .select('*')
+    .eq('id', supplierId)
+    .maybeSingle();
+
+  if (supplierError || !supplier) {
+    console.error(
+      'Erro ao buscar fornecedor para e-mail:',
+      supplierError
+    );
+
+    return null;
+  }
+
+  const ownerId =
+    supplier.owner_id || null;
+
+  let authEmail = '';
+  let authName = '';
+  let authPhone = '';
+
+  if (ownerId) {
+    const {
+      data: authUserData,
+      error: authUserError,
+    } =
+      await supabaseAdmin.auth.admin.getUserById(
+        ownerId
+      );
+
+    if (!authUserError) {
+      const authUser =
+        authUserData.user;
+
+      authEmail =
+        authUser?.email || '';
+
+      authName =
+        authUser?.user_metadata
+          ?.full_name ||
+        authUser?.user_metadata?.name ||
+        authUser?.user_metadata?.nome ||
+        '';
+
+      authPhone =
+        authUser?.phone ||
+        authUser?.user_metadata?.phone ||
+        authUser?.user_metadata
+          ?.telefone ||
+        authUser?.user_metadata
+          ?.whatsapp ||
+        '';
+    }
+  }
+
+  const recipientEmail =
+    authEmail ||
+    supplier.email ||
+    supplier.contact_email ||
+    '';
+
+  const recipientName =
+    authName ||
+    supplier.responsible_name ||
+    supplier.contact_name ||
+    supplier.owner_name ||
+    supplier.business_name ||
+    supplier.company_name ||
+    supplier.name ||
+    'Fornecedor REIM EVENTOS';
+
+  const businessName =
+    supplier.business_name ||
+    supplier.company_name ||
+    supplier.name ||
+    'Fornecedor REIM EVENTOS';
+
+  const phone =
+    authPhone ||
+    supplier.phone ||
+    supplier.telefone ||
+    supplier.whatsapp ||
+    supplier.contact_phone ||
+    '';
+
+  return {
+    supplier,
+    ownerId,
+    recipientEmail,
+    recipientName,
+    businessName,
+    phone,
+  };
+}
+
+async function pendingEmailAlreadySent(
+  preferenceId: string
+) {
+  const {
+    data,
+    error,
+  } = await supabaseAdmin
+    .from('email_notifications')
+    .select('id,email_status')
+    .eq(
+      'notification_type',
+      'pagamento_pendente'
+    )
+    .contains('metadata', {
+      preference_id: preferenceId,
+    })
+    .in('email_status', [
+      'enviado',
+      'enviando',
+    ])
+    .limit(1);
+
+  if (error) {
+    console.error(
+      'Erro ao verificar e-mail pendente duplicado:',
+      error
+    );
+
+    return false;
+  }
+
+  return Boolean(
+    data && data.length > 0
+  );
+}
+
+async function sendPendingPaymentEmail(
+  params: {
+    supplierId: string;
+    preferenceId: string;
+    checkoutUrl: string;
+    billingPeriod: BillingPeriod;
+    amount: number;
+  }
+) {
+  const alreadySent =
+    await pendingEmailAlreadySent(
+      params.preferenceId
+    );
+
+  if (alreadySent) {
+    return;
+  }
+
+  const emailData =
+    await getSupplierEmailData(
+      params.supplierId
+    );
+
+  if (
+    !emailData?.recipientEmail
+  ) {
+    console.error(
+      'Fornecedor sem e-mail para aviso de pagamento pendente:',
+      params.supplierId
+    );
+
+    return;
+  }
+
+  const planConfig =
+    PLAN_CONFIG[
+      params.billingPeriod
+    ];
+
   try {
-    if (!supabaseUrl || !supabaseServiceRoleKey) {
+    await sendTransactionalEmail({
+      notificationType:
+        'pagamento_pendente',
+
+      recipientEmail:
+        emailData.recipientEmail,
+
+      recipientName:
+        emailData.recipientName,
+
+      supplierId:
+        params.supplierId,
+
+      userId:
+        emailData.ownerId,
+
+      subject:
+        'Seu pagamento REIM EVENTOS está pendente',
+
+      title:
+        'Pagamento aguardando conclusão',
+
+      message:
+        `Sua contratação do plano Premium ${planConfig.label} foi iniciada, mas o pagamento ainda não foi confirmado. Para concluir a contratação, acesse o link de pagamento abaixo.`,
+
+      buttonText:
+        'Continuar pagamento',
+
+      buttonUrl:
+        params.checkoutUrl,
+
+      details: [
+        {
+          label: 'Fornecedor',
+          value:
+            emailData.businessName,
+        },
+        {
+          label: 'Plano',
+          value:
+            `Premium ${planConfig.label}`,
+        },
+        {
+          label: 'Valor',
+          value:
+            formatMoney(
+              params.amount
+            ),
+        },
+        {
+          label: 'Período',
+          value:
+            `${planConfig.days} dias`,
+        },
+        {
+          label: 'Status',
+          value:
+            'Pagamento pendente',
+        },
+      ],
+
+      notice:
+        'Seu plano somente será ativado após a confirmação do pagamento pelo Mercado Pago.',
+
+      metadata: {
+        source:
+          'mercadopago_create_checkout',
+
+        preference_id:
+          params.preferenceId,
+
+        billing_period:
+          params.billingPeriod,
+
+        amount:
+          params.amount,
+
+        checkout_url:
+          params.checkoutUrl,
+
+        supplier_business_name:
+          emailData.businessName,
+
+        phone:
+          emailData.phone || null,
+      },
+
+      idempotencyKey:
+        `pagamento-pendente-${params.preferenceId}`,
+    });
+  } catch (error) {
+    console.error(
+      'Checkout criado, mas o e-mail pendente falhou:',
+      error
+    );
+  }
+}
+
+export async function POST(
+  request: Request
+) {
+  try {
+    if (
+      !supabaseUrl ||
+      !supabaseServiceRoleKey
+    ) {
       return NextResponse.json(
         {
-          error: 'Variáveis do Supabase não configuradas.',
+          error:
+            'Variáveis do Supabase não configuradas.',
         },
         {
           status: 500,
@@ -61,10 +367,13 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!mercadoPagoAccessToken) {
+    if (
+      !mercadoPagoAccessToken
+    ) {
       return NextResponse.json(
         {
-          error: 'MERCADOPAGO_ACCESS_TOKEN não configurado.',
+          error:
+            'MERCADOPAGO_ACCESS_TOKEN não configurado.',
         },
         {
           status: 500,
@@ -72,21 +381,26 @@ export async function POST(request: Request) {
       );
     }
 
-    const body = (await request.json()) as CreateCheckoutBody;
+    const body =
+      (await request.json()) as CreateCheckoutBody;
 
-    const supplierId = body?.supplier_id;
+    const supplierId =
+      body?.supplier_id;
 
     const billingPeriod: BillingPeriod =
-      body?.billing_period === 'trimestral'
+      body?.billing_period ===
+        'trimestral'
         ? 'trimestral'
-        : body?.billing_period === 'anual'
+        : body?.billing_period ===
+            'anual'
           ? 'anual'
           : 'mensal';
 
     if (!supplierId) {
       return NextResponse.json(
         {
-          error: 'supplier_id é obrigatório.',
+          error:
+            'supplier_id é obrigatório.',
         },
         {
           status: 400,
@@ -94,29 +408,27 @@ export async function POST(request: Request) {
       );
     }
 
-    const planConfig = PLAN_CONFIG[billingPeriod];
+    const planConfig =
+      PLAN_CONFIG[
+        billingPeriod
+      ];
 
-    /*
-     * Busca o fornecedor.
-     */
     const {
       data: supplier,
       error: supplierError,
     } = await supabaseAdmin
       .from('suppliers')
-      .select('id,business_name,owner_id,status,is_featured')
+      .select(
+        'id,business_name,owner_id,status,is_featured'
+      )
       .eq('id', supplierId)
       .maybeSingle();
 
     if (supplierError) {
-      console.error(
-        'Erro do Supabase ao buscar fornecedor:',
-        supplierError
-      );
-
       return NextResponse.json(
         {
-          error: `Erro ao buscar fornecedor: ${supplierError.message}`,
+          error:
+            `Erro ao buscar fornecedor: ${supplierError.message}`,
         },
         {
           status: 500,
@@ -125,14 +437,10 @@ export async function POST(request: Request) {
     }
 
     if (!supplier?.id) {
-      console.error(
-        'Fornecedor não encontrado para supplier_id:',
-        supplierId
-      );
-
       return NextResponse.json(
         {
-          error: 'Fornecedor não encontrado.',
+          error:
+            'Fornecedor não encontrado.',
         },
         {
           status: 404,
@@ -140,34 +448,31 @@ export async function POST(request: Request) {
       );
     }
 
-    const planName = `Premium ${planConfig.label}`;
-
-    const amount = planConfig.amount;
+    const amount =
+      planConfig.amount;
 
     const externalReference =
       `supplier:${supplier.id}:premium:${billingPeriod}:${Date.now()}`;
 
-    /*
-     * Cria a preferência no Mercado Pago.
-     *
-     * O valor vem exclusivamente do servidor.
-     * O navegador não decide o preço.
-     */
     const preferencePayload = {
       items: [
         {
-          id: `reim-premium-${billingPeriod}`,
+          id:
+            `reim-premium-${billingPeriod}`,
 
-          title: `REIM EVENTOS - Premium ${planConfig.label}`,
+          title:
+            `REIM EVENTOS - Premium ${planConfig.label}`,
 
           description:
             `Plano Premium ${planConfig.label} para fornecedor REIM EVENTOS`,
 
           quantity: 1,
 
-          currency_id: 'BRL',
+          currency_id:
+            'BRL',
 
-          unit_price: amount,
+          unit_price:
+            amount,
         },
       ],
 
@@ -177,7 +482,8 @@ export async function POST(request: Request) {
           'Fornecedor REIM EVENTOS',
       },
 
-      external_reference: externalReference,
+      external_reference:
+        externalReference,
 
       back_urls: {
         success:
@@ -190,43 +496,58 @@ export async function POST(request: Request) {
           `${siteUrl}/painel-fornecedor/planos?pagamento=pendente`,
       },
 
-      auto_return: 'approved',
+      auto_return:
+        'approved',
 
       notification_url:
         `${siteUrl}/api/mercadopago/webhook`,
 
       metadata: {
-        supplier_id: supplier.id,
+        supplier_id:
+          supplier.id,
 
-        plan: 'premium',
+        plan:
+          'premium',
 
-        billing_period: billingPeriod,
+        billing_period:
+          billingPeriod,
 
         amount,
 
-        duration_days: planConfig.days,
+        duration_days:
+          planConfig.days,
 
-        source: 'reim_eventos',
+        source:
+          'reim_eventos',
       },
     };
 
-    const mpResponse = await fetch(
-      'https://api.mercadopago.com/checkout/preferences',
-      {
-        method: 'POST',
+    const mpResponse =
+      await fetch(
+        'https://api.mercadopago.com/checkout/preferences',
+        {
+          method: 'POST',
 
-        headers: {
-          Authorization:
-            `Bearer ${mercadoPagoAccessToken}`,
+          headers: {
+            Authorization:
+              `Bearer ${mercadoPagoAccessToken}`,
 
-          'Content-Type': 'application/json',
-        },
+            'Content-Type':
+              'application/json',
+          },
 
-        body: JSON.stringify(preferencePayload),
-      }
-    );
+          body:
+            JSON.stringify(
+              preferencePayload
+            ),
 
-    const mpData = await mpResponse.json();
+          cache:
+            'no-store',
+        }
+      );
+
+    const mpData =
+      await mpResponse.json();
 
     if (!mpResponse.ok) {
       console.error(
@@ -239,7 +560,8 @@ export async function POST(request: Request) {
           error:
             'Erro ao criar checkout no Mercado Pago.',
 
-          details: mpData,
+          details:
+            mpData,
         },
         {
           status: 500,
@@ -248,18 +570,23 @@ export async function POST(request: Request) {
     }
 
     const preferenceId =
-      mpData.id as string | undefined;
+      mpData.id as
+        | string
+        | undefined;
 
     const checkoutUrl =
-      mpData.init_point as string | undefined;
+      mpData.init_point as
+        | string
+        | undefined;
 
-    if (!preferenceId || !checkoutUrl) {
+    if (
+      !preferenceId ||
+      !checkoutUrl
+    ) {
       return NextResponse.json(
         {
           error:
             'Mercado Pago não retornou preference_id ou checkout_url.',
-
-          details: mpData,
         },
         {
           status: 500,
@@ -267,54 +594,60 @@ export async function POST(request: Request) {
       );
     }
 
-    /*
-     * Registra checkout pendente.
-     *
-     * O plano ainda NÃO fica ativo.
-     * A ativação acontece somente depois da confirmação
-     * do pagamento pelo webhook.
-     */
     const subscriptionPayload = {
-      supplier_id: supplier.id,
+      supplier_id:
+        supplier.id,
 
-      plan: 'premium',
+      plan:
+        'premium',
 
-      status: 'pendente',
+      status:
+        'pendente',
 
-      value: amount,
+      value:
+        amount,
 
-      billing_period: billingPeriod,
+      billing_period:
+        billingPeriod,
 
-      mercadopago_preference_id: preferenceId,
+      mercadopago_preference_id:
+        preferenceId,
 
-      mercadopago_status: 'pending_checkout',
+      mercadopago_status:
+        'pending_checkout',
 
       mercadopago_external_reference:
         externalReference,
 
-      checkout_url: checkoutUrl,
+      checkout_url:
+        checkoutUrl,
 
-      updated_at: new Date().toISOString(),
+      updated_at:
+        new Date().toISOString(),
     };
 
     const {
-      data: existingSubscriptions,
-      error: existingSubscriptionError,
+      data:
+        existingSubscriptions,
+      error:
+        existingSubscriptionError,
     } = await supabaseAdmin
-      .from('supplier_subscriptions')
+      .from(
+        'supplier_subscriptions'
+      )
       .select('id')
-      .eq('supplier_id', supplier.id)
+      .eq(
+        'supplier_id',
+        supplier.id
+      )
       .order('created_at', {
         ascending: false,
       })
       .limit(1);
 
-    if (existingSubscriptionError) {
-      console.error(
-        'Erro ao consultar assinatura existente:',
-        existingSubscriptionError
-      );
-
+    if (
+      existingSubscriptionError
+    ) {
       return NextResponse.json(
         {
           error:
@@ -327,22 +660,27 @@ export async function POST(request: Request) {
     }
 
     const existingSubscription =
-      existingSubscriptions?.[0] || null;
+      existingSubscriptions?.[0] ||
+      null;
 
-    if (existingSubscription?.id) {
+    if (
+      existingSubscription?.id
+    ) {
       const {
         error: updateError,
       } = await supabaseAdmin
-        .from('supplier_subscriptions')
-        .update(subscriptionPayload)
-        .eq('id', existingSubscription.id);
-
-      if (updateError) {
-        console.error(
-          'Erro ao atualizar assinatura:',
-          updateError
+        .from(
+          'supplier_subscriptions'
+        )
+        .update(
+          subscriptionPayload
+        )
+        .eq(
+          'id',
+          existingSubscription.id
         );
 
+      if (updateError) {
         return NextResponse.json(
           {
             error:
@@ -357,15 +695,14 @@ export async function POST(request: Request) {
       const {
         error: insertError,
       } = await supabaseAdmin
-        .from('supplier_subscriptions')
-        .insert(subscriptionPayload);
-
-      if (insertError) {
-        console.error(
-          'Erro ao criar assinatura:',
-          insertError
+        .from(
+          'supplier_subscriptions'
+        )
+        .insert(
+          subscriptionPayload
         );
 
+      if (insertError) {
         return NextResponse.json(
           {
             error:
@@ -378,24 +715,44 @@ export async function POST(request: Request) {
       }
     }
 
+    await sendPendingPaymentEmail({
+      supplierId:
+        supplier.id,
+
+      preferenceId,
+
+      checkoutUrl,
+
+      billingPeriod,
+
+      amount,
+    });
+
     return NextResponse.json({
       success: true,
 
-      supplier_id: supplier.id,
+      supplier_id:
+        supplier.id,
 
-      preference_id: preferenceId,
+      preference_id:
+        preferenceId,
 
-      checkout_url: checkoutUrl,
+      checkout_url:
+        checkoutUrl,
 
-      plan: 'premium',
+      plan:
+        'premium',
 
-      plan_name: planName,
+      plan_name:
+        `Premium ${planConfig.label}`,
 
-      billing_period: billingPeriod,
+      billing_period:
+        billingPeriod,
 
       amount,
 
-      duration_days: planConfig.days,
+      duration_days:
+        planConfig.days,
     });
   } catch (error: any) {
     console.error(
