@@ -83,12 +83,10 @@ const PLAN_CONFIG: Record<
     label: 'Mensal',
     days: 30,
   },
-
   trimestral: {
     label: 'Trimestral',
     days: 90,
   },
-
   anual: {
     label: 'Anual',
     days: 365,
@@ -424,9 +422,8 @@ async function sendPlanActivated(
     });
 
   return {
-    success: true,
-    skipped: false,
     ...result,
+    skipped: false,
   };
 }
 
@@ -564,9 +561,8 @@ async function sendPaymentPendingReminder(
     });
 
   return {
-    success: true,
-    skipped: false,
     ...result,
+    skipped: false,
   };
 }
 
@@ -706,9 +702,8 @@ async function sendContractAccepted(
     });
 
   return {
-    success: true,
-    skipped: false,
     ...result,
+    skipped: false,
   };
 }
 
@@ -817,9 +812,8 @@ async function sendWelcomeSupplier(
     });
 
   return {
-    success: true,
-    skipped: false,
     ...result,
+    skipped: false,
   };
 }
 
