@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { sendTransactionalEmail } from '@/lib/email';
 
 export const dynamic = 'force-dynamic';
 
@@ -86,7 +85,7 @@ async function getSupplierEmailData(
 
   if (supplierError || !supplier) {
     console.error(
-      'Erro ao buscar fornecedor para e-mail:',
+      'Erro ao buscar fornecedor para o lembrete:',
       supplierError
     );
 
@@ -174,43 +173,7 @@ async function getSupplierEmailData(
   };
 }
 
-async function pendingEmailAlreadySent(
-  preferenceId: string
-) {
-  const {
-    data,
-    error,
-  } = await supabaseAdmin
-    .from('email_notifications')
-    .select('id,email_status')
-    .eq(
-      'notification_type',
-      'pagamento_pendente'
-    )
-    .contains('metadata', {
-      preference_id: preferenceId,
-    })
-    .in('email_status', [
-      'enviado',
-      'enviando',
-    ])
-    .limit(1);
-
-  if (error) {
-    console.error(
-      'Erro ao verificar e-mail pendente duplicado:',
-      error
-    );
-
-    return false;
-  }
-
-  return Boolean(
-    data && data.length > 0
-  );
-}
-
-async function sendPendingPaymentEmail(
+async function schedulePendingPaymentReminder(
   params: {
     supplierId: string;
     preferenceId: string;
@@ -219,25 +182,14 @@ async function sendPendingPaymentEmail(
     amount: number;
   }
 ) {
-  const alreadySent =
-    await pendingEmailAlreadySent(
-      params.preferenceId
-    );
-
-  if (alreadySent) {
-    return;
-  }
-
   const emailData =
     await getSupplierEmailData(
       params.supplierId
     );
 
-  if (
-    !emailData?.recipientEmail
-  ) {
+  if (!emailData?.recipientEmail) {
     console.error(
-      'Fornecedor sem e-mail para aviso de pagamento pendente:',
+      'Fornecedor sem e-mail para lembrete pendente:',
       params.supplierId
     );
 
@@ -249,70 +201,42 @@ async function sendPendingPaymentEmail(
       params.billingPeriod
     ];
 
-  try {
-    await sendTransactionalEmail({
-      notificationType:
-        'pagamento_pendente',
+  const scheduledFor =
+    new Date(
+      Date.now() + 30 * 60 * 1000
+    ).toISOString();
 
-      recipientEmail:
-        emailData.recipientEmail,
-
-      recipientName:
-        emailData.recipientName,
-
-      supplierId:
+  const {
+    error: scheduleError,
+  } = await supabaseAdmin
+    .from('email_notifications')
+    .insert({
+      supplier_id:
         params.supplierId,
 
-      userId:
+      user_id:
         emailData.ownerId,
 
+      notification_type:
+        'pagamento_pendente',
+
+      recipient_email:
+        emailData.recipientEmail,
+
+      recipient_name:
+        emailData.recipientName,
+
       subject:
-        'Seu pagamento REIM EVENTOS está pendente',
+        'Seu pagamento REIM EVENTOS ainda está pendente',
 
-      title:
-        'Pagamento aguardando conclusão',
+      email_status:
+        'pendente',
 
-      message:
-        `Sua contratação do plano Premium ${planConfig.label} foi iniciada, mas o pagamento ainda não foi confirmado. Para concluir a contratação, acesse o link de pagamento abaixo.`,
+      provider:
+        'resend',
 
-      buttonText:
-        'Continuar pagamento',
-
-      buttonUrl:
-        params.checkoutUrl,
-
-      details: [
-        {
-          label: 'Fornecedor',
-          value:
-            emailData.businessName,
-        },
-        {
-          label: 'Plano',
-          value:
-            `Premium ${planConfig.label}`,
-        },
-        {
-          label: 'Valor',
-          value:
-            formatMoney(
-              params.amount
-            ),
-        },
-        {
-          label: 'Período',
-          value:
-            `${planConfig.days} dias`,
-        },
-        {
-          label: 'Status',
-          value:
-            'Pagamento pendente',
-        },
-      ],
-
-      notice:
-        'Seu plano somente será ativado após a confirmação do pagamento pelo Mercado Pago.',
+      scheduled_for:
+        scheduledFor,
 
       metadata: {
         source:
@@ -321,29 +245,41 @@ async function sendPendingPaymentEmail(
         preference_id:
           params.preferenceId,
 
+        checkout_url:
+          params.checkoutUrl,
+
         billing_period:
           params.billingPeriod,
+
+        plan_label:
+          planConfig.label,
 
         amount:
           params.amount,
 
-        checkout_url:
-          params.checkoutUrl,
+        amount_formatted:
+          formatMoney(
+            params.amount
+          ),
+
+        duration_days:
+          planConfig.days,
 
         supplier_business_name:
           emailData.businessName,
 
         phone:
           emailData.phone || null,
-      },
 
-      idempotencyKey:
-        `pagamento-pendente-${params.preferenceId}`,
+        reminder_delay_minutes:
+          30,
+      },
     });
-  } catch (error) {
+
+  if (scheduleError) {
     console.error(
-      'Checkout criado, mas o e-mail pendente falhou:',
-      error
+      'Checkout criado, mas não foi possível agendar o lembrete:',
+      scheduleError
     );
   }
 }
@@ -367,9 +303,7 @@ export async function POST(
       );
     }
 
-    if (
-      !mercadoPagoAccessToken
-    ) {
+    if (!mercadoPagoAccessToken) {
       return NextResponse.json(
         {
           error:
@@ -645,9 +579,7 @@ export async function POST(
       })
       .limit(1);
 
-    if (
-      existingSubscriptionError
-    ) {
+    if (existingSubscriptionError) {
       return NextResponse.json(
         {
           error:
@@ -663,9 +595,7 @@ export async function POST(
       existingSubscriptions?.[0] ||
       null;
 
-    if (
-      existingSubscription?.id
-    ) {
+    if (existingSubscription?.id) {
       const {
         error: updateError,
       } = await supabaseAdmin
@@ -715,7 +645,7 @@ export async function POST(
       }
     }
 
-    await sendPendingPaymentEmail({
+    await schedulePendingPaymentReminder({
       supplierId:
         supplier.id,
 
@@ -753,6 +683,12 @@ export async function POST(
 
       duration_days:
         planConfig.days,
+
+      reminder_scheduled_for:
+        new Date(
+          Date.now() +
+            30 * 60 * 1000
+        ).toISOString(),
     });
   } catch (error: any) {
     console.error(
