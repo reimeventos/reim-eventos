@@ -28,6 +28,8 @@ export default function CadastroPage() {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const [redirectTo, setRedirectTo] = useState('/');
+  const [isInviteFlow, setIsInviteFlow] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -39,22 +41,30 @@ export default function CadastroPage() {
     const emailParam = params.get('email') || '';
     const typeParam = params.get('type') || '';
 
-    const isCerimonialistaInvite =
-      typeParam === 'cerimonialista' ||
+    const cameFromCerimonialistaInvite =
       redirectParam.includes('/cerimonialista/convites');
 
     if (emailParam) {
       setEmail(emailParam.trim().toLowerCase());
     }
 
-    if (isCerimonialistaInvite) {
+    if (cameFromCerimonialistaInvite) {
       setType('cerimonialista');
       setRedirectTo('/cerimonialista/convites');
+      setIsInviteFlow(true);
       return;
     }
 
+    setIsInviteFlow(false);
+
     if (typeParam === 'fornecedor') {
       setType('fornecedor');
+      setRedirectTo('/');
+      return;
+    }
+
+    if (typeParam === 'cerimonialista') {
+      setType('cerimonialista');
       setRedirectTo('/');
       return;
     }
@@ -95,7 +105,7 @@ export default function CadastroPage() {
     }
 
     if (type === 'cerimonialista') {
-      return 'Crie sua conta para aceitar convites e atuar em eventos de clientes.';
+      return 'Crie sua conta profissional de cerimonialista no REIM EVENTOS.';
     }
 
     return 'Cadastre-se para salvar fornecedores e solicitar orçamentos.';
@@ -205,7 +215,7 @@ export default function CadastroPage() {
       supplierId = createdSupplier.id;
     }
 
-    if (supplierId) {
+    if (supplierId && isInviteFlow) {
       const { error: updateInviteError } = await supabase
         .from('event_collaborators')
         .update({
@@ -236,11 +246,10 @@ export default function CadastroPage() {
     });
 
     if (error) {
-      let loginRedirect = '/';
-
-      if (type === 'cerimonialista') {
-        loginRedirect = '/cerimonialista/convites';
-      }
+      const loginRedirect =
+        type === 'cerimonialista' && isInviteFlow
+          ? '/cerimonialista/convites'
+          : '/';
 
       router.push(
         '/login?redirect=' +
@@ -273,13 +282,19 @@ export default function CadastroPage() {
       }
     }
 
-    if (type === 'cerimonialista') {
+    if (type === 'cerimonialista' && isInviteFlow) {
       router.replace('/cerimonialista/convites');
       router.refresh();
       return;
     }
 
     if (type === 'fornecedor') {
+      router.replace('/');
+      router.refresh();
+      return;
+    }
+
+    if (type === 'cerimonialista') {
       router.replace('/');
       router.refresh();
       return;
@@ -464,6 +479,7 @@ export default function CadastroPage() {
                 onClick={() => {
                   setType('cliente');
                   setRedirectTo('/');
+                  setIsInviteFlow(false);
                 }}
                 className={
                   type === 'cliente'
@@ -478,7 +494,8 @@ export default function CadastroPage() {
                 type="button"
                 onClick={() => {
                   setType('cerimonialista');
-                  setRedirectTo('/cerimonialista/convites');
+                  setRedirectTo('/');
+                  setIsInviteFlow(false);
                 }}
                 className={
                   type === 'cerimonialista'
@@ -494,6 +511,7 @@ export default function CadastroPage() {
                 onClick={() => {
                   setType('fornecedor');
                   setRedirectTo('/');
+                  setIsInviteFlow(false);
                 }}
                 className={
                   type === 'fornecedor'
@@ -507,9 +525,9 @@ export default function CadastroPage() {
 
             {type === 'cerimonialista' && (
               <div className="mb-4 rounded-2xl bg-[#fff7e8] px-4 py-3 text-xs font-bold leading-5 text-[#8a6100]">
-                Você está criando uma conta para acessar convites recebidos de
-                clientes. O REIM também criará sua vitrine profissional como
-                cerimonialista.
+                {isInviteFlow
+                  ? 'Você está criando uma conta para acessar convites recebidos de clientes. O REIM também criará sua vitrine profissional como cerimonialista.'
+                  : 'Você está criando sua conta profissional de cerimonialista no REIM EVENTOS.'}
               </div>
             )}
 
@@ -644,7 +662,7 @@ export default function CadastroPage() {
               type="button"
               onClick={() => {
                 const loginRedirect =
-                  type === 'cerimonialista'
+                  type === 'cerimonialista' && isInviteFlow
                     ? '/cerimonialista/convites'
                     : '/';
 
