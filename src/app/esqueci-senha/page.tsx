@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -11,12 +11,22 @@ import {
   Mail,
   Send,
 } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 export default function EsqueciSenhaPage() {
   const [email, setEmail] = useState('');
   const [sending, setSending] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const emailParam = params.get('email') || '';
+
+    if (emailParam) {
+      setEmail(emailParam.trim().toLowerCase());
+    }
+  }, []);
 
   async function handleSubmit(
     event: React.FormEvent<HTMLFormElement>
@@ -28,9 +38,7 @@ export default function EsqueciSenhaPage() {
       setSuccessMessage('');
       setErrorMessage('');
 
-      const normalizedEmail = email
-        .trim()
-        .toLowerCase();
+      const normalizedEmail = email.trim().toLowerCase();
 
       if (!normalizedEmail) {
         setErrorMessage(
@@ -39,34 +47,23 @@ export default function EsqueciSenhaPage() {
         return;
       }
 
-      const response = await fetch(
-        '/api/auth/password-reset/request',
-        {
-          method: 'POST',
+      const redirectTo =
+        window.location.origin + '/redefinir-senha';
 
-          headers: {
-            'Content-Type':
-              'application/json',
-          },
-
-          body: JSON.stringify({
-            email: normalizedEmail,
-          }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data?.error ||
-            'Não foi possível solicitar a redefinição da senha.'
+      const { error } =
+        await supabase.auth.resetPasswordForEmail(
+          normalizedEmail,
+          {
+            redirectTo,
+          }
         );
+
+      if (error) {
+        throw error;
       }
 
       setSuccessMessage(
-        data?.message ||
-          'Se este e-mail estiver cadastrado, você receberá as instruções para redefinir sua senha.'
+        'Se este e-mail estiver cadastrado, você receberá as instruções para redefinir sua senha.'
       );
     } catch (error: any) {
       console.error(
@@ -74,10 +71,23 @@ export default function EsqueciSenhaPage() {
         error
       );
 
-      setErrorMessage(
-        error?.message ||
-          'Não foi possível enviar o e-mail de recuperação.'
-      );
+      const message = String(
+        error?.message || ''
+      ).toLowerCase();
+
+      if (
+        message.includes('rate limit') ||
+        message.includes('too many requests')
+      ) {
+        setErrorMessage(
+          'Muitas tentativas foram realizadas. Aguarde alguns minutos e tente novamente.'
+        );
+      } else {
+        setErrorMessage(
+          error?.message ||
+            'Não foi possível enviar o e-mail de recuperação.'
+        );
+      }
     } finally {
       setSending(false);
     }
@@ -158,9 +168,7 @@ export default function EsqueciSenhaPage() {
                   autoComplete="email"
                   value={email}
                   onChange={(event) =>
-                    setEmail(
-                      event.target.value
-                    )
+                    setEmail(event.target.value)
                   }
                   placeholder="seuemail@exemplo.com"
                   disabled={sending}
