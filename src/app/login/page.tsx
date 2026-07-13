@@ -1,3 +1,4 @@
+```tsx
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -72,6 +73,18 @@ export default function LoginPage() {
     return query ? `/cadastro?${query}` : '/cadastro';
   }
 
+  function getForgotPasswordHref() {
+    const params = new URLSearchParams();
+
+    if (email.trim()) {
+      params.set('email', email.trim().toLowerCase());
+    }
+
+    const query = params.toString();
+
+    return query ? `/esqueci-senha?${query}` : '/esqueci-senha';
+  }
+
   async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -125,6 +138,7 @@ export default function LoginPage() {
         <div className="mx-auto flex min-h-screen w-full max-w-[430px] items-center justify-center bg-[#fbf7f1] px-6 text-center shadow-2xl">
           <div className="rounded-[28px] bg-white p-6 shadow-sm ring-1 ring-[#f1e7cf]">
             <Lock size={38} className="mx-auto text-[#d99200]" />
+
             <p className="mt-3 text-sm font-bold text-gray-500">
               Verificando sessão...
             </p>
@@ -139,6 +153,7 @@ export default function LoginPage() {
       <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] shadow-2xl">
         <section className="relative flex min-h-screen items-center justify-center px-6 py-10">
           <div className="absolute inset-0 bg-[url('/layout01-fundo.png')] bg-cover bg-center opacity-20" />
+
           <div className="absolute inset-0 bg-gradient-to-b from-[#fbf7f1]/90 via-[#fbf7f1]/95 to-[#fbf7f1]" />
 
           <div className="relative z-10 w-full">
@@ -218,6 +233,15 @@ export default function LoginPage() {
                 </div>
               </label>
 
+              <div className="mt-3 text-right">
+                <Link
+                  href={getForgotPasswordHref()}
+                  className="text-sm font-extrabold text-[#d99200]"
+                >
+                  Esqueci minha senha
+                </Link>
+              </div>
+
               {errorMessage && (
                 <div className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
                   {errorMessage}
@@ -235,11 +259,17 @@ export default function LoginPage() {
 
               <div className="mt-4 rounded-[20px] bg-[#fbf7f1] px-4 py-3 text-center text-[11px] font-bold leading-5 text-gray-500 ring-1 ring-[#f1e7cf]">
                 Ao entrar, você concorda com os{' '}
-                <Link href="/termos" className="font-extrabold text-[#d99200] underline">
+                <Link
+                  href="/termos"
+                  className="font-extrabold text-[#d99200] underline"
+                >
                   Termos de Uso
                 </Link>{' '}
                 e com a{' '}
-                <Link href="/privacidade" className="font-extrabold text-[#d99200] underline">
+                <Link
+                  href="/privacidade"
+                  className="font-extrabold text-[#d99200] underline"
+                >
                   Política de Privacidade
                 </Link>{' '}
                 do REIM EVENTOS.
@@ -261,11 +291,15 @@ export default function LoginPage() {
               <Link href="/termos" className="text-[#d99200]">
                 Termos
               </Link>
+
               <span>•</span>
+
               <Link href="/privacidade" className="text-[#d99200]">
                 Privacidade
               </Link>
+
               <span>•</span>
+
               <Link href="/seguranca" className="text-[#d99200]">
                 Segurança
               </Link>
@@ -276,3 +310,4 @@ export default function LoginPage() {
     </main>
   );
 }
+```
