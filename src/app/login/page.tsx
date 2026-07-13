@@ -70,7 +70,7 @@ export default function LoginPage() {
 
     const query = params.toString();
 
-    return query ? `/cadastro?${query}` : '/cadastro';
+    return query ? '/cadastro?' + query : '/cadastro';
   }
 
   function getForgotPasswordHref() {
@@ -82,7 +82,7 @@ export default function LoginPage() {
 
     const query = params.toString();
 
-    return query ? `/esqueci-senha?${query}` : '/esqueci-senha';
+    return query ? '/esqueci-senha?' + query : '/esqueci-senha';
   }
 
   async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
