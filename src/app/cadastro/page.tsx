@@ -3,7 +3,13 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Building2, Heart, ShieldCheck, UserPlus } from 'lucide-react';
+import {
+  ArrowLeft,
+  Building2,
+  Heart,
+  ShieldCheck,
+  UserPlus,
+} from 'lucide-react';
 import { registerClient, registerSupplier } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 
@@ -21,7 +27,7 @@ export default function CadastroPage() {
   const [city, setCity] = useState('');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
-  const [redirectTo, setRedirectTo] = useState('/perfil');
+  const [redirectTo, setRedirectTo] = useState('/');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -33,25 +39,36 @@ export default function CadastroPage() {
     const emailParam = params.get('email') || '';
     const typeParam = params.get('type') || '';
 
-    if (redirectParam && redirectParam.startsWith('/')) {
-      setRedirectTo(redirectParam);
-    }
+    const isCerimonialistaInvite =
+      typeParam === 'cerimonialista' ||
+      redirectParam.includes('/cerimonialista/convites');
 
     if (emailParam) {
       setEmail(emailParam.trim().toLowerCase());
     }
 
+    if (isCerimonialistaInvite) {
+      setType('cerimonialista');
+      setRedirectTo('/cerimonialista/convites');
+      return;
+    }
+
     if (typeParam === 'fornecedor') {
       setType('fornecedor');
+      setRedirectTo('/');
+      return;
     }
 
     if (
-      typeParam === 'cerimonialista' ||
-      redirectParam.includes('/cerimonialista/convites')
+      redirectParam &&
+      redirectParam.startsWith('/') &&
+      !redirectParam.includes('/cerimonialista/convites')
     ) {
-      setType('cerimonialista');
-      setRedirectTo('/cerimonialista/convites');
+      setRedirectTo(redirectParam);
+      return;
     }
+
+    setRedirectTo('/');
   }, []);
 
   function formatWhatsapp(value: string) {
@@ -144,12 +161,13 @@ export default function CadastroPage() {
     const supplierBusinessName =
       businessName.trim() || input.fullName.trim() || 'Cerimonialista';
 
-    const { data: existingSupplier, error: existingSupplierError } = await supabase
-      .from('suppliers')
-      .select('id,business_name')
-      .eq('owner_id', input.userId)
-      .limit(1)
-      .maybeSingle();
+    const { data: existingSupplier, error: existingSupplierError } =
+      await supabase
+        .from('suppliers')
+        .select('id,business_name')
+        .eq('owner_id', input.userId)
+        .limit(1)
+        .maybeSingle();
 
     if (existingSupplierError) {
       throw existingSupplierError;
@@ -158,26 +176,27 @@ export default function CadastroPage() {
     let supplierId = existingSupplier?.id || '';
 
     if (!supplierId) {
-      const { data: createdSupplier, error: createSupplierError } = await supabase
-        .from('suppliers')
-        .insert({
-          owner_id: input.userId,
-          category_id: categoryId,
-          business_name: supplierBusinessName,
-          description:
-            'Cerimonialista cadastrada no REIM EVENTOS para organização, acompanhamento e assessoria de eventos.',
-          city: input.city.trim() || 'Eunápolis',
-          whatsapp: input.whatsapp.trim(),
-          instagram: null,
-          average_price: '1200',
-          status: 'ativo',
-          is_featured: false,
-          rating_average: 4.9,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .select('id')
-        .single();
+      const { data: createdSupplier, error: createSupplierError } =
+        await supabase
+          .from('suppliers')
+          .insert({
+            owner_id: input.userId,
+            category_id: categoryId,
+            business_name: supplierBusinessName,
+            description:
+              'Cerimonialista cadastrada no REIM EVENTOS para organização, acompanhamento e assessoria de eventos.',
+            city: input.city.trim() || 'Eunápolis',
+            whatsapp: input.whatsapp.trim(),
+            instagram: null,
+            average_price: '1200',
+            status: 'ativo',
+            is_featured: false,
+            rating_average: 4.9,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .select('id')
+          .single();
 
       if (createSupplierError) {
         throw createSupplierError;
@@ -197,25 +216,39 @@ export default function CadastroPage() {
         .ilike('collaborator_email', input.email);
 
       if (updateInviteError) {
-        console.error('Erro ao vincular convite da cerimonialista:', updateInviteError);
+        console.error(
+          'Erro ao vincular convite da cerimonialista:',
+          updateInviteError
+        );
       }
     }
 
     return supplierId;
   }
 
-  async function signInAndRedirect(cleanEmail: string, cleanPassword: string) {
+  async function signInAndRedirect(
+    cleanEmail: string,
+    cleanPassword: string
+  ) {
     const { data, error } = await supabase.auth.signInWithPassword({
       email: cleanEmail,
       password: cleanPassword,
     });
 
     if (error) {
+      let loginRedirect = '/';
+
+      if (type === 'cerimonialista') {
+        loginRedirect = '/cerimonialista/convites';
+      }
+
       router.push(
-        `/login?redirect=${encodeURIComponent(redirectTo)}&email=${encodeURIComponent(
-          cleanEmail
-        )}`
+        '/login?redirect=' +
+          encodeURIComponent(loginRedirect) +
+          '&email=' +
+          encodeURIComponent(cleanEmail)
       );
+
       return;
     }
 
@@ -241,17 +274,25 @@ export default function CadastroPage() {
     }
 
     if (type === 'cerimonialista') {
-      router.push('/cerimonialista/convites');
+      router.replace('/cerimonialista/convites');
       router.refresh();
       return;
     }
 
-    router.push(redirectTo || '/perfil');
+    if (type === 'fornecedor') {
+      router.replace('/');
+      router.refresh();
+      return;
+    }
+
+    router.replace(redirectTo || '/');
     router.refresh();
   }
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  async function handleSubmit(
+    event: React.FormEvent<HTMLFormElement>
+  ) {
+    event.preventDefault();
 
     setErrorMessage('');
     setSuccessMessage('');
@@ -333,6 +374,7 @@ export default function CadastroPage() {
       });
 
       setSuccessMessage('Conta de fornecedor criada com sucesso!');
+
       await signInAndRedirect(cleanEmail, cleanPassword);
     } catch (error: any) {
       console.error('Erro ao criar conta:', error);
@@ -340,17 +382,23 @@ export default function CadastroPage() {
       const message = String(error?.message || '');
 
       if (message.includes('User already registered')) {
-        setErrorMessage('Este e-mail já está cadastrado. Tente fazer login.');
+        setErrorMessage(
+          'Este e-mail já está cadastrado. Tente fazer login.'
+        );
         return;
       }
 
       if (message.includes('Password should be at least')) {
-        setErrorMessage('A senha precisa ter pelo menos 6 caracteres.');
+        setErrorMessage(
+          'A senha precisa ter pelo menos 6 caracteres.'
+        );
         return;
       }
 
       if (message.includes('duplicate key')) {
-        setErrorMessage('Já existe cadastro com esses dados. Tente fazer login.');
+        setErrorMessage(
+          'Já existe cadastro com esses dados. Tente fazer login.'
+        );
         return;
       }
 
@@ -368,6 +416,7 @@ export default function CadastroPage() {
       <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] pb-10 shadow-2xl">
         <section className="relative overflow-hidden rounded-b-[34px] bg-black px-6 pb-8 pt-7 text-white">
           <div className="absolute inset-0 bg-[url('/layout01-fundo.png')] bg-cover bg-center opacity-45" />
+
           <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/85 to-black" />
 
           <div className="relative z-10">
@@ -412,7 +461,10 @@ export default function CadastroPage() {
             <div className="mb-4 grid grid-cols-3 gap-2 rounded-2xl bg-[#fbf7f1] p-1">
               <button
                 type="button"
-                onClick={() => setType('cliente')}
+                onClick={() => {
+                  setType('cliente');
+                  setRedirectTo('/');
+                }}
                 className={
                   type === 'cliente'
                     ? 'rounded-xl bg-[#151515] py-3 text-[11px] font-extrabold text-white'
@@ -424,7 +476,10 @@ export default function CadastroPage() {
 
               <button
                 type="button"
-                onClick={() => setType('cerimonialista')}
+                onClick={() => {
+                  setType('cerimonialista');
+                  setRedirectTo('/cerimonialista/convites');
+                }}
                 className={
                   type === 'cerimonialista'
                     ? 'rounded-xl bg-[#151515] py-3 text-[11px] font-extrabold text-white'
@@ -436,7 +491,10 @@ export default function CadastroPage() {
 
               <button
                 type="button"
-                onClick={() => setType('fornecedor')}
+                onClick={() => {
+                  setType('fornecedor');
+                  setRedirectTo('/');
+                }}
                 className={
                   type === 'fornecedor'
                     ? 'rounded-xl bg-[#151515] py-3 text-[11px] font-extrabold text-white'
@@ -449,8 +507,9 @@ export default function CadastroPage() {
 
             {type === 'cerimonialista' && (
               <div className="mb-4 rounded-2xl bg-[#fff7e8] px-4 py-3 text-xs font-bold leading-5 text-[#8a6100]">
-                Você está criando uma conta para acessar convites recebidos de clientes.
-                O REIM também criará sua vitrine profissional como cerimonialista.
+                Você está criando uma conta para acessar convites recebidos de
+                clientes. O REIM também criará sua vitrine profissional como
+                cerimonialista.
               </div>
             )}
 
@@ -458,7 +517,7 @@ export default function CadastroPage() {
               className="mb-3 w-full rounded-2xl border border-[#f1e7cf] p-4 text-sm font-medium outline-none placeholder:text-gray-400"
               placeholder="Nome completo"
               value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
+              onChange={(event) => setFullName(event.target.value)}
             />
 
             {type === 'fornecedor' && (
@@ -466,7 +525,9 @@ export default function CadastroPage() {
                 className="mb-3 w-full rounded-2xl border border-[#f1e7cf] p-4 text-sm font-medium outline-none placeholder:text-gray-400"
                 placeholder="Nome da empresa"
                 value={businessName}
-                onChange={(e) => setBusinessName(e.target.value)}
+                onChange={(event) =>
+                  setBusinessName(event.target.value)
+                }
               />
             )}
 
@@ -475,7 +536,9 @@ export default function CadastroPage() {
                 className="mb-3 w-full rounded-2xl border border-[#f1e7cf] p-4 text-sm font-medium outline-none placeholder:text-gray-400"
                 placeholder="Nome da vitrine. Ex: Ana Cerimonial"
                 value={businessName}
-                onChange={(e) => setBusinessName(e.target.value)}
+                onChange={(event) =>
+                  setBusinessName(event.target.value)
+                }
               />
             )}
 
@@ -484,7 +547,7 @@ export default function CadastroPage() {
               placeholder="E-mail"
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(event) => setEmail(event.target.value)}
             />
 
             <input
@@ -492,14 +555,16 @@ export default function CadastroPage() {
               placeholder="Senha"
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(event) => setPassword(event.target.value)}
             />
 
             <input
               className="mb-3 w-full rounded-2xl border border-[#f1e7cf] p-4 text-sm font-medium outline-none placeholder:text-gray-400"
               placeholder="WhatsApp"
               value={whatsapp}
-              onChange={(e) => setWhatsapp(formatWhatsapp(e.target.value))}
+              onChange={(event) =>
+                setWhatsapp(formatWhatsapp(event.target.value))
+              }
               maxLength={15}
               inputMode="numeric"
             />
@@ -508,14 +573,16 @@ export default function CadastroPage() {
               className="mb-3 w-full rounded-2xl border border-[#f1e7cf] p-4 text-sm font-medium outline-none placeholder:text-gray-400"
               placeholder="Cidade"
               value={city}
-              onChange={(e) => setCity(e.target.value)}
+              onChange={(event) => setCity(event.target.value)}
             />
 
             <label className="mb-3 flex cursor-pointer items-start gap-3 rounded-[22px] bg-[#fbf7f1] p-4 text-xs font-bold leading-5 text-gray-600 ring-1 ring-[#f1e7cf]">
               <input
                 type="checkbox"
                 checked={acceptedTerms}
-                onChange={(event) => setAcceptedTerms(event.target.checked)}
+                onChange={(event) =>
+                  setAcceptedTerms(event.target.checked)
+                }
                 className="mt-1 h-4 w-4 shrink-0 accent-[#e3a925]"
               />
 
@@ -575,13 +642,19 @@ export default function CadastroPage() {
 
             <button
               type="button"
-              onClick={() =>
+              onClick={() => {
+                const loginRedirect =
+                  type === 'cerimonialista'
+                    ? '/cerimonialista/convites'
+                    : '/';
+
                 router.push(
-                  `/login?redirect=${encodeURIComponent(
-                    redirectTo
-                  )}&email=${encodeURIComponent(email.trim().toLowerCase())}`
-                )
-              }
+                  '/login?redirect=' +
+                    encodeURIComponent(loginRedirect) +
+                    '&email=' +
+                    encodeURIComponent(email.trim().toLowerCase())
+                );
+              }}
               className="mt-4 w-full text-sm font-bold text-[#b97900]"
             >
               Já tenho conta
