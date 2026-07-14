@@ -19,6 +19,7 @@ import {
 import { supabase } from '@/lib/supabase';
 
 const STORAGE_BUCKET = 'supplier-media';
+const VIDEO_THUMBNAIL_SECOND = 30;
 
 function isVideoUrl(url: string) {
   const normalized = String(url || '').toLowerCase();
@@ -29,14 +30,6 @@ function isVideoUrl(url: string) {
     normalized.includes('.mov') ||
     normalized.includes('video')
   );
-}
-
-function getVideoPreviewUrl(url: string) {
-  if (!url) return '';
-
-  if (url.includes('#t=')) return url;
-
-  return `${url}#t=0.1`;
 }
 
 function getFileKind(file: File) {
@@ -70,14 +63,39 @@ function VideoThumbnail({
     if (!video) return;
 
     try {
-      video.currentTime = 0.35;
+      const duration = Number(video.duration || 0);
+
+      if (duration > VIDEO_THUMBNAIL_SECOND) {
+        video.currentTime = VIDEO_THUMBNAIL_SECOND;
+      } else if (duration > 1) {
+        video.currentTime = Math.max(duration - 1, 0.1);
+      } else {
+        video.currentTime = 0.1;
+      }
     } catch (error) {
-      console.error('Não foi possível posicionar o vídeo para miniatura:', error);
+      console.error(
+        'Não foi possível posicionar o vídeo para miniatura:',
+        error
+      );
     }
   }
 
-  function handleCanPlay() {
+  function handleSeeked() {
     setReady(true);
+  }
+
+  function handleCanPlay() {
+    if (ready) return;
+
+    const video = videoRef.current;
+
+    if (!video) return;
+
+    const duration = Number(video.duration || 0);
+
+    if (duration <= VIDEO_THUMBNAIL_SECOND) {
+      setReady(true);
+    }
   }
 
   if (failed) {
@@ -102,9 +120,9 @@ function VideoThumbnail({
         className="h-full w-full object-cover"
         muted
         playsInline
-        preload="auto"
+        preload="metadata"
         onLoadedMetadata={handleLoadedMetadata}
-        onLoadedData={handleCanPlay}
+        onSeeked={handleSeeked}
         onCanPlay={handleCanPlay}
         onError={() => setFailed(true)}
       />
@@ -117,7 +135,10 @@ function VideoThumbnail({
         }
       >
         {!ready && (
-          <Loader2 size={22} className="animate-spin text-[#e3a925]" />
+          <Loader2
+            size={22}
+            className="animate-spin text-[#e3a925]"
+          />
         )}
       </div>
 
@@ -153,7 +174,9 @@ export default function FotosFornecedorPage() {
       const user = userData.user;
 
       if (!user) {
-        setErrorMessage('Faça login como fornecedor para gerenciar suas mídias.');
+        setErrorMessage(
+          'Faça login como fornecedor para gerenciar suas mídias.'
+        );
         setSupplier(null);
         setMedias([]);
         return;
@@ -168,7 +191,9 @@ export default function FotosFornecedorPage() {
       if (supplierError) throw supplierError;
 
       if (!supplierData?.id) {
-        setErrorMessage('Perfil de fornecedor não encontrado para esta conta.');
+        setErrorMessage(
+          'Perfil de fornecedor não encontrado para esta conta.'
+        );
         setSupplier(null);
         setMedias([]);
         return;
@@ -188,8 +213,10 @@ export default function FotosFornecedorPage() {
       setMedias(mediaData || []);
     } catch (error: any) {
       console.error('Erro ao carregar mídias:', error);
+
       setErrorMessage(
-        error?.message || 'Não foi possível carregar as mídias da vitrine.'
+        error?.message ||
+          'Não foi possível carregar as mídias da vitrine.'
       );
     } finally {
       setLoading(false);
@@ -214,17 +241,36 @@ export default function FotosFornecedorPage() {
     }
 
     const kind = getFileKind(file);
-    const maxSize = kind === 'video' ? 50 * 1024 * 1024 : 5 * 1024 * 1024;
 
-    const allowedImages = ['image/jpeg', 'image/png', 'image/webp'];
-    const allowedVideos = ['video/mp4', 'video/webm', 'video/quicktime'];
+    const maxSize =
+      kind === 'video'
+        ? 50 * 1024 * 1024
+        : 5 * 1024 * 1024;
 
-    if (kind === 'image' && !allowedImages.includes(file.type)) {
+    const allowedImages = [
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+    ];
+
+    const allowedVideos = [
+      'video/mp4',
+      'video/webm',
+      'video/quicktime',
+    ];
+
+    if (
+      kind === 'image' &&
+      !allowedImages.includes(file.type)
+    ) {
       setErrorMessage('Envie fotos em JPG, PNG ou WEBP.');
       return;
     }
 
-    if (kind === 'video' && !allowedVideos.includes(file.type)) {
+    if (
+      kind === 'video' &&
+      !allowedVideos.includes(file.type)
+    ) {
       setErrorMessage('Envie vídeos em MP4, WEBM ou MOV.');
       return;
     }
@@ -242,7 +288,9 @@ export default function FotosFornecedorPage() {
       setUploading(true);
 
       const safeName = cleanFileName(file.name);
-      const filePath = `${supplier.id}/${Date.now()}-${safeName}`;
+
+      const filePath =
+        `${supplier.id}/${Date.now()}-${safeName}`;
 
       const { error: uploadError } = await supabase.storage
         .from(STORAGE_BUCKET)
@@ -262,13 +310,18 @@ export default function FotosFornecedorPage() {
 
       const fileUrl = publicData.publicUrl;
 
-      const { error: insertError } = await supabase.from('media').insert({
-        supplier_id: supplier.id,
-        owner_id: supplier.owner_id,
-        file_url: fileUrl,
-        type: kind === 'video' ? 'video' : 'foto',
-        is_cover: medias.length === 0,
-      });
+      const { error: insertError } = await supabase
+        .from('media')
+        .insert({
+          supplier_id: supplier.id,
+          owner_id: supplier.owner_id,
+          file_url: fileUrl,
+          type:
+            kind === 'video'
+              ? 'video'
+              : 'foto',
+          is_cover: medias.length === 0,
+        });
 
       if (insertError) {
         throw insertError;
@@ -321,17 +374,24 @@ export default function FotosFornecedorPage() {
       if (coverError) throw coverError;
 
       setSuccessMessage('Capa atualizada.');
+
       await loadData();
     } catch (error: any) {
       console.error('Erro ao definir capa:', error);
-      setErrorMessage(error?.message || 'Não foi possível definir a foto de capa.');
+
+      setErrorMessage(
+        error?.message ||
+          'Não foi possível definir a foto de capa.'
+      );
     } finally {
       setSettingCoverId('');
     }
   }
 
   async function handleRemoveMedia(media: any) {
-    const confirmed = window.confirm('Deseja remover esta mídia da vitrine?');
+    const confirmed = window.confirm(
+      'Deseja remover esta mídia da vitrine?'
+    );
 
     if (!confirmed) return;
 
@@ -348,25 +408,41 @@ export default function FotosFornecedorPage() {
 
       if (error) throw error;
 
-      setSuccessMessage('Mídia removida da vitrine.');
+      setSuccessMessage(
+        'Mídia removida da vitrine.'
+      );
+
       await loadData();
     } catch (error: any) {
       console.error('Erro ao remover mídia:', error);
-      setErrorMessage(error?.message || 'Não foi possível remover esta mídia.');
+
+      setErrorMessage(
+        error?.message ||
+          'Não foi possível remover esta mídia.'
+      );
     } finally {
       setRemovingId('');
     }
   }
 
-  const photoCount = medias.filter((item) => !isVideoUrl(item.file_url)).length;
-  const videoCount = medias.filter((item) => isVideoUrl(item.file_url)).length;
-  const coverMedia = medias.find((item) => item.is_cover);
+  const photoCount = medias.filter(
+    (item) => !isVideoUrl(item.file_url)
+  ).length;
+
+  const videoCount = medias.filter(
+    (item) => isVideoUrl(item.file_url)
+  ).length;
+
+  const coverMedia = medias.find(
+    (item) => item.is_cover
+  );
 
   return (
     <main className="min-h-screen bg-black text-[#151515]">
       <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] pb-10 shadow-2xl">
         <section className="relative overflow-hidden rounded-b-[34px] bg-black px-6 pb-8 pt-7 text-white">
           <div className="absolute inset-0 bg-[url('/layout01-fundo.png')] bg-cover bg-center opacity-45" />
+
           <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/85 to-black" />
 
           <div className="relative z-10">
@@ -394,37 +470,56 @@ export default function FotosFornecedorPage() {
 
             {supplier && (
               <div className="mt-6 rounded-[28px] bg-white/10 p-4 backdrop-blur">
-                <p className="text-xs font-bold text-white/60">Fornecedor</p>
+                <p className="text-xs font-bold text-white/60">
+                  Fornecedor
+                </p>
+
                 <h2 className="mt-1 line-clamp-1 text-xl font-extrabold">
-                  {supplier.business_name || 'Minha vitrine'}
+                  {supplier.business_name ||
+                    'Minha vitrine'}
                 </h2>
 
                 <div className="mt-4 grid grid-cols-3 gap-2">
                   <div className="rounded-2xl bg-black/25 p-3 text-center">
-                    <ImageIcon size={16} className="mx-auto text-[#e3a925]" />
+                    <ImageIcon
+                      size={16}
+                      className="mx-auto text-[#e3a925]"
+                    />
+
                     <p className="mt-1 text-[10px] font-bold text-white/50">
                       Fotos
                     </p>
+
                     <p className="mt-1 text-[12px] font-extrabold">
                       {photoCount}
                     </p>
                   </div>
 
                   <div className="rounded-2xl bg-black/25 p-3 text-center">
-                    <Video size={16} className="mx-auto text-[#e3a925]" />
+                    <Video
+                      size={16}
+                      className="mx-auto text-[#e3a925]"
+                    />
+
                     <p className="mt-1 text-[10px] font-bold text-white/50">
                       Vídeos
                     </p>
+
                     <p className="mt-1 text-[12px] font-extrabold">
                       {videoCount}
                     </p>
                   </div>
 
                   <div className="rounded-2xl bg-black/25 p-3 text-center">
-                    <Star size={16} className="mx-auto text-[#e3a925]" />
+                    <Star
+                      size={16}
+                      className="mx-auto text-[#e3a925]"
+                    />
+
                     <p className="mt-1 text-[10px] font-bold text-white/50">
                       Capa
                     </p>
+
                     <p className="mt-1 text-[12px] font-extrabold">
                       {coverMedia ? 'OK' : 'N/I'}
                     </p>
@@ -438,7 +533,11 @@ export default function FotosFornecedorPage() {
         <section className="px-6 pt-6">
           {loading && (
             <div className="rounded-[28px] bg-white p-6 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-              <Loader2 size={36} className="mx-auto animate-spin text-[#d99200]" />
+              <Loader2
+                size={36}
+                className="mx-auto animate-spin text-[#d99200]"
+              />
+
               <p className="mt-3 text-sm font-bold text-gray-500">
                 Carregando mídias...
               </p>
@@ -448,7 +547,11 @@ export default function FotosFornecedorPage() {
           {!loading && errorMessage && (
             <div className="mb-4 rounded-[22px] bg-red-50 p-4 text-sm font-bold leading-5 text-red-700 ring-1 ring-red-100">
               <div className="flex items-start gap-2">
-                <AlertCircle size={18} className="mt-0.5 shrink-0" />
+                <AlertCircle
+                  size={18}
+                  className="mt-0.5 shrink-0"
+                />
+
                 <span>{errorMessage}</span>
               </div>
             </div>
@@ -457,7 +560,11 @@ export default function FotosFornecedorPage() {
           {!loading && successMessage && (
             <div className="mb-4 rounded-[22px] bg-green-50 p-4 text-sm font-bold leading-5 text-green-700 ring-1 ring-green-100">
               <div className="flex items-start gap-2">
-                <CheckCircle2 size={18} className="mt-0.5 shrink-0" />
+                <CheckCircle2
+                  size={18}
+                  className="mt-0.5 shrink-0"
+                />
+
                 <span>{successMessage}</span>
               </div>
             </div>
@@ -469,7 +576,10 @@ export default function FotosFornecedorPage() {
                 <div className="flex items-center gap-4">
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]">
                     {uploading ? (
-                      <Loader2 size={25} className="animate-spin" />
+                      <Loader2
+                        size={25}
+                        className="animate-spin"
+                      />
                     ) : (
                       <Upload size={25} />
                     )}
@@ -487,11 +597,15 @@ export default function FotosFornecedorPage() {
 
                   <button
                     type="button"
-                    onClick={() => inputRef.current?.click()}
+                    onClick={() =>
+                      inputRef.current?.click()
+                    }
                     disabled={uploading}
                     className="shrink-0 rounded-[18px] bg-[#e3a925] px-4 py-3 text-xs font-extrabold text-white shadow-lg disabled:opacity-60"
                   >
-                    {uploading ? 'Enviando...' : 'Escolher'}
+                    {uploading
+                      ? 'Enviando...'
+                      : 'Escolher'}
                   </button>
                 </div>
 
@@ -500,31 +614,58 @@ export default function FotosFornecedorPage() {
                   type="file"
                   accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime"
                   className="hidden"
-                  onChange={(event) => handleUpload(event.target.files)}
+                  onChange={(event) =>
+                    handleUpload(event.target.files)
+                  }
                 />
               </div>
 
               <section className="pt-3">
                 <div className="flex items-center justify-between rounded-[20px] bg-white px-4 py-3 shadow-sm ring-1 ring-[#f1e7cf]">
                   <div className="flex items-center gap-2">
-                    <ImageIcon size={17} className="text-[#d99200]" />
-                    <span className="text-xs font-bold text-gray-500">Fotos</span>
-                    <strong className="text-sm text-[#151515]">{photoCount}</strong>
+                    <ImageIcon
+                      size={17}
+                      className="text-[#d99200]"
+                    />
+
+                    <span className="text-xs font-bold text-gray-500">
+                      Fotos
+                    </span>
+
+                    <strong className="text-sm text-[#151515]">
+                      {photoCount}
+                    </strong>
                   </div>
 
                   <div className="h-8 w-px bg-[#f1e7cf]" />
 
                   <div className="flex items-center gap-2">
-                    <Video size={17} className="text-[#d99200]" />
-                    <span className="text-xs font-bold text-gray-500">Vídeos</span>
-                    <strong className="text-sm text-[#151515]">{videoCount}</strong>
+                    <Video
+                      size={17}
+                      className="text-[#d99200]"
+                    />
+
+                    <span className="text-xs font-bold text-gray-500">
+                      Vídeos
+                    </span>
+
+                    <strong className="text-sm text-[#151515]">
+                      {videoCount}
+                    </strong>
                   </div>
 
                   <div className="h-8 w-px bg-[#f1e7cf]" />
 
                   <div className="flex items-center gap-2">
-                    <Star size={17} className="text-[#d99200]" />
-                    <span className="text-xs font-bold text-gray-500">Capa</span>
+                    <Star
+                      size={17}
+                      className="text-[#d99200]"
+                    />
+
+                    <span className="text-xs font-bold text-gray-500">
+                      Capa
+                    </span>
+
                     <strong className="text-sm text-[#151515]">
                       {coverMedia ? 'OK' : 'N/I'}
                     </strong>
@@ -535,14 +676,17 @@ export default function FotosFornecedorPage() {
               <section className="pt-4">
                 <div className="mb-3 flex items-center justify-between">
                   <div>
-                    <h2 className="text-lg font-extrabold">Galeria da vitrine</h2>
+                    <h2 className="text-lg font-extrabold">
+                      Galeria da vitrine
+                    </h2>
+
                     <p className="mt-1 text-xs font-bold text-gray-500">
                       {medias.length} mídia(s) cadastrada(s)
                     </p>
                   </div>
 
                   <Link
-                    href={`/fornecedor/${supplier.id}`}
+                    href={'/fornecedor/' + supplier.id}
                     className="rounded-full bg-[#fff7e8] px-3 py-1 text-xs font-extrabold text-[#b97900]"
                   >
                     Ver vitrine
@@ -551,7 +695,10 @@ export default function FotosFornecedorPage() {
 
                 {medias.length === 0 && (
                   <div className="rounded-[28px] bg-white p-6 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-                    <Camera size={38} className="mx-auto text-[#d99200]" />
+                    <Camera
+                      size={38}
+                      className="mx-auto text-[#d99200]"
+                    />
 
                     <h3 className="mt-4 text-lg font-extrabold">
                       Nenhuma mídia enviada
@@ -565,7 +712,10 @@ export default function FotosFornecedorPage() {
 
                 <div className="grid grid-cols-3 gap-3">
                   {medias.map((item) => {
-                    const isVideo = isVideoUrl(item.file_url);
+                    const isVideo = isVideoUrl(
+                      item.file_url
+                    );
+
                     const isCover = item.is_cover;
 
                     return (
@@ -579,11 +729,15 @@ export default function FotosFornecedorPage() {
                       >
                         <button
                           type="button"
-                          onClick={() => setSelectedMedia(item)}
+                          onClick={() =>
+                            setSelectedMedia(item)
+                          }
                           className="relative block h-24 w-full bg-[#151515]"
                         >
                           {isVideo ? (
-                            <VideoThumbnail url={item.file_url} />
+                            <VideoThumbnail
+                              url={item.file_url}
+                            />
                           ) : (
                             <img
                               src={item.file_url}
@@ -601,19 +755,29 @@ export default function FotosFornecedorPage() {
                           )}
 
                           <span className="absolute right-2 top-2 rounded-full bg-black/60 px-2 py-0.5 text-[9px] font-extrabold text-white">
-                            {isVideo ? 'Vídeo' : 'Foto'}
+                            {isVideo
+                              ? 'Vídeo'
+                              : 'Foto'}
                           </span>
-
                         </button>
 
                         <div className="space-y-1.5 p-2">
                           <button
                             type="button"
-                            onClick={() => handleSetCover(item.id)}
-                            disabled={settingCoverId === item.id || isCover}
+                            onClick={() =>
+                              handleSetCover(item.id)
+                            }
+                            disabled={
+                              settingCoverId === item.id ||
+                              isCover
+                            }
                             className="flex w-full items-center justify-center gap-2 rounded-[14px] bg-[#fbf7f1] py-1.5 text-[10px] font-extrabold text-[#151515] ring-1 ring-[#f1e7cf] disabled:opacity-60"
                           >
-                            <Star size={12} className="text-[#d99200]" />
+                            <Star
+                              size={12}
+                              className="text-[#d99200]"
+                            />
+
                             {settingCoverId === item.id
                               ? 'Salvando...'
                               : isCover
@@ -623,12 +787,19 @@ export default function FotosFornecedorPage() {
 
                           <button
                             type="button"
-                            onClick={() => handleRemoveMedia(item)}
-                            disabled={removingId === item.id}
+                            onClick={() =>
+                              handleRemoveMedia(item)
+                            }
+                            disabled={
+                              removingId === item.id
+                            }
                             className="flex w-full items-center justify-center gap-2 rounded-[14px] bg-white py-1.5 text-[10px] font-extrabold text-red-700 ring-1 ring-red-100 disabled:opacity-60"
                           >
                             <Trash2 size={12} />
-                            {removingId === item.id ? 'Removendo...' : 'Excluir'}
+
+                            {removingId === item.id
+                              ? 'Removendo...'
+                              : 'Excluir'}
                           </button>
                         </div>
                       </div>
@@ -641,44 +812,50 @@ export default function FotosFornecedorPage() {
         </section>
       </div>
 
-        {selectedMedia && (
-          <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/90 px-4">
+      {selectedMedia && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/90 px-4">
+          <button
+            type="button"
+            onClick={() =>
+              setSelectedMedia(null)
+            }
+            className="absolute right-5 top-5 flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur"
+          >
+            <X size={24} />
+          </button>
+
+          <div className="w-full max-w-[430px]">
+            <div className="overflow-hidden rounded-[28px] bg-[#151515] shadow-2xl">
+              {isVideoUrl(
+                selectedMedia.file_url
+              ) ? (
+                <video
+                  src={selectedMedia.file_url}
+                  className="max-h-[78vh] w-full object-contain"
+                  controls
+                  autoPlay
+                />
+              ) : (
+                <img
+                  src={selectedMedia.file_url}
+                  alt="Mídia ampliada"
+                  className="max-h-[78vh] w-full object-contain"
+                />
+              )}
+            </div>
+
             <button
               type="button"
-              onClick={() => setSelectedMedia(null)}
-              className="absolute right-5 top-5 flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur"
+              onClick={() =>
+                setSelectedMedia(null)
+              }
+              className="mt-4 flex w-full items-center justify-center rounded-[22px] bg-[#e3a925] py-4 text-sm font-extrabold text-white shadow-lg"
             >
-              <X size={24} />
+              Fechar visualização
             </button>
-
-            <div className="w-full max-w-[430px]">
-              <div className="overflow-hidden rounded-[28px] bg-[#151515] shadow-2xl">
-                {isVideoUrl(selectedMedia.file_url) ? (
-                  <video
-                    src={selectedMedia.file_url}
-                    className="max-h-[78vh] w-full object-contain"
-                    controls
-                    autoPlay
-                  />
-                ) : (
-                  <img
-                    src={selectedMedia.file_url}
-                    alt="Mídia ampliada"
-                    className="max-h-[78vh] w-full object-contain"
-                  />
-                )}
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setSelectedMedia(null)}
-                className="mt-4 flex w-full items-center justify-center rounded-[22px] bg-[#e3a925] py-4 text-sm font-extrabold text-white shadow-lg"
-              >
-                Fechar visualização
-              </button>
-            </div>
           </div>
-        )}
+        </div>
+      )}
     </main>
   );
 }
