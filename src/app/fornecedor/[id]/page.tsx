@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { getSupplier } from '@/lib/marketplace';
@@ -19,15 +19,19 @@ import {
   CheckCircle2,
   Heart,
   Image as ImageIcon,
+  Loader2,
   MapPin,
   MessageCircle,
   Phone,
+  PlayCircle,
   Share2,
   ShieldCheck,
   Star,
   Video,
   X,
 } from 'lucide-react';
+
+const VIDEO_THUMBNAIL_SECOND = 30;
 
 function isVideoUrl(url: string) {
   const normalized = String(url || '').toLowerCase();
@@ -40,8 +44,118 @@ function isVideoUrl(url: string) {
   );
 }
 
+function PublicVideoThumbnail({
+  url,
+}: {
+  url: string;
+}) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  const [ready, setReady] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  function handleLoadedMetadata() {
+    const video = videoRef.current;
+
+    if (!video) return;
+
+    try {
+      const duration = Number(video.duration || 0);
+
+      if (duration > VIDEO_THUMBNAIL_SECOND) {
+        video.currentTime = VIDEO_THUMBNAIL_SECOND;
+      } else if (duration > 1) {
+        video.currentTime = Math.max(duration - 1, 0.1);
+      } else {
+        video.currentTime = 0.1;
+      }
+    } catch (error) {
+      console.error(
+        'Não foi possível posicionar o vídeo para miniatura pública:',
+        error
+      );
+    }
+  }
+
+  function handleSeeked() {
+    setReady(true);
+  }
+
+  function handleCanPlay() {
+    if (ready) return;
+
+    const video = videoRef.current;
+
+    if (!video) return;
+
+    const duration = Number(video.duration || 0);
+
+    if (duration <= VIDEO_THUMBNAIL_SECOND) {
+      setReady(true);
+    }
+  }
+
+  if (failed) {
+    return (
+      <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-[#151515] via-[#2a2110] to-[#d99200] px-2 text-center text-white">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-[#d99200] shadow-lg">
+          <PlayCircle size={24} />
+        </div>
+
+        <p className="mt-2 text-[10px] font-extrabold">
+          Vídeo
+        </p>
+
+        <p className="mt-0.5 text-[9px] font-bold text-white/75">
+          Assistir
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <video
+        ref={videoRef}
+        src={url}
+        className="h-full w-full object-cover"
+        muted
+        playsInline
+        preload="metadata"
+        onLoadedMetadata={handleLoadedMetadata}
+        onSeeked={handleSeeked}
+        onCanPlay={handleCanPlay}
+        onError={() => setFailed(true)}
+      />
+
+      <div
+        className={
+          ready
+            ? 'absolute inset-0 bg-gradient-to-t from-black/45 via-black/0 to-black/15'
+            : 'absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#151515] via-[#2a2110] to-[#d99200]'
+        }
+      >
+        {!ready && (
+          <Loader2
+            size={22}
+            className="animate-spin text-[#e3a925]"
+          />
+        )}
+      </div>
+
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-[#d99200] shadow-lg">
+          <PlayCircle size={24} />
+        </div>
+      </div>
+    </>
+  );
+}
+
 function getCoverImage(supplier: any) {
-  const cover = supplier?.media?.find((item: any) => item.is_cover);
+  const cover = supplier?.media?.find(
+    (item: any) => item.is_cover
+  );
 
   if (cover?.file_url) {
     return cover.file_url;
@@ -108,10 +222,10 @@ function formatWhatsAppLink(value: any) {
   }
 
   if (onlyNumbers.startsWith('55')) {
-    return `https://wa.me/${onlyNumbers}`;
+    return 'https://wa.me/' + onlyNumbers;
   }
 
-  return `https://wa.me/55${onlyNumbers}`;
+  return 'https://wa.me/55' + onlyNumbers;
 }
 
 function getServiceCities(supplier: any) {
@@ -134,14 +248,23 @@ function getCategoryName(supplier: any) {
   if (!supplier) return 'Categoria não informada';
 
   if (Array.isArray(supplier.categories)) {
-    return supplier.categories[0]?.name || 'Categoria não informada';
+    return (
+      supplier.categories[0]?.name ||
+      'Categoria não informada'
+    );
   }
 
-  return supplier.categories?.name || 'Categoria não informada';
+  return (
+    supplier.categories?.name ||
+    'Categoria não informada'
+  );
 }
 
-function isCerimonialistaCategory(categoryName: string) {
-  const normalized = categoryName.toLowerCase();
+function isCerimonialistaCategory(
+  categoryName: string
+) {
+  const normalized =
+    categoryName.toLowerCase();
 
   return (
     normalized.includes('cerimonial') ||
@@ -151,9 +274,12 @@ function isCerimonialistaCategory(categoryName: string) {
 }
 
 function getServices(categoryName: string) {
-  const normalized = categoryName.toLowerCase();
+  const normalized =
+    categoryName.toLowerCase();
 
-  if (isCerimonialistaCategory(categoryName)) {
+  if (
+    isCerimonialistaCategory(categoryName)
+  ) {
     return [
       'Organização do evento',
       'Acompanhamento da cliente',
@@ -164,7 +290,10 @@ function getServices(categoryName: string) {
     ];
   }
 
-  if (normalized.includes('foto') || normalized.includes('film')) {
+  if (
+    normalized.includes('foto') ||
+    normalized.includes('film')
+  ) {
     return [
       'Casamentos',
       'Aniversários',
@@ -186,7 +315,10 @@ function getServices(categoryName: string) {
     ];
   }
 
-  if (normalized.includes('totem') || normalized.includes('cabine')) {
+  if (
+    normalized.includes('totem') ||
+    normalized.includes('cabine')
+  ) {
     return [
       'Totem fotográfico',
       'Cabine de fotos',
@@ -207,42 +339,90 @@ function getServices(categoryName: string) {
   ];
 }
 
-function getPublicSupplierTag(visibility: any, supplier: any, isCerimonialista: boolean) {
-  if (visibility?.public_badge === 'novo_no_reim') {
+function getPublicSupplierTag(
+  visibility: any,
+  supplier: any,
+  isCerimonialista: boolean
+) {
+  if (
+    visibility?.public_badge ===
+    'novo_no_reim'
+  ) {
     return 'Novo no REIM';
   }
 
-  if (visibility?.public_badge === 'premium' || supplier?.is_featured) {
+  if (
+    visibility?.public_badge === 'premium' ||
+    supplier?.is_featured
+  ) {
     return '♛ Premium';
   }
 
-  if (visibility?.public_badge === 'ativo') {
+  if (
+    visibility?.public_badge === 'ativo'
+  ) {
     return 'Ativo';
   }
 
-  return isCerimonialista ? 'Cerimonialista' : 'Indisponível';
+  return isCerimonialista
+    ? 'Cerimonialista'
+    : 'Indisponível';
 }
-
 
 export default function FornecedorPage() {
   const params = useParams();
-  const supplierId = String(params?.id || '');
 
-  const [supplier, setSupplier] = useState<any>(null);
-  const [publicVisibility, setPublicVisibility] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState('');
-  const [selectedMedia, setSelectedMedia] = useState('');
+  const supplierId = String(
+    params?.id || ''
+  );
 
-  const [targetCustomerId, setTargetCustomerId] = useState('');
-  const [returnUrl, setReturnUrl] = useState('/buscar');
-  const [selectedCity, setSelectedCity] = useState('');
+  const [supplier, setSupplier] =
+    useState<any>(null);
 
-  const [saved, setSaved] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState('');
+  const [
+    publicVisibility,
+    setPublicVisibility,
+  ] = useState<any>(null);
 
-  const isCerimonialistaMode = Boolean(targetCustomerId);
+  const [loading, setLoading] =
+    useState(true);
+
+  const [
+    errorMessage,
+    setErrorMessage,
+  ] = useState('');
+
+  const [
+    selectedMedia,
+    setSelectedMedia,
+  ] = useState('');
+
+  const [
+    targetCustomerId,
+    setTargetCustomerId,
+  ] = useState('');
+
+  const [returnUrl, setReturnUrl] =
+    useState('/buscar');
+
+  const [
+    selectedCity,
+    setSelectedCity,
+  ] = useState('');
+
+  const [saved, setSaved] =
+    useState(false);
+
+  const [saving, setSaving] =
+    useState(false);
+
+  const [
+    saveMessage,
+    setSaveMessage,
+  ] = useState('');
+
+  const isCerimonialistaMode =
+    Boolean(targetCustomerId);
 
   useEffect(() => {
     async function loadSupplier() {
@@ -251,61 +431,116 @@ export default function FornecedorPage() {
         setErrorMessage('');
 
         if (!supplierId) {
-          setErrorMessage('Vitrine não informada.');
+          setErrorMessage(
+            'Vitrine não informada.'
+          );
           return;
         }
 
-        const urlParams = new URLSearchParams(window.location.search);
-        const customerIdFromUrl = urlParams.get('cliente') || '';
-        const returnUrlFromUrl = urlParams.get('voltar') || '/buscar';
-        const cityFromUrl = urlParams.get('cidade') || '';
+        const urlParams =
+          new URLSearchParams(
+            window.location.search
+          );
 
-        setTargetCustomerId(customerIdFromUrl);
+        const customerIdFromUrl =
+          urlParams.get('cliente') || '';
+
+        const returnUrlFromUrl =
+          urlParams.get('voltar') ||
+          '/buscar';
+
+        const cityFromUrl =
+          urlParams.get('cidade') || '';
+
+        setTargetCustomerId(
+          customerIdFromUrl
+        );
+
         setReturnUrl(returnUrlFromUrl);
+
         setSelectedCity(cityFromUrl);
 
-        const data = await getSupplier(supplierId);
+        const data =
+          await getSupplier(supplierId);
 
         if (!data) {
-          setErrorMessage('Vitrine não encontrada no Supabase.');
+          setErrorMessage(
+            'Vitrine não encontrada no Supabase.'
+          );
           return;
         }
 
-        const { data: visibilityData, error: visibilityError } = await supabase
-          .from('supplier_public_visibility')
+        const {
+          data: visibilityData,
+          error: visibilityError,
+        } = await supabase
+          .from(
+            'supplier_public_visibility'
+          )
           .select(
             'supplier_id, can_appear_public, can_receive_quote, public_badge, public_label, public_notice'
           )
-          .eq('supplier_id', supplierId)
+          .eq(
+            'supplier_id',
+            supplierId
+          )
           .maybeSingle();
 
         if (visibilityError) {
-          console.error('Erro ao carregar visibilidade da vitrine:', visibilityError);
+          console.error(
+            'Erro ao carregar visibilidade da vitrine:',
+            visibilityError
+          );
         }
 
-        setPublicVisibility(visibilityData || null);
+        setPublicVisibility(
+          visibilityData || null
+        );
+
         setSupplier(data);
 
         if (customerIdFromUrl) {
-          const { data: savedData, error: savedError } = await supabase
+          const {
+            data: savedData,
+            error: savedError,
+          } = await supabase
             .from('saved_suppliers')
             .select('id')
-            .eq('customer_id', customerIdFromUrl)
-            .eq('supplier_id', supplierId)
+            .eq(
+              'customer_id',
+              customerIdFromUrl
+            )
+            .eq(
+              'supplier_id',
+              supplierId
+            )
             .maybeSingle();
 
           if (savedError) {
-            console.error('Erro ao verificar fornecedor salvo da cliente:', savedError);
+            console.error(
+              'Erro ao verificar fornecedor salvo da cliente:',
+              savedError
+            );
           }
 
           setSaved(Boolean(savedData));
         } else {
-          const alreadySaved = await isSupplierSaved(supplierId);
+          const alreadySaved =
+            await isSupplierSaved(
+              supplierId
+            );
+
           setSaved(alreadySaved);
         }
       } catch (error) {
-        console.error('Erro ao carregar fornecedor:', error);
-        setErrorMessage('Erro ao carregar fornecedor.');
+        console.error(
+          'Erro ao carregar fornecedor:',
+          error
+        );
+
+        setErrorMessage(
+          'Erro ao carregar fornecedor.'
+        );
       } finally {
         setLoading(false);
       }
@@ -320,19 +555,35 @@ export default function FornecedorPage() {
       setSaveMessage('');
 
       if (!supplierId) {
-        setSaveMessage('Fornecedor não identificado.');
+        setSaveMessage(
+          'Fornecedor não identificado.'
+        );
         return;
       }
 
       if (isCerimonialistaMode) {
         if (saved) {
-          await unsaveSupplierForCustomer(targetCustomerId, supplierId);
+          await unsaveSupplierForCustomer(
+            targetCustomerId,
+            supplierId
+          );
+
           setSaved(false);
-          setSaveMessage('Fornecedor removido do evento da cliente.');
+
+          setSaveMessage(
+            'Fornecedor removido do evento da cliente.'
+          );
         } else {
-          await saveSupplierForCustomer(targetCustomerId, supplierId);
+          await saveSupplierForCustomer(
+            targetCustomerId,
+            supplierId
+          );
+
           setSaved(true);
-          setSaveMessage('Fornecedor salvo no evento da cliente.');
+
+          setSaveMessage(
+            'Fornecedor salvo no evento da cliente.'
+          );
         }
 
         return;
@@ -340,15 +591,27 @@ export default function FornecedorPage() {
 
       if (saved) {
         await unsaveSupplier(supplierId);
+
         setSaved(false);
-        setSaveMessage('Fornecedor removido do Meu Evento.');
+
+        setSaveMessage(
+          'Fornecedor removido do Meu Evento.'
+        );
       } else {
         await saveSupplier(supplierId);
+
         setSaved(true);
-        setSaveMessage('Fornecedor salvo no Meu Evento.');
+
+        setSaveMessage(
+          'Fornecedor salvo no Meu Evento.'
+        );
       }
     } catch (error: any) {
-      console.error('Erro ao salvar fornecedor:', error);
+      console.error(
+        'Erro ao salvar fornecedor:',
+        error
+      );
+
       setSaveMessage(
         error?.message ||
           'Não foi possível salvar/remover este fornecedor.'
@@ -359,17 +622,31 @@ export default function FornecedorPage() {
   }
 
   function getQuoteLink() {
-    const cityParam = selectedCity
-      ? `&cidade=${encodeURIComponent(selectedCity)}`
-      : '';
+    const cityParam =
+      selectedCity
+        ? '&cidade=' +
+          encodeURIComponent(
+            selectedCity
+          )
+        : '';
 
     if (isCerimonialistaMode) {
-      return `/solicitar-orcamento?fornecedor=${supplierId}&cliente=${targetCustomerId}&voltar=${encodeURIComponent(
-        returnUrl
-      )}${cityParam}`;
+      return (
+        '/solicitar-orcamento?fornecedor=' +
+        supplierId +
+        '&cliente=' +
+        targetCustomerId +
+        '&voltar=' +
+        encodeURIComponent(returnUrl) +
+        cityParam
+      );
     }
 
-    return `/solicitar-orcamento?fornecedor=${supplierId}${cityParam}`;
+    return (
+      '/solicitar-orcamento?fornecedor=' +
+      supplierId +
+      cityParam
+    );
   }
 
   if (loading) {
@@ -377,10 +654,15 @@ export default function FornecedorPage() {
       <main className="min-h-screen bg-black text-[#151515]">
         <div className="mx-auto flex min-h-screen w-full max-w-[430px] items-center justify-center bg-[#fbf7f1] px-6 text-center shadow-2xl">
           <div className="rounded-[28px] bg-white p-6 shadow-sm ring-1 ring-[#f1e7cf]">
-            <Camera size={42} className="mx-auto text-[#d99200]" />
+            <Camera
+              size={42}
+              className="mx-auto text-[#d99200]"
+            />
+
             <h1 className="mt-4 text-xl font-extrabold">
               Carregando vitrine
             </h1>
+
             <p className="mt-2 text-sm text-gray-500">
               Buscando dados da vitrine...
             </p>
@@ -395,12 +677,18 @@ export default function FornecedorPage() {
       <main className="min-h-screen bg-black text-[#151515]">
         <div className="mx-auto flex min-h-screen w-full max-w-[430px] items-center justify-center bg-[#fbf7f1] px-6 text-center shadow-2xl">
           <div className="rounded-[28px] bg-white p-6 shadow-sm ring-1 ring-[#f1e7cf]">
-            <Camera size={42} className="mx-auto text-[#d99200]" />
+            <Camera
+              size={42}
+              className="mx-auto text-[#d99200]"
+            />
+
             <h1 className="mt-4 text-xl font-extrabold">
               Vitrine não encontrada
             </h1>
+
             <p className="mt-2 text-sm leading-5 text-gray-500">
-              {errorMessage || 'Não foi possível carregar esse fornecedor.'}
+              {errorMessage ||
+                'Não foi possível carregar esse fornecedor.'}
             </p>
 
             <p className="mt-3 rounded-2xl bg-[#fbf7f1] p-3 text-xs font-bold text-gray-500">
@@ -419,34 +707,77 @@ export default function FornecedorPage() {
     );
   }
 
-  const categoryName = getCategoryName(supplier);
-  const isCerimonialista = isCerimonialistaCategory(categoryName);
-  const supplierName = supplier.business_name || (isCerimonialista ? 'Cerimonialista' : 'Fornecedor');
-  const publicTypeLabel = isCerimonialista ? 'Cerimonialista' : 'Fornecedor';
-  const city = supplier.city || 'Cidade não informada';
-  const rating = formatRating(supplier.rating_average);
-  const price = formatPrice(supplier.average_price);
+  const categoryName =
+    getCategoryName(supplier);
+
+  const isCerimonialista =
+    isCerimonialistaCategory(
+      categoryName
+    );
+
+  const supplierName =
+    supplier.business_name ||
+    (isCerimonialista
+      ? 'Cerimonialista'
+      : 'Fornecedor');
+
+  const publicTypeLabel =
+    isCerimonialista
+      ? 'Cerimonialista'
+      : 'Fornecedor';
+
+  const city =
+    supplier.city ||
+    'Cidade não informada';
+
+  const rating =
+    formatRating(
+      supplier.rating_average
+    );
+
+  const price =
+    formatPrice(
+      supplier.average_price
+    );
+
   const description =
     supplier.description ||
     (isCerimonialista
       ? 'Cerimonialista cadastrada no REIM EVENTOS. Solicite uma proposta para saber mais sobre acompanhamento, organização, disponibilidade e valores.'
       : 'Fornecedor cadastrado no REIM EVENTOS. Solicite um orçamento para saber mais detalhes sobre serviços, disponibilidade e valores.');
-  const coverImage = getCoverImage(supplier);
-  const gallery = getGallery(supplier);
-  const services = getServices(categoryName);
-  const whatsappLink = formatWhatsAppLink(supplier.whatsapp);
-  const serviceCities = getServiceCities(supplier);
-  const canReceiveQuote = Boolean(publicVisibility?.can_receive_quote);
-  const supplierTag = getPublicSupplierTag(
-    publicVisibility,
-    supplier,
-    isCerimonialista
-  );
+
+  const coverImage =
+    getCoverImage(supplier);
+
+  const gallery =
+    getGallery(supplier);
+
+  const services =
+    getServices(categoryName);
+
+  const whatsappLink =
+    formatWhatsAppLink(
+      supplier.whatsapp
+    );
+
+  const serviceCities =
+    getServiceCities(supplier);
+
+  const canReceiveQuote =
+    Boolean(
+      publicVisibility?.can_receive_quote
+    );
+
+  const supplierTag =
+    getPublicSupplierTag(
+      publicVisibility,
+      supplier,
+      isCerimonialista
+    );
 
   return (
     <main className="min-h-screen bg-black text-[#151515]">
       <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] pb-8 shadow-2xl">
-        {/* CAPA */}
         <section className="relative h-[340px] overflow-hidden bg-black text-white">
           <img
             className="absolute inset-0 h-full w-full object-cover"
@@ -471,15 +802,26 @@ export default function FornecedorPage() {
 
               <button
                 type="button"
-                onClick={handleSaveSupplier}
+                onClick={
+                  handleSaveSupplier
+                }
                 disabled={saving}
-                className={`flex h-12 w-12 items-center justify-center rounded-full shadow-xl ${
-                  saved
+                className={
+                  'flex h-12 w-12 items-center justify-center rounded-full shadow-xl ' +
+                  (saved
                     ? 'bg-[#e3a925] text-white'
-                    : 'bg-black/65 text-white'
-                } disabled:opacity-60`}
+                    : 'bg-black/65 text-white') +
+                  ' disabled:opacity-60'
+                }
               >
-                <Heart size={23} fill={saved ? 'white' : 'none'} />
+                <Heart
+                  size={23}
+                  fill={
+                    saved
+                      ? 'white'
+                      : 'none'
+                  }
+                />
               </button>
             </div>
           </div>
@@ -495,35 +837,51 @@ export default function FornecedorPage() {
 
             <p className="mt-1 flex items-center gap-2 text-sm text-white/85">
               {isCerimonialista ? (
-                <ShieldCheck size={16} className="text-[#e3a925]" />
+                <ShieldCheck
+                  size={16}
+                  className="text-[#e3a925]"
+                />
               ) : (
-                <Camera size={16} className="text-[#e3a925]" />
+                <Camera
+                  size={16}
+                  className="text-[#e3a925]"
+                />
               )}
+
               {categoryName}
             </p>
           </div>
         </section>
 
-        {/* CONTEÚDO */}
         <section className="relative z-20 -mt-6 rounded-t-[34px] bg-[#fbf7f1] px-6 pt-7">
-          {/* INFO */}
           <div className="rounded-[26px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)]">
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="flex items-center gap-2 text-sm font-bold text-gray-700">
-                  <MapPin size={17} className="text-[#d99200]" />
+                  <MapPin
+                    size={17}
+                    className="text-[#d99200]"
+                  />
+
                   {city}
                 </p>
 
                 <p className="mt-2 flex items-center gap-2 text-sm font-bold text-gray-700">
-                  <Star size={17} fill="#e3a925" className="text-[#e3a925]" />
+                  <Star
+                    size={17}
+                    fill="#e3a925"
+                    className="text-[#e3a925]"
+                  />
+
                   {rating} • 128 avaliações
                 </p>
               </div>
 
               <div className="rounded-2xl bg-[#fff7e8] px-4 py-3 text-center">
                 <p className="text-xs font-bold text-gray-500">
-                  {price === 'Sob consulta' ? 'Valor' : 'A partir de'}
+                  {price === 'Sob consulta'
+                    ? 'Valor'
+                    : 'A partir de'}
                 </p>
 
                 <p className="text-sm font-extrabold text-[#d99200]">
@@ -535,33 +893,47 @@ export default function FornecedorPage() {
 
           {serviceCities.length > 0 && (
             <div className="mt-4 rounded-2xl bg-white px-4 py-3 text-sm leading-5 text-gray-700 shadow-sm ring-1 ring-[#f1e7cf]">
-              <p className="font-extrabold text-[#151515]">Cidades onde atende</p>
+              <p className="font-extrabold text-[#151515]">
+                Cidades onde atende
+              </p>
+
               <div className="mt-3 flex flex-wrap gap-2">
-                {serviceCities.map((cityName) => (
-                  <span
-                    key={cityName}
-                    className={
-                      selectedCity && cityName === selectedCity
-                        ? 'rounded-full bg-[#e3a925] px-3 py-1 text-xs font-extrabold text-white'
-                        : 'rounded-full bg-[#fff7e8] px-3 py-1 text-xs font-extrabold text-[#7a5200]'
-                    }
-                  >
-                    {cityName}
-                  </span>
-                ))}
+                {serviceCities.map(
+                  (cityName) => (
+                    <span
+                      key={cityName}
+                      className={
+                        selectedCity &&
+                        cityName === selectedCity
+                          ? 'rounded-full bg-[#e3a925] px-3 py-1 text-xs font-extrabold text-white'
+                          : 'rounded-full bg-[#fff7e8] px-3 py-1 text-xs font-extrabold text-[#7a5200]'
+                      }
+                    >
+                      {cityName}
+                    </span>
+                  )
+                )}
               </div>
 
-              {selectedCity && serviceCities.includes(selectedCity) && (
-                <p className="mt-3 rounded-2xl bg-green-50 px-3 py-2 text-xs font-bold text-green-700">
-                  Este fornecedor atende {selectedCity}.
-                </p>
-              )}
+              {selectedCity &&
+                serviceCities.includes(
+                  selectedCity
+                ) && (
+                  <p className="mt-3 rounded-2xl bg-green-50 px-3 py-2 text-xs font-bold text-green-700">
+                    Este fornecedor atende{' '}
+                    {selectedCity}.
+                  </p>
+                )}
             </div>
           )}
 
-          {publicVisibility?.public_badge === 'novo_no_reim' && (
+          {publicVisibility?.public_badge ===
+            'novo_no_reim' && (
             <div className="mt-4 rounded-2xl bg-[#fff7e8] px-4 py-3 text-sm leading-5 text-[#7a5200] ring-1 ring-[#f1e7cf]">
-              <p className="font-extrabold">Novo fornecedor no REIM</p>
+              <p className="font-extrabold">
+                Novo fornecedor no REIM
+              </p>
+
               <p className="mt-1">
                 Este fornecedor está em fase inicial na plataforma. Aguarde a confirmação de disponibilidade após solicitar o orçamento.
               </p>
@@ -570,21 +942,28 @@ export default function FornecedorPage() {
 
           {!canReceiveQuote && (
             <div className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm leading-5 text-red-700 ring-1 ring-red-100">
-              <p className="font-extrabold">Fornecedor indisponível no momento</p>
+              <p className="font-extrabold">
+                Fornecedor indisponível no momento
+              </p>
+
               <p className="mt-1">
                 Esta vitrine não está recebendo novas solicitações de orçamento agora.
               </p>
             </div>
           )}
 
-          {isCerimonialista && !isCerimonialistaMode && (
-            <div className="mt-4 rounded-2xl bg-[#fff7e8] px-4 py-3 text-sm leading-5 text-[#7a5200] ring-1 ring-[#f1e7cf]">
-              <p className="font-extrabold">Perfil profissional de cerimonialista</p>
-              <p className="mt-1">
-                Essa vitrine mostra a profissional que pode acompanhar seu evento, organizar fornecedores e apoiar a cliente nos orçamentos.
-              </p>
-            </div>
-          )}
+          {isCerimonialista &&
+            !isCerimonialistaMode && (
+              <div className="mt-4 rounded-2xl bg-[#fff7e8] px-4 py-3 text-sm leading-5 text-[#7a5200] ring-1 ring-[#f1e7cf]">
+                <p className="font-extrabold">
+                  Perfil profissional de cerimonialista
+                </p>
+
+                <p className="mt-1">
+                  Essa vitrine mostra a profissional que pode acompanhar seu evento, organizar fornecedores e apoiar a cliente nos orçamentos.
+                </p>
+              </div>
+            )}
 
           {isCerimonialistaMode && (
             <div className="mt-4 rounded-2xl bg-[#151515] px-4 py-3 text-sm font-bold text-white">
@@ -594,13 +973,16 @@ export default function FornecedorPage() {
 
           {saveMessage && (
             <div
-              className={`mt-4 rounded-2xl px-4 py-3 text-sm font-bold ${
-                saved
+              className={
+                'mt-4 rounded-2xl px-4 py-3 text-sm font-bold ' +
+                (saved
                   ? 'bg-green-50 text-green-700'
-                  : saveMessage.includes('removido')
+                  : saveMessage.includes(
+                        'removido'
+                      )
                     ? 'bg-[#fff7e8] text-[#b97900]'
-                    : 'bg-red-50 text-red-700'
-              }`}
+                    : 'bg-red-50 text-red-700')
+              }
             >
               {saveMessage}
             </div>
@@ -609,41 +991,53 @@ export default function FornecedorPage() {
           {saved && (
             <div className="mt-4 flex items-center gap-2 rounded-2xl bg-green-50 px-4 py-3 text-sm font-bold text-green-700">
               <CheckCircle2 size={18} />
+
               {isCerimonialistaMode
-                ? `${publicTypeLabel} salva no evento da cliente.`
-                : `${publicTypeLabel} salvo(a) no seu Meu Evento.`}
+                ? publicTypeLabel +
+                  ' salva no evento da cliente.'
+                : publicTypeLabel +
+                  ' salvo(a) no seu Meu Evento.'}
             </div>
           )}
 
-          {/* DESCRIÇÃO */}
           <div className="mt-5">
-            <h2 className="text-lg font-extrabold">{isCerimonialista ? 'Sobre a cerimonialista' : 'Sobre o fornecedor'}</h2>
+            <h2 className="text-lg font-extrabold">
+              {isCerimonialista
+                ? 'Sobre a cerimonialista'
+                : 'Sobre o fornecedor'}
+            </h2>
 
             <p className="mt-3 text-sm leading-6 text-gray-700">
               {description}
             </p>
           </div>
 
-          {/* SERVIÇOS */}
           <div className="mt-6">
-            <h2 className="text-lg font-extrabold">{isCerimonialista ? 'Serviços da cerimonialista' : 'Serviços oferecidos'}</h2>
+            <h2 className="text-lg font-extrabold">
+              {isCerimonialista
+                ? 'Serviços da cerimonialista'
+                : 'Serviços oferecidos'}
+            </h2>
 
             <div className="mt-3 flex flex-wrap gap-2">
-              {services.map((service) => (
-                <span
-                  key={service}
-                  className="rounded-full bg-white px-4 py-2 text-xs font-bold text-gray-700 shadow-sm ring-1 ring-[#f1e7cf]"
-                >
-                  {service}
-                </span>
-              ))}
+              {services.map(
+                (service) => (
+                  <span
+                    key={service}
+                    className="rounded-full bg-white px-4 py-2 text-xs font-bold text-gray-700 shadow-sm ring-1 ring-[#f1e7cf]"
+                  >
+                    {service}
+                  </span>
+                )
+              )}
             </div>
           </div>
 
-          {/* GALERIA */}
           <div className="mt-6">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-lg font-extrabold">Galeria</h2>
+              <h2 className="text-lg font-extrabold">
+                Galeria
+              </h2>
 
               <span className="flex items-center gap-1 text-xs font-bold text-[#d99200]">
                 <ImageIcon size={15} />
@@ -652,67 +1046,66 @@ export default function FornecedorPage() {
             </div>
 
             <div className="grid grid-cols-3 gap-3">
-              {gallery.map((img: string) => {
-                const isVideo = isVideoUrl(img);
+              {gallery.map(
+                (img: string) => {
+                  const isVideo =
+                    isVideoUrl(img);
 
-                return (
-                  <button
-                    key={img}
-                    type="button"
-                    onClick={() => setSelectedMedia(img)}
-                    className="group relative h-28 w-full overflow-hidden rounded-[20px] bg-[#151515] shadow-sm"
-                  >
-                    {isVideo ? (
-                      <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-[#151515] via-[#2a2110] to-[#d99200] px-2 text-center text-white">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-[#d99200] shadow-lg">
-                          <Video size={22} />
-                        </div>
+                  return (
+                    <button
+                      key={img}
+                      type="button"
+                      onClick={() =>
+                        setSelectedMedia(img)
+                      }
+                      className="group relative h-28 w-full overflow-hidden rounded-[20px] bg-[#151515] shadow-sm"
+                    >
+                      {isVideo ? (
+                        <PublicVideoThumbnail
+                          url={img}
+                        />
+                      ) : (
+                        <img
+                          src={img}
+                          alt="Galeria do fornecedor"
+                          className="h-full w-full object-cover transition group-hover:scale-105"
+                        />
+                      )}
 
-                        <p className="mt-2 text-[10px] font-extrabold">
-                          Vídeo
-                        </p>
+                      <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/15" />
 
-                        <p className="mt-0.5 text-[9px] font-bold text-white/75">
-                          Assistir
-                        </p>
-                      </div>
-                    ) : (
-                      <img
-                        src={img}
-                        alt="Galeria do fornecedor"
-                        className="h-full w-full object-cover transition group-hover:scale-105"
-                      />
-                    )}
-
-                    <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/15" />
-
-                    <span className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-black/65 px-2 py-1 text-[9px] font-extrabold text-white">
-                      Ampliar
-                    </span>
-
-                    {isVideo && (
-                      <span className="absolute right-2 top-2 rounded-full bg-black/65 px-2 py-1 text-[9px] font-extrabold text-white">
-                        Vídeo
+                      <span className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-black/65 px-2 py-1 text-[9px] font-extrabold text-white">
+                        Ampliar
                       </span>
-                    )}
-                  </button>
-                );
-              })}
+
+                      {isVideo && (
+                        <span className="absolute right-2 top-2 rounded-full bg-black/65 px-2 py-1 text-[9px] font-extrabold text-white">
+                          Vídeo
+                        </span>
+                      )}
+                    </button>
+                  );
+                }
+              )}
             </div>
           </div>
 
-          {/* CTA PRINCIPAL */}
           <div className="mt-7 space-y-3">
             {canReceiveQuote ? (
               <Link
                 href={getQuoteLink()}
                 className="flex items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg"
               >
-                <MessageCircle size={22} />
+                <MessageCircle
+                  size={22}
+                />
+
                 {selectedCity
                   ? isCerimonialista
-                    ? `Solicitar proposta em ${selectedCity}`
-                    : `Solicitar orçamento em ${selectedCity}`
+                    ? 'Solicitar proposta em ' +
+                      selectedCity
+                    : 'Solicitar orçamento em ' +
+                      selectedCity
                   : isCerimonialista
                     ? 'Solicitar proposta'
                     : 'Solicitar orçamento'}
@@ -723,33 +1116,48 @@ export default function FornecedorPage() {
                 disabled
                 className="flex w-full items-center justify-center gap-2 rounded-[22px] bg-gray-300 py-4 text-center font-extrabold text-gray-600 shadow-sm"
               >
-                <MessageCircle size={22} />
+                <MessageCircle
+                  size={22}
+                />
+
                 Solicitação indisponível
               </button>
             )}
 
             <button
               type="button"
-              onClick={handleSaveSupplier}
+              onClick={
+                handleSaveSupplier
+              }
               disabled={saving}
-              className={`flex w-full items-center justify-center gap-2 rounded-[22px] py-4 text-center font-extrabold shadow-lg disabled:opacity-60 ${
-                saved
+              className={
+                'flex w-full items-center justify-center gap-2 rounded-[22px] py-4 text-center font-extrabold shadow-lg disabled:opacity-60 ' +
+                (saved
                   ? 'bg-green-600 text-white'
-                  : 'bg-black text-white'
-              }`}
+                  : 'bg-black text-white')
+              }
             >
               {saved ? (
                 <>
-                  <CheckCircle2 size={22} />
+                  <CheckCircle2
+                    size={22}
+                  />
+
                   {isCerimonialistaMode
-                    ? `${publicTypeLabel} salva no evento`
+                    ? publicTypeLabel +
+                      ' salva no evento'
                     : 'Salvo no Meu Evento'}
                 </>
               ) : (
                 <>
-                  <CalendarDays size={22} />
+                  <CalendarDays
+                    size={22}
+                  />
+
                   {isCerimonialistaMode
-                    ? `Salvar ${publicTypeLabel.toLowerCase()} no evento`
+                    ? 'Salvar ' +
+                      publicTypeLabel.toLowerCase() +
+                      ' no evento'
                     : 'Salvar no Meu Evento'}
                 </>
               )}
@@ -759,7 +1167,11 @@ export default function FornecedorPage() {
               href={whatsappLink}
               className="flex items-center justify-center gap-2 rounded-[22px] bg-white py-4 text-center font-extrabold text-[#151515] shadow-sm ring-1 ring-[#f1e7cf]"
             >
-              <Phone size={22} className="text-[#d99200]" />
+              <Phone
+                size={22}
+                className="text-[#d99200]"
+              />
+
               Chamar no WhatsApp
             </a>
 
@@ -773,44 +1185,50 @@ export default function FornecedorPage() {
         </section>
       </div>
 
-        {selectedMedia && (
-          <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/90 px-4">
+      {selectedMedia && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/90 px-4">
+          <button
+            type="button"
+            onClick={() =>
+              setSelectedMedia('')
+            }
+            className="absolute right-5 top-5 flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur"
+          >
+            <X size={24} />
+          </button>
+
+          <div className="w-full max-w-[430px]">
+            <div className="overflow-hidden rounded-[28px] bg-[#151515] shadow-2xl">
+              {isVideoUrl(
+                selectedMedia
+              ) ? (
+                <video
+                  src={selectedMedia}
+                  className="max-h-[78vh] w-full object-contain"
+                  controls
+                  autoPlay
+                />
+              ) : (
+                <img
+                  src={selectedMedia}
+                  alt="Mídia ampliada"
+                  className="max-h-[78vh] w-full object-contain"
+                />
+              )}
+            </div>
+
             <button
               type="button"
-              onClick={() => setSelectedMedia('')}
-              className="absolute right-5 top-5 flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur"
+              onClick={() =>
+                setSelectedMedia('')
+              }
+              className="mt-4 flex w-full items-center justify-center rounded-[22px] bg-[#e3a925] py-4 text-sm font-extrabold text-white shadow-lg"
             >
-              <X size={24} />
+              Fechar visualização
             </button>
-
-            <div className="w-full max-w-[430px]">
-              <div className="overflow-hidden rounded-[28px] bg-[#151515] shadow-2xl">
-                {isVideoUrl(selectedMedia) ? (
-                  <video
-                    src={selectedMedia}
-                    className="max-h-[78vh] w-full object-contain"
-                    controls
-                    autoPlay
-                  />
-                ) : (
-                  <img
-                    src={selectedMedia}
-                    alt="Mídia ampliada"
-                    className="max-h-[78vh] w-full object-contain"
-                  />
-                )}
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setSelectedMedia('')}
-                className="mt-4 flex w-full items-center justify-center rounded-[22px] bg-[#e3a925] py-4 text-sm font-extrabold text-white shadow-lg"
-              >
-                Fechar visualização
-              </button>
-            </div>
           </div>
-        )}
+        </div>
+      )}
     </main>
   );
 }
