@@ -205,12 +205,18 @@ function getPlanPriceLabel(
 export default function PlanosFornecedorPage() {
   const [supplier, setSupplier] = useState<any>(null);
   const [subscription, setSubscription] = useState<any>(null);
+  const [contractAcceptance, setContractAcceptance] =
+    useState<any>(null);
+
   const [loading, setLoading] = useState(true);
   const [requestingPlan, setRequestingPlan] = useState('');
+
   const [selectedBilling, setSelectedBilling] =
     useState<BillingPeriod>('mensal');
+
   const [contractAccepted, setContractAccepted] =
     useState(false);
+
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [paymentMessage, setPaymentMessage] = useState('');
@@ -240,6 +246,8 @@ export default function PlanosFornecedorPage() {
       if (!user) {
         setSupplier(null);
         setSubscription(null);
+        setContractAcceptance(null);
+        setContractAccepted(false);
         setPaymentMessage('');
 
         setErrorMessage(
@@ -266,6 +274,8 @@ export default function PlanosFornecedorPage() {
       if (!supplierData?.id) {
         setSupplier(null);
         setSubscription(null);
+        setContractAcceptance(null);
+        setContractAccepted(false);
         setPaymentMessage('');
 
         setErrorMessage(
@@ -308,8 +318,44 @@ export default function PlanosFornecedorPage() {
         );
       }
 
+      const {
+        data: acceptanceData,
+        error: acceptanceError,
+      } = await supabase
+        .from('supplier_contract_acceptances')
+        .select('*')
+        .eq('supplier_id', supplierData.id)
+        .order('accepted_at', {
+          ascending: false,
+        })
+        .limit(1);
+
+      if (acceptanceError) {
+        console.error(
+          'Erro ao carregar aceite do contrato:',
+          acceptanceError
+        );
+
+        setContractAcceptance(null);
+        setContractAccepted(false);
+      } else {
+        const latestAcceptance =
+          acceptanceData?.[0] || null;
+
+        setContractAcceptance(latestAcceptance);
+
+        setContractAccepted(
+          Boolean(latestAcceptance?.id)
+        );
+      }
+
+      const currentPlan =
+        currentSubscription?.plan ||
+        currentSubscription?.plan_name ||
+        '';
+
       const isPremiumActive =
-        currentSubscription?.plan === 'premium' &&
+        currentPlan === 'premium' &&
         currentSubscription?.status === 'ativo';
 
       if (pagamento === 'sucesso') {
@@ -354,7 +400,13 @@ export default function PlanosFornecedorPage() {
     period: BillingPeriod
   ) {
     setSelectedBilling(period);
-    setContractAccepted(false);
+
+    if (contractAcceptance?.id) {
+      setContractAccepted(true);
+    } else {
+      setContractAccepted(false);
+    }
+
     setErrorMessage('');
     setSuccessMessage('');
   }
@@ -448,7 +500,7 @@ export default function PlanosFornecedorPage() {
             : null,
         ip_address: null,
       })
-      .select('id')
+      .select('*')
       .single();
 
     if (acceptanceError) {
@@ -461,6 +513,9 @@ export default function PlanosFornecedorPage() {
         `Não foi possível registrar o aceite do contrato: ${acceptanceError.message}`
       );
     }
+
+    setContractAcceptance(acceptanceData);
+    setContractAccepted(true);
 
     return acceptanceData;
   }
@@ -527,11 +582,16 @@ export default function PlanosFornecedorPage() {
       setRequestingPlan(planKey);
 
       if (planKey === 'premium') {
-        const acceptance =
-          await saveContractAcceptance(
-            billingPeriod,
-            value
-          );
+        let acceptance =
+          contractAcceptance;
+
+        if (!acceptance?.id) {
+          acceptance =
+            await saveContractAcceptance(
+              billingPeriod,
+              value
+            );
+        }
 
         const response = await fetch(
           '/api/mercadopago/create-checkout',
@@ -666,7 +726,9 @@ export default function PlanosFornecedorPage() {
   }
 
   const currentPlan =
-    subscription?.plan || '';
+    subscription?.plan ||
+    subscription?.plan_name ||
+    '';
 
   const currentStatus =
     subscription?.status || '';
@@ -678,6 +740,9 @@ export default function PlanosFornecedorPage() {
   const dueDate =
     subscription?.due_date ||
     subscription?.expires_at ||
+    subscription?.current_period_end ||
+    subscription?.end_date ||
+    subscription?.ends_at ||
     '';
 
   const hasSubscription = Boolean(
@@ -1139,30 +1204,63 @@ export default function PlanosFornecedorPage() {
                               </Link>
                             </div>
 
-                            <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-[18px] bg-black/30 p-3">
-                              <input
-                                type="checkbox"
-                                checked={
-                                  contractAccepted
-                                }
-                                onChange={(event) =>
-                                  setContractAccepted(
-                                    event.target
-                                      .checked
-                                  )
-                                }
-                                className="mt-1 h-5 w-5 shrink-0 accent-[#e3a925]"
-                              />
+                            {contractAcceptance?.id ? (
+                              <div className="mt-4 rounded-[18px] bg-green-500/15 p-4 ring-1 ring-green-400/25">
+                                <div className="flex items-start gap-3">
+                                  <CheckCircle2
+                                    size={22}
+                                    className="mt-0.5 shrink-0 text-green-400"
+                                  />
 
-                              <span className="text-xs font-bold leading-5 text-white/80">
-                                Li e aceito o Contrato do Fornecedor, versão{' '}
-                                {CONTRACT_VERSION}, e os Termos de Uso do REIM EVENTOS.
-                              </span>
-                            </label>
+                                  <div>
+                                    <p className="text-sm font-extrabold text-green-300">
+                                      Contrato aceito
+                                    </p>
+
+                                    <p className="mt-1 text-xs leading-5 text-white/70">
+                                      Aceite registrado em{' '}
+                                      {formatDate(
+                                        contractAcceptance.accepted_at ||
+                                          contractAcceptance.created_at
+                                      )}
+                                      .
+                                    </p>
+
+                                    {contractAcceptance.accepted_by_email && (
+                                      <p className="mt-1 break-all text-[11px] leading-5 text-white/50">
+                                        {contractAcceptance.accepted_by_email}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-[18px] bg-black/30 p-3">
+                                <input
+                                  type="checkbox"
+                                  checked={
+                                    contractAccepted
+                                  }
+                                  onChange={(event) =>
+                                    setContractAccepted(
+                                      event.target
+                                        .checked
+                                    )
+                                  }
+                                  className="mt-1 h-5 w-5 shrink-0 accent-[#e3a925]"
+                                />
+
+                                <span className="text-xs font-bold leading-5 text-white/80">
+                                  Li e aceito o Contrato do Fornecedor, versão{' '}
+                                  {CONTRACT_VERSION}, e os Termos de Uso do REIM EVENTOS.
+                                </span>
+                              </label>
+                            )}
 
                             {!contractAccepted &&
                               !isActive &&
-                              !isPending && (
+                              !isPending &&
+                              !contractAcceptance?.id && (
                                 <p className="mt-3 text-center text-[11px] font-bold text-[#f7d67b]">
                                   Marque a caixa acima para liberar o pagamento.
                                 </p>
