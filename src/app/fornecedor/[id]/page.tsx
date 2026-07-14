@@ -27,7 +27,6 @@ import {
   Share2,
   ShieldCheck,
   Star,
-  Video,
   X,
 } from 'lucide-react';
 
@@ -185,6 +184,18 @@ function getGallery(supplier: any) {
   ];
 }
 
+function getSupplierServices(supplier: any) {
+  if (!Array.isArray(supplier?.services)) {
+    return [];
+  }
+
+  return supplier.services
+    .map((service: any) =>
+      String(service || '').trim()
+    )
+    .filter(Boolean);
+}
+
 function formatPrice(value: any) {
   if (!value) return 'Sob consulta';
 
@@ -238,14 +249,18 @@ function getServiceCities(supplier: any) {
   return Array.from(
     new Set(
       [mainCity, ...cities]
-        .map((item: any) => String(item || '').trim())
+        .map((item: any) =>
+          String(item || '').trim()
+        )
         .filter(Boolean)
     )
   );
 }
 
 function getCategoryName(supplier: any) {
-  if (!supplier) return 'Categoria não informada';
+  if (!supplier) {
+    return 'Categoria não informada';
+  }
 
   if (Array.isArray(supplier.categories)) {
     return (
@@ -273,80 +288,13 @@ function isCerimonialistaCategory(
   );
 }
 
-function getServices(categoryName: string) {
-  const normalized =
-    categoryName.toLowerCase();
-
-  if (
-    isCerimonialistaCategory(categoryName)
-  ) {
-    return [
-      'Organização do evento',
-      'Acompanhamento da cliente',
-      'Contato com fornecedores',
-      'Roteiro do evento',
-      'Cerimonial do dia',
-      'Assessoria personalizada',
-    ];
-  }
-
-  if (
-    normalized.includes('foto') ||
-    normalized.includes('film')
-  ) {
-    return [
-      'Casamentos',
-      'Aniversários',
-      'Eventos corporativos',
-      'Ensaio pré-evento',
-      'Filmagem',
-      'Álbum digital',
-    ];
-  }
-
-  if (normalized.includes('buffet')) {
-    return [
-      'Casamentos',
-      'Aniversários',
-      'Eventos corporativos',
-      'Jantar',
-      'Coquetel',
-      'Coffee break',
-    ];
-  }
-
-  if (
-    normalized.includes('totem') ||
-    normalized.includes('cabine')
-  ) {
-    return [
-      'Totem fotográfico',
-      'Cabine de fotos',
-      'Fotos impressas',
-      'Aniversários',
-      'Casamentos',
-      'Eventos corporativos',
-    ];
-  }
-
-  return [
-    'Casamentos',
-    'Aniversários',
-    'Eventos corporativos',
-    'Debutantes',
-    'Eventos sociais',
-    'Serviço personalizado',
-  ];
-}
-
 function getPublicSupplierTag(
   visibility: any,
   supplier: any,
   isCerimonialista: boolean
 ) {
   if (
-    visibility?.public_badge ===
-    'novo_no_reim'
+    visibility?.public_badge === 'novo_no_reim'
   ) {
     return 'Novo no REIM';
   }
@@ -434,6 +382,7 @@ export default function FornecedorPage() {
           setErrorMessage(
             'Vitrine não informada.'
           );
+
           return;
         }
 
@@ -467,6 +416,7 @@ export default function FornecedorPage() {
           setErrorMessage(
             'Vitrine não encontrada no Supabase.'
           );
+
           return;
         }
 
@@ -558,6 +508,7 @@ export default function FornecedorPage() {
         setSaveMessage(
           'Fornecedor não identificado.'
         );
+
         return;
       }
 
@@ -625,9 +576,7 @@ export default function FornecedorPage() {
     const cityParam =
       selectedCity
         ? '&cidade=' +
-          encodeURIComponent(
-            selectedCity
-          )
+          encodeURIComponent(selectedCity)
         : '';
 
     if (isCerimonialistaMode) {
@@ -691,10 +640,6 @@ export default function FornecedorPage() {
                 'Não foi possível carregar esse fornecedor.'}
             </p>
 
-            <p className="mt-3 rounded-2xl bg-[#fbf7f1] p-3 text-xs font-bold text-gray-500">
-              ID: {supplierId}
-            </p>
-
             <Link
               href={returnUrl}
               className="mt-5 block rounded-[22px] bg-[#e3a925] py-3 text-sm font-extrabold text-white"
@@ -743,8 +688,8 @@ export default function FornecedorPage() {
   const description =
     supplier.description ||
     (isCerimonialista
-      ? 'Cerimonialista cadastrada no REIM EVENTOS. Solicite uma proposta para saber mais sobre acompanhamento, organização, disponibilidade e valores.'
-      : 'Fornecedor cadastrado no REIM EVENTOS. Solicite um orçamento para saber mais detalhes sobre serviços, disponibilidade e valores.');
+      ? 'Cerimonialista cadastrada no REIM EVENTOS.'
+      : 'Fornecedor cadastrado no REIM EVENTOS.');
 
   const coverImage =
     getCoverImage(supplier);
@@ -753,7 +698,7 @@ export default function FornecedorPage() {
     getGallery(supplier);
 
   const services =
-    getServices(categoryName);
+    getSupplierServices(supplier);
 
   const whatsappLink =
     formatWhatsAppLink(
@@ -802,9 +747,7 @@ export default function FornecedorPage() {
 
               <button
                 type="button"
-                onClick={
-                  handleSaveSupplier
-                }
+                onClick={handleSaveSupplier}
                 disabled={saving}
                 className={
                   'flex h-12 w-12 items-center justify-center rounded-full shadow-xl ' +
@@ -902,72 +845,13 @@ export default function FornecedorPage() {
                   (cityName) => (
                     <span
                       key={cityName}
-                      className={
-                        selectedCity &&
-                        cityName === selectedCity
-                          ? 'rounded-full bg-[#e3a925] px-3 py-1 text-xs font-extrabold text-white'
-                          : 'rounded-full bg-[#fff7e8] px-3 py-1 text-xs font-extrabold text-[#7a5200]'
-                      }
+                      className="rounded-full bg-[#fff7e8] px-3 py-1 text-xs font-extrabold text-[#7a5200]"
                     >
                       {cityName}
                     </span>
                   )
                 )}
               </div>
-
-              {selectedCity &&
-                serviceCities.includes(
-                  selectedCity
-                ) && (
-                  <p className="mt-3 rounded-2xl bg-green-50 px-3 py-2 text-xs font-bold text-green-700">
-                    Este fornecedor atende{' '}
-                    {selectedCity}.
-                  </p>
-                )}
-            </div>
-          )}
-
-          {publicVisibility?.public_badge ===
-            'novo_no_reim' && (
-            <div className="mt-4 rounded-2xl bg-[#fff7e8] px-4 py-3 text-sm leading-5 text-[#7a5200] ring-1 ring-[#f1e7cf]">
-              <p className="font-extrabold">
-                Novo fornecedor no REIM
-              </p>
-
-              <p className="mt-1">
-                Este fornecedor está em fase inicial na plataforma. Aguarde a confirmação de disponibilidade após solicitar o orçamento.
-              </p>
-            </div>
-          )}
-
-          {!canReceiveQuote && (
-            <div className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm leading-5 text-red-700 ring-1 ring-red-100">
-              <p className="font-extrabold">
-                Fornecedor indisponível no momento
-              </p>
-
-              <p className="mt-1">
-                Esta vitrine não está recebendo novas solicitações de orçamento agora.
-              </p>
-            </div>
-          )}
-
-          {isCerimonialista &&
-            !isCerimonialistaMode && (
-              <div className="mt-4 rounded-2xl bg-[#fff7e8] px-4 py-3 text-sm leading-5 text-[#7a5200] ring-1 ring-[#f1e7cf]">
-                <p className="font-extrabold">
-                  Perfil profissional de cerimonialista
-                </p>
-
-                <p className="mt-1">
-                  Essa vitrine mostra a profissional que pode acompanhar seu evento, organizar fornecedores e apoiar a cliente nos orçamentos.
-                </p>
-              </div>
-            )}
-
-          {isCerimonialistaMode && (
-            <div className="mt-4 rounded-2xl bg-[#151515] px-4 py-3 text-sm font-bold text-white">
-              Modo cerimonialista: alterações serão salvas no evento da cliente.
             </div>
           )}
 
@@ -1012,26 +896,26 @@ export default function FornecedorPage() {
             </p>
           </div>
 
-          <div className="mt-6">
-            <h2 className="text-lg font-extrabold">
-              {isCerimonialista
-                ? 'Serviços da cerimonialista'
-                : 'Serviços oferecidos'}
-            </h2>
+          {services.length > 0 && (
+            <div className="mt-6">
+              <h2 className="text-lg font-extrabold">
+                Serviços oferecidos
+              </h2>
 
-            <div className="mt-3 flex flex-wrap gap-2">
-              {services.map(
-                (service) => (
-                  <span
-                    key={service}
-                    className="rounded-full bg-white px-4 py-2 text-xs font-bold text-gray-700 shadow-sm ring-1 ring-[#f1e7cf]"
-                  >
-                    {service}
-                  </span>
-                )
-              )}
+              <div className="mt-3 flex flex-wrap gap-2">
+                {services.map(
+                  (service: string) => (
+                    <span
+                      key={service}
+                      className="rounded-full bg-white px-4 py-2 text-xs font-bold text-gray-700 shadow-sm ring-1 ring-[#f1e7cf]"
+                    >
+                      {service}
+                    </span>
+                  )
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="mt-6">
             <div className="mb-3 flex items-center justify-between">
@@ -1072,8 +956,6 @@ export default function FornecedorPage() {
                         />
                       )}
 
-                      <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/15" />
-
                       <span className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-black/65 px-2 py-1 text-[9px] font-extrabold text-white">
                         Ampliar
                       </span>
@@ -1096,19 +978,8 @@ export default function FornecedorPage() {
                 href={getQuoteLink()}
                 className="flex items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg"
               >
-                <MessageCircle
-                  size={22}
-                />
-
-                {selectedCity
-                  ? isCerimonialista
-                    ? 'Solicitar proposta em ' +
-                      selectedCity
-                    : 'Solicitar orçamento em ' +
-                      selectedCity
-                  : isCerimonialista
-                    ? 'Solicitar proposta'
-                    : 'Solicitar orçamento'}
+                <MessageCircle size={22} />
+                Solicitar orçamento
               </Link>
             ) : (
               <button
@@ -1116,19 +987,14 @@ export default function FornecedorPage() {
                 disabled
                 className="flex w-full items-center justify-center gap-2 rounded-[22px] bg-gray-300 py-4 text-center font-extrabold text-gray-600 shadow-sm"
               >
-                <MessageCircle
-                  size={22}
-                />
-
+                <MessageCircle size={22} />
                 Solicitação indisponível
               </button>
             )}
 
             <button
               type="button"
-              onClick={
-                handleSaveSupplier
-              }
+              onClick={handleSaveSupplier}
               disabled={saving}
               className={
                 'flex w-full items-center justify-center gap-2 rounded-[22px] py-4 text-center font-extrabold shadow-lg disabled:opacity-60 ' +
@@ -1139,26 +1005,13 @@ export default function FornecedorPage() {
             >
               {saved ? (
                 <>
-                  <CheckCircle2
-                    size={22}
-                  />
-
-                  {isCerimonialistaMode
-                    ? publicTypeLabel +
-                      ' salva no evento'
-                    : 'Salvo no Meu Evento'}
+                  <CheckCircle2 size={22} />
+                  Salvo no Meu Evento
                 </>
               ) : (
                 <>
-                  <CalendarDays
-                    size={22}
-                  />
-
-                  {isCerimonialistaMode
-                    ? 'Salvar ' +
-                      publicTypeLabel.toLowerCase() +
-                      ' no evento'
-                    : 'Salvar no Meu Evento'}
+                  <CalendarDays size={22} />
+                  Salvar no Meu Evento
                 </>
               )}
             </button>
@@ -1199,9 +1052,7 @@ export default function FornecedorPage() {
 
           <div className="w-full max-w-[430px]">
             <div className="overflow-hidden rounded-[28px] bg-[#151515] shadow-2xl">
-              {isVideoUrl(
-                selectedMedia
-              ) ? (
+              {isVideoUrl(selectedMedia) ? (
                 <video
                   src={selectedMedia}
                   className="max-h-[78vh] w-full object-contain"
