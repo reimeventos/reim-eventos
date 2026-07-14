@@ -22,6 +22,7 @@ import {
   Loader2,
   MapPin,
   MessageCircle,
+  PackageCheck,
   Phone,
   PlayCircle,
   Share2,
@@ -897,20 +898,39 @@ export default function FornecedorPage() {
           </div>
 
           {services.length > 0 && (
-            <div className="mt-6">
-              <h2 className="text-lg font-extrabold">
-                Serviços oferecidos
-              </h2>
+            <div className="mt-6 overflow-hidden rounded-[26px] bg-white shadow-sm ring-1 ring-[#f1e7cf]">
+              <div className="flex items-center gap-3 border-b border-[#f1e7cf] px-4 py-4">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]">
+                  <PackageCheck size={24} />
+                </div>
 
-              <div className="mt-3 flex flex-wrap gap-2">
+                <div>
+                  <h2 className="text-base font-extrabold text-[#151515]">
+                    Serviços oferecidos
+                  </h2>
+
+                  <p className="mt-0.5 text-[11px] font-bold text-gray-500">
+                    Serviços disponíveis neste fornecedor
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 p-4">
                 {services.map(
                   (service: string) => (
-                    <span
+                    <div
                       key={service}
-                      className="rounded-full bg-white px-4 py-2 text-xs font-bold text-gray-700 shadow-sm ring-1 ring-[#f1e7cf]"
+                      className="flex min-h-[48px] items-center gap-2 rounded-[17px] bg-[#fbf7f1] px-3 py-2.5 ring-1 ring-[#f1e7cf]"
                     >
-                      {service}
-                    </span>
+                      <CheckCircle2
+                        size={15}
+                        className="shrink-0 text-[#d99200]"
+                      />
+
+                      <span className="text-[11px] font-extrabold leading-4 text-[#151515]">
+                        {service}
+                      </span>
+                    </div>
                   )
                 )}
               </div>
