@@ -1,893 +1,2186 @@
 'use client';
 
 import Link from 'next/link';
+import { useParams, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
   ArrowLeft,
-  Bell,
   Building2,
   CalendarDays,
   CheckCircle2,
-  ChevronDown,
-  ChevronRight,
-  Clock,
+  Download,
   FileText,
   MapPin,
   MessageCircle,
-  Send,
-  Search,
+  RefreshCcw,
   ShieldCheck,
-  Trash2,
+  Star,
   User,
 } from 'lucide-react';
+import {
+  acceptQuoteResponse,
+  getQuoteResponseByRequestId,
+  requestQuoteAdjustment,
+} from '@/lib/suppliers';
 import { supabase } from '@/lib/supabase';
 
-export default function OrcamentosPage() {
-  const [orcamentos, setOrcamentos] = useState<any[]>([]);
-  const [expandedOrcamentoId, setExpandedOrcamentoId] = useState('');
+function isCerimonialistaCategory(categoryName?: string) {
+  const normalized = String(categoryName || '').toLowerCase();
+
+  return (
+    normalized.includes('cerimonial') ||
+    normalized.includes('cerimonialista') ||
+    normalized.includes('assessoria')
+  );
+}
+
+function cityAttendanceText(city: string) {
+  if (!city || city === 'Cidade não informada') {
+    return 'Cidade do evento não informada';
+  }
+
+  return `Orçamento para atendimento em ${city}`;
+}
+
+function getCityFromOriginOrUrl(origin: any, cityFromUrl: string) {
+  return cityFromUrl || origin?.event_city || origin?.city || 'Cidade não informada';
+}
+
+function getOriginInfo(origin: any) {
+  const role = origin?.created_by_role || 'cliente';
+  const name = origin?.created_by_name || '';
+  const email = origin?.created_by_email || '';
+
+  if (role === 'cerimonialista') {
+    return {
+      label: 'Solicitado pela cerimonialista',
+      detail: name || email || 'Cerimonialista',
+      description:
+        'Este orçamento foi solicitado por uma cerimonialista autorizada pela cliente.',
+      icon: ShieldCheck,
+      className: 'bg-green-50 text-green-700 ring-green-100',
+    };
+  }
+
+  if (role === 'cliente_lote') {
+    return {
+      label: 'Enviado em lote pela cliente',
+      detail: name || email || 'Cliente',
+      description:
+        'Este orçamento veio do botão “Solicitar orçamento para todos”.',
+      icon: FileText,
+      className: 'bg-blue-50 text-blue-700 ring-blue-100',
+    };
+  }
+
+  return {
+    label: 'Solicitado por você',
+    detail: name || email || 'Cliente',
+    description: 'Este orçamento foi solicitado diretamente pela cliente.',
+    icon: User,
+    className: 'bg-[#fff7e8] text-[#b97900] ring-[#f1e7cf]',
+  };
+}
+
+
+function ReviewStars({
+  value,
+  onChange,
+  readonly = false,
+  size = 28,
+}: {
+  value: number;
+  onChange?: (value: number) => void;
+  readonly?: boolean;
+  size?: number;
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      {[1, 2, 3, 4, 5].map((star) => {
+        const active = star <= value;
+
+        if (readonly) {
+          return (
+            <Star
+              key={star}
+              size={size}
+              fill={active ? '#e3a925' : 'transparent'}
+              className={active ? 'text-[#e3a925]' : 'text-gray-300'}
+            />
+          );
+        }
+
+        return (
+          <button
+            key={star}
+            type="button"
+            onClick={() => onChange?.(star)}
+            className="transition active:scale-90"
+            aria-label={`Dar ${star} estrela${star > 1 ? 's' : ''}`}
+          >
+            <Star
+              size={size}
+              fill={active ? '#e3a925' : 'transparent'}
+              className={active ? 'text-[#e3a925]' : 'text-gray-300'}
+            />
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+export default function OrcamentoRecebidoPage() {
+  const params = useParams();
+  const searchParams = useSearchParams();
+  const requestId = String(params.id || '');
+  const cityFromUrl = searchParams.get('cidade') || '';
+
+  const [quote, setQuote] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [deletingId, setDeletingId] = useState('');
+  const [accepting, setAccepting] = useState(false);
+  const [adjusting, setAdjusting] = useState(false);
+  const [invitingCerimonial, setInvitingCerimonial] = useState(false);
+  const [cerimonialInviteStatus, setCerimonialInviteStatus] = useState('');
+  const [quoteRequestOrigin, setQuoteRequestOrigin] = useState<any>(null);
+  const [showAdjustmentBox, setShowAdjustmentBox] = useState(false);
+  const [adjustmentNotes, setAdjustmentNotes] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
-  async function loadOrcamentos() {
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [existingReview, setExistingReview] = useState<any>(null);
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [submittingReview, setSubmittingReview] = useState(false);
+
+  const [rating, setRating] = useState(0);
+  const [attendance, setAttendance] = useState(0);
+  const [punctuality, setPunctuality] = useState(0);
+  const [quality, setQuality] = useState(0);
+  const [valueScore, setValueScore] = useState(0);
+  const [reviewComment, setReviewComment] = useState('');
+
+  useEffect(() => {
+    if (!requestId) return;
+
+    async function loadQuote() {
+      try {
+        setLoading(true);
+        setErrorMessage('');
+
+        const data = await getQuoteResponseByRequestId(requestId);
+
+        setQuote(data);
+        setAdjustmentNotes(data?.adjustment_notes || '');
+
+        const { data: originData, error: originError } = await supabase
+          .from('quote_requests')
+          .select('created_by_user_id,created_by_role,created_by_name,created_by_email,event_city,event_type,event_date,event_space,guests_count,service_needed')
+          .eq('id', requestId)
+          .maybeSingle();
+
+        if (originError) {
+          console.error('Erro ao carregar origem do orçamento:', originError);
+          setQuoteRequestOrigin(null);
+        } else {
+          setQuoteRequestOrigin(originData || null);
+        }
+
+        if (data?.status === 'aceito') {
+          await loadCerimonialInviteStatus(data);
+          await loadExistingReview(data);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar orçamento:', error);
+        setErrorMessage(
+          'Orçamento ainda não encontrado ou não respondido pelo fornecedor.'
+        );
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadQuote();
+  }, [requestId, cityFromUrl]);
+
+  async function getMyEvent() {
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData.user;
+
+    if (!user) {
+      throw new Error('Login necessário.');
+    }
+
+    const { data, error } = await supabase
+      .from('events')
+      .select('*')
+      .or(`client_id.eq.${user.id},customer_id.eq.${user.id}`)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data?.id) {
+      throw new Error('Evento do cliente não encontrado.');
+    }
+
+    return {
+      user,
+      event: data,
+    };
+  }
+
+  async function getSupplierWithOwner(supplierId: string) {
+    const { data: supplier, error: supplierError } = await supabase
+      .from('suppliers')
+      .select(`
+        id,
+        business_name,
+        owner_id,
+        categories(name, slug)
+      `)
+      .eq('id', supplierId)
+      .maybeSingle();
+
+    if (supplierError) {
+      throw supplierError;
+    }
+
+    if (!supplier?.id) {
+      throw new Error('Fornecedor não encontrado.');
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id,email,full_name')
+      .eq('id', supplier.owner_id)
+      .maybeSingle();
+
+    if (profileError) {
+      throw profileError;
+    }
+
+    if (!profile?.email) {
+      throw new Error(
+        'Este fornecedor ainda não possui e-mail de perfil vinculado.'
+      );
+    }
+
+    return {
+      supplier,
+      profile,
+    };
+  }
+
+  async function loadCerimonialInviteStatus(quoteData?: any) {
     try {
-      setLoading(true);
-      setErrorMessage('');
-      setSuccessMessage('');
+      const currentQuote = quoteData || quote;
+
+      if (!currentQuote?.supplier_id) return;
+
+      const { event } = await getMyEvent();
+
+      const { data, error } = await supabase
+        .from('event_collaborators')
+        .select('id,status,supplier_id')
+        .eq('event_id', event.id)
+        .eq('supplier_id', currentQuote.supplier_id)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Erro ao verificar convite da cerimonialista:', error);
+        return;
+      }
+
+      setCerimonialInviteStatus(data?.status || '');
+    } catch (error) {
+      console.error('Erro ao carregar status da atuação:', error);
+    }
+  }
+
+
+  async function loadExistingReview(quoteData?: any) {
+    try {
+      const currentQuote = quoteData || quote;
+
+      if (!currentQuote?.supplier_id || !requestId) {
+        setExistingReview(null);
+        return;
+      }
+
+      setReviewLoading(true);
 
       const { data: userData } = await supabase.auth.getUser();
       const user = userData.user;
 
       if (!user) {
-        setOrcamentos([]);
-        setErrorMessage('Faça login para ver seus orçamentos.');
+        setExistingReview(null);
         return;
       }
 
       const { data, error } = await supabase
-        .from('quote_requests')
-        .select(`
-          *,
-          suppliers(
-            id,
-            business_name,
-            city,
-            service_cities,
-            categories(name)
-          ),
-          quote_responses(
-            id,
-            status,
-            service_offered,
-            duration_period,
-            proposal_value,
-            payment_terms,
-            proposal_validity,
-            observations,
-            adjustment_notes,
-            adjustment_requested_at,
-            created_at
-          ),
-          quote_messages(
-            id,
-            sender_type,
-            read_by_client,
-            read_by_supplier,
-            created_at
-          )
-        `)
-        .eq('customer_id', user.id)
-        .order('created_at', { ascending: false });
+        .from('reviews')
+        .select(
+          'id,client_id,supplier_id,event_id,quote_request_id,rating,attendance,punctuality,quality,value_score,comment,supplier_reply,created_at'
+        )
+        .eq('quote_request_id', requestId)
+        .eq('client_id', user.id)
+        .eq('supplier_id', currentQuote.supplier_id)
+        .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
-      setOrcamentos(data || []);
+      setExistingReview(data || null);
+
+      if (data) {
+        setRating(Number(data.rating || 0));
+        setAttendance(Number(data.attendance || 0));
+        setPunctuality(Number(data.punctuality || 0));
+        setQuality(Number(data.quality || 0));
+        setValueScore(Number(data.value_score || 0));
+        setReviewComment(data.comment || '');
+      }
     } catch (error) {
-      console.error('Erro ao carregar orçamentos:', error);
-      setErrorMessage('Não foi possível carregar seus orçamentos.');
+      console.error('Erro ao carregar avaliação:', error);
     } finally {
-      setLoading(false);
+      setReviewLoading(false);
     }
   }
 
-  useEffect(() => {
-    loadOrcamentos();
-  }, []);
+  async function handleSubmitReview() {
+    setErrorMessage('');
+    setSuccessMessage('');
 
-  async function handleDeleteOrcamento(orcamentoId: string) {
-    const confirmed = window.confirm(
-      'Deseja excluir este orçamento? Essa ação removerá a solicitação, mensagens e proposta vinculada.'
-    );
+    if (!quote?.supplier_id || !requestId) {
+      setErrorMessage('Fornecedor ou orçamento não identificado.');
+      return;
+    }
 
-    if (!confirmed) return;
+    if (
+      rating < 1 ||
+      attendance < 1 ||
+      punctuality < 1 ||
+      quality < 1 ||
+      valueScore < 1
+    ) {
+      setErrorMessage('Preencha todas as notas de 1 a 5 estrelas.');
+      return;
+    }
+
+    if (!reviewComment.trim()) {
+      setErrorMessage('Escreva um comentário sobre sua experiência.');
+      return;
+    }
 
     try {
-      setDeletingId(orcamentoId);
-      setErrorMessage('');
-      setSuccessMessage('');
+      setSubmittingReview(true);
 
-      const { error: messagesError } = await supabase
-        .from('quote_messages')
-        .delete()
-        .eq('quote_request_id', orcamentoId);
+      const { user, event } = await getMyEvent();
 
-      if (messagesError) throw messagesError;
+      const { data, error } = await supabase
+        .from('reviews')
+        .insert({
+          client_id: user.id,
+          supplier_id: quote.supplier_id,
+          event_id: event.id,
+          quote_request_id: requestId,
+          rating,
+          attendance,
+          punctuality,
+          quality,
+          value_score: valueScore,
+          comment: reviewComment.trim(),
+        })
+        .select(
+          'id,client_id,supplier_id,event_id,quote_request_id,rating,attendance,punctuality,quality,value_score,comment,supplier_reply,created_at'
+        )
+        .single();
 
-      const { error: responsesError } = await supabase
-        .from('quote_responses')
-        .delete()
-        .eq('quote_request_id', orcamentoId);
+      if (error) {
+        throw error;
+      }
 
-      if (responsesError) throw responsesError;
+      setExistingReview(data);
+      setShowReviewForm(false);
+      setSuccessMessage('Avaliação enviada com sucesso. Obrigado por compartilhar sua experiência!');
+    } catch (error: any) {
+      console.error('Erro ao enviar avaliação:', error);
 
-      const { error: requestError } = await supabase
-        .from('quote_requests')
-        .delete()
-        .eq('id', orcamentoId);
+      if (error?.code === '23505') {
+        setErrorMessage('Este orçamento já possui uma avaliação registrada.');
+      } else {
+        setErrorMessage(
+          error?.message ||
+            'Não foi possível enviar sua avaliação. Tente novamente.'
+        );
+      }
+    } finally {
+      setSubmittingReview(false);
+    }
+  }
 
-      if (requestError) throw requestError;
+  async function handleInviteCerimonialistaToEvent() {
+    setSuccessMessage('');
+    setErrorMessage('');
 
-      setOrcamentos((current) =>
-        current.filter((item) => item.id !== orcamentoId)
+    if (!quote?.supplier_id) {
+      setErrorMessage('Fornecedor não identificado.');
+      return;
+    }
+
+    try {
+      setInvitingCerimonial(true);
+
+      const { user, event } = await getMyEvent();
+      const { supplier, profile } = await getSupplierWithOwner(quote.supplier_id);
+
+      const ownerId = event.customer_id || event.client_id || user.id;
+
+      const ownerName =
+        event.couple_name ||
+        event.event_name ||
+        event.title ||
+        'Cliente';
+
+      const { error } = await supabase.from('event_collaborators').upsert(
+        {
+          event_id: event.id,
+          owner_id: ownerId,
+          owner_email: user.email || '',
+          owner_name: ownerName,
+          collaborator_email: String(profile.email).toLowerCase(),
+          collaborator_name:
+            supplier.business_name ||
+            profile.full_name ||
+            'Cerimonialista',
+          role: 'cerimonialista',
+          status: 'aceito',
+          supplier_id: supplier.id,
+          updated_at: new Date().toISOString(),
+        },
+        {
+          onConflict: 'event_id,collaborator_email',
+        }
       );
 
-      setSuccessMessage('Orçamento excluído com sucesso.');
+      if (error) {
+        throw error;
+      }
+
+      setCerimonialInviteStatus('aceito');
+
+      setSuccessMessage(
+        'Cerimonialista autorizado para atuar neste evento.'
+      );
     } catch (error: any) {
-      console.error('Erro ao excluir orçamento:', error);
+      console.error('Erro ao convidar cerimonialista:', error);
+
       setErrorMessage(
         error?.message ||
-          'Não foi possível excluir este orçamento. Verifique as permissões no Supabase.'
+          'Não foi possível convidar este cerimonialista para atuar no evento.'
       );
     } finally {
-      setDeletingId('');
+      setInvitingCerimonial(false);
     }
   }
 
-  function formatDate(date?: string) {
+  function formatDateTime(date?: string) {
     if (!date) return 'Data não informada';
 
-    const [year, month, day] = date.split('-');
-
-    if (!year || !month || !day) return date;
-
-    return `${day}/${month}/${year}`;
+    return new Date(date).toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
   }
 
-  function cityAttendanceText(city: string) {
-    if (!city || city === 'Cidade não informada') {
-      return 'Cidade do evento não informada';
+  function handleDownloadPdf() {
+    window.print();
+  }
+
+  async function handleAcceptQuote() {
+    setSuccessMessage('');
+    setErrorMessage('');
+
+    if (!quote?.id || !requestId) {
+      setErrorMessage('Orçamento não identificado.');
+      return;
     }
 
-    return `Atendimento em ${city}`;
+    try {
+      setAccepting(true);
+
+      await acceptQuoteResponse({
+        quote_response_id: quote.id,
+        quote_request_id: requestId,
+      });
+
+      const updatedQuote = {
+        ...quote,
+        status: 'aceito',
+      };
+
+      setQuote(updatedQuote);
+      setShowAdjustmentBox(false);
+      setSuccessMessage(
+        `Orçamento aceito com sucesso para atendimento em ${eventCity}! O fornecedor será informado pelo app.`
+      );
+
+      await loadCerimonialInviteStatus(updatedQuote);
+      await loadExistingReview(updatedQuote);
+    } catch (error) {
+      console.error(error);
+      setErrorMessage('Não foi possível aceitar o orçamento. Tente novamente.');
+    } finally {
+      setAccepting(false);
+    }
   }
 
-  function getSupplierServiceCities(supplier: any) {
-    const mainCity = supplier?.city || '';
-    const serviceCities = Array.isArray(supplier?.service_cities)
-      ? supplier.service_cities
-      : [];
+  async function handleRequestAdjustment() {
+    setSuccessMessage('');
+    setErrorMessage('');
 
-    return Array.from(
-      new Set(
-        [mainCity, ...serviceCities]
-          .map((city: any) => String(city || '').trim())
-          .filter(Boolean)
-      )
-    );
-  }
-
-  function supplierAttendsEventCity(supplier: any, city: string) {
-    const selectedCity = String(city || '').trim().toLowerCase();
-
-    if (!selectedCity || selectedCity === 'cidade não informada') return false;
-
-    return getSupplierServiceCities(supplier).some(
-      (item) => item.toLowerCase() === selectedCity
-    );
-  }
-
-  function cityListText(cities: string[]) {
-    if (!cities.length) return 'Cidade não informada';
-
-    return cities.slice(0, 4).join(', ');
-  }
-
-  function hasImportantStatus(item: any) {
-    return ['respondido', 'ajuste_solicitado', 'aceito', 'fechado'].includes(
-      item.status
-    );
-  }
-
-  function getStatusAlertText(status?: string) {
-    if (status === 'respondido') return 'O fornecedor respondeu sua solicitação.';
-    if (status === 'ajuste_solicitado') return 'Existe um ajuste solicitado neste orçamento.';
-    if (status === 'aceito' || status === 'fechado') return 'Este orçamento foi aceito.';
-    return '';
-  }
-
-  function statusLabel(status?: string) {
-    if (status === 'aguardando_resposta') return 'Aguardando';
-    if (status === 'novo') return 'Aguardando';
-    if (status === 'respondido') return 'Respondido';
-    if (status === 'ajuste_solicitado') return 'Ajuste solicitado';
-    if (status === 'aceito') return 'Aceito';
-    if (status === 'fechado') return 'Fechado';
-    return 'Aguardando';
-  }
-
-  function statusClass(status?: string) {
-    if (status === 'respondido') return 'bg-blue-50 text-blue-700 ring-blue-100';
-
-    if (status === 'ajuste_solicitado') {
-      return 'bg-yellow-100 text-yellow-800 ring-yellow-200';
+    if (!quote?.id || !requestId) {
+      setErrorMessage('Orçamento não identificado.');
+      return;
     }
 
-    if (status === 'aceito' || status === 'fechado') {
-      return 'bg-green-100 text-green-700 ring-green-200';
+    if (!adjustmentNotes.trim()) {
+      setErrorMessage('Descreva o ajuste que você deseja solicitar.');
+      return;
     }
 
-    return 'bg-[#fff7e8] text-[#b97900] ring-[#f1e7cf]';
-  }
+    try {
+      setAdjusting(true);
 
-  function statusIcon(status?: string) {
-    if (status === 'aceito' || status === 'fechado') return CheckCircle2;
-    if (status === 'respondido') return FileText;
-    return Clock;
-  }
+      await requestQuoteAdjustment({
+        quote_response_id: quote.id,
+        quote_request_id: requestId,
+        adjustment_notes: adjustmentNotes,
+      });
 
-  function getSupplierCategory(item: any) {
-    const category = item.suppliers?.categories;
+      setQuote({
+        ...quote,
+        status: 'ajuste_solicitado',
+        adjustment_notes: adjustmentNotes,
+        adjustment_requested_at: new Date().toISOString(),
+      });
 
-    if (Array.isArray(category)) {
-      return category[0]?.name || item.service_needed || 'Fornecedor de eventos';
+      setSuccessMessage(
+        `Solicitação de ajuste enviada com sucesso para atendimento em ${eventCity}! O fornecedor poderá revisar a proposta.`
+      );
+    } catch (error) {
+      console.error(error);
+      setErrorMessage('Não foi possível solicitar ajuste. Tente novamente.');
+    } finally {
+      setAdjusting(false);
     }
-
-    return category?.name || item.service_needed || 'Fornecedor de eventos';
   }
 
-  function isBatchQuote(item: any) {
-    const role = String(item.created_by_role || '').toLowerCase();
-    const origin = String(
-      item.origin || item.request_origin || item.source || item.created_origin || ''
-    ).toLowerCase();
-    const notes = String(item.notes || '').toLowerCase();
+  const supplierName = quote?.suppliers?.business_name || 'Fornecedor';
+  const supplierCity = quote?.suppliers?.city || 'Cidade não informada';
+  const supplierCategory =
+    quote?.suppliers?.categories?.name || 'Fornecedor de eventos';
+  const supplierWhatsapp = quote?.suppliers?.whatsapp || '';
+  const supplierInstagram = quote?.suppliers?.instagram || '';
+  const eventCity = getCityFromOriginOrUrl(quoteRequestOrigin, cityFromUrl);
+  const eventType = quoteRequestOrigin?.event_type || 'Evento não informado';
+  const eventDate = quoteRequestOrigin?.event_date
+    ? formatDateTime(quoteRequestOrigin.event_date)
+    : 'Data não informada';
+  const eventSpace = quoteRequestOrigin?.event_space || 'Espaço não informado';
+  const guestsCount = quoteRequestOrigin?.guests_count || 'Não informado';
 
-    return (
-      role === 'cliente_lote' ||
-      role === 'lote' ||
-      origin === 'lote' ||
-      origin === 'batch' ||
-      item.sent_in_batch === true ||
-      notes.includes('enviado em lote') ||
-      notes.includes('orçamento para todos') ||
-      notes.includes('orcamento para todos')
-    );
+  const quoteStatus = quote?.status || 'enviado';
+  const isAccepted = quoteStatus === 'aceito';
+  const isAdjustmentRequested = quoteStatus === 'ajuste_solicitado';
+  const isCerimonialista = isCerimonialistaCategory(supplierCategory);
+  const isCerimonialAlreadyAuthorized = cerimonialInviteStatus === 'aceito';
+
+  const budgetCode = requestId
+    ? `ORC-${requestId.slice(0, 8).toUpperCase()}`
+    : 'ORC-REIM';
+
+  function statusLabel() {
+    if (isAccepted) return 'Aceito';
+    if (isAdjustmentRequested) return 'Ajuste solicitado';
+    return 'Respondido';
   }
 
-  function getOriginInfo(item: any) {
-    const role = item.created_by_role || 'cliente';
-    const name = item.created_by_name || '';
-    const email = item.created_by_email || '';
-
-    if (role === 'cerimonialista') {
+  function statusColors() {
+    if (isAccepted) {
       return {
-        label: 'Cerimonialista',
-        detail: name || email || 'Cerimonialista autorizada',
-        icon: ShieldCheck,
-        className: 'bg-green-50 text-green-700 ring-green-100',
+        bg: '#dcfce7',
+        color: '#166534',
+        border: '#86efac',
       };
     }
 
-    if (isBatchQuote(item)) {
+    if (isAdjustmentRequested) {
       return {
-        label: 'Enviado em lote',
-        detail: 'Solicitar orçamento para todos',
-        icon: Send,
-        className: 'bg-blue-50 text-blue-700 ring-blue-100',
+        bg: '#fef9c3',
+        color: '#854d0e',
+        border: '#fde68a',
       };
     }
 
     return {
-      label: 'Você',
-      detail: name || email || 'Solicitado por você',
-      icon: User,
-      className: 'bg-[#fff7e8] text-[#b97900] ring-[#f1e7cf]',
+      bg: '#e8fff2',
+      color: '#166534',
+      border: '#bbf7d0',
     };
   }
 
-  function getLatestResponse(item: any) {
-    const responses = item.quote_responses || [];
-
-    const sortedResponses = [...responses].sort((a, b) => {
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    });
-
-    return sortedResponses[0] || null;
-  }
-
-  function countUnreadMessages(item: any) {
-    const messages = item.quote_messages || [];
-
-    return messages.filter(
-      (message: any) =>
-        message.sender_type !== 'cliente' &&
-        message.read_by_client === false
-    ).length;
-  }
-
-  const totalUnreadMessages = orcamentos.reduce((total, item) => {
-    return total + countUnreadMessages(item);
-  }, 0);
-
-  const respondedCount = orcamentos.filter(
-    (item) => item.status === 'respondido'
-  ).length;
-
-  const acceptedCount = orcamentos.filter(
-    (item) => item.status === 'aceito' || item.status === 'fechado'
-  ).length;
-
-  const adjustmentCount = orcamentos.filter(
-    (item) => item.status === 'ajuste_solicitado'
-  ).length;
-
-  const importantStatusCount = orcamentos.filter((item) =>
-    hasImportantStatus(item)
-  ).length;
-
-  const cerimonialistaCount = orcamentos.filter(
-    (item) => item.created_by_role === 'cerimonialista'
-  ).length;
-
-  const batchCount = orcamentos.filter((item) => isBatchQuote(item)).length;
+  const printStatus = statusColors();
+  const originInfo = getOriginInfo(quoteRequestOrigin);
+  const OriginIcon = originInfo.icon;
 
   return (
-    <main className="min-h-screen bg-black text-[#151515]">
-      <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] pb-24 shadow-2xl">
-        <section className="relative overflow-hidden rounded-b-[34px] bg-black px-6 pb-8 pt-7 text-white">
-          <div className="absolute inset-0 bg-[url('/layout01-fundo.png')] bg-cover bg-center opacity-45" />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/85 to-black" />
+    <>
+      <style jsx global>{`
+        .print-area {
+          display: none;
+        }
 
-          <div className="relative z-10">
-            <Link
-              href="/perfil"
-              className="inline-flex items-center gap-2 text-sm font-bold text-[#e3a925]"
-            >
-              <ArrowLeft size={17} />
-              Voltar
-            </Link>
+        @media print {
+          @page {
+            size: A4;
+            margin: 0;
+          }
 
-            <div className="mt-6">
-              <p className="text-xs font-bold uppercase tracking-[0.25em] text-[#e3a925]">
-                Meu Evento
-              </p>
+          html,
+          body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+          }
 
-              <h1 className="mt-2 font-serif text-[34px] leading-tight">
-                Meus Orçamentos
+          body * {
+            visibility: hidden !important;
+          }
+
+          .print-area,
+          .print-area * {
+            visibility: visible !important;
+          }
+
+          .print-area {
+            display: block !important;
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            min-height: 100vh !important;
+            background: #ffffff !important;
+            color: #151515 !important;
+            font-family: Arial, Helvetica, sans-serif !important;
+          }
+
+          .screen-area {
+            display: none !important;
+          }
+
+          .print-area > div {
+            min-height: auto !important;
+            padding: 0 34px 16px !important;
+          }
+
+          .print-area header {
+            padding: 16px 34px !important;
+            border-bottom-width: 4px !important;
+          }
+
+          .print-area header > div > div:first-child > div:nth-child(2) {
+            font-size: 28px !important;
+            margin-top: 6px !important;
+          }
+
+          .print-area header > div > div:first-child > div:nth-child(3) {
+            font-size: 11px !important;
+            margin-top: 4px !important;
+          }
+
+          .print-area header > div > div:last-child {
+            min-width: 125px !important;
+            padding: 10px 12px !important;
+            border-radius: 16px !important;
+          }
+
+          .print-area header > div > div:last-child > div:nth-child(1) {
+            font-size: 22px !important;
+          }
+
+          .print-area header > div > div:last-child > div:nth-child(2) {
+            font-size: 23px !important;
+          }
+
+          .print-area section {
+            margin-top: 12px !important;
+          }
+
+          .print-area section:first-of-type {
+            padding-top: 14px !important;
+          }
+
+          .print-area h1 {
+            font-size: 23px !important;
+          }
+
+          .print-area p {
+            margin-top: 5px !important;
+          }
+
+          .print-area section,
+          .print-area footer {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+          }
+
+          .print-area [style*='padding: 18px'] {
+            padding: 11px !important;
+          }
+
+          .print-area [style*='padding: 16px'] {
+            padding: 11px !important;
+          }
+
+          .print-area [style*='padding: 14px'] {
+            padding: 9px !important;
+          }
+
+          .print-area [style*='gap: 12'] {
+            gap: 8px !important;
+          }
+
+          .print-area [style*='gap: 20'] {
+            gap: 12px !important;
+          }
+
+          .print-area [style*='font-size: 35'] {
+            font-size: 28px !important;
+          }
+
+          .print-area [style*='font-size: 30'] {
+            font-size: 23px !important;
+          }
+
+          .print-area [style*='font-size: 28'] {
+            font-size: 23px !important;
+          }
+
+          .print-area [style*='font-size: 26'] {
+            font-size: 21px !important;
+          }
+
+          .print-area [style*='font-size: 16'] {
+            font-size: 14px !important;
+          }
+
+          .print-area [style*='font-size: 15'] {
+            font-size: 13px !important;
+          }
+
+          .print-area [style*='font-size: 14'] {
+            font-size: 12px !important;
+          }
+
+          .print-area [style*='marginTop: 22'] {
+            margin-top: 12px !important;
+          }
+
+          .print-area footer {
+            margin-top: 12px !important;
+            padding-top: 9px !important;
+          }
+        }
+      `}</style>
+
+      <main className="screen-area min-h-screen bg-black text-[#151515]">
+        <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] pb-40 shadow-2xl">
+          <section className="relative overflow-hidden rounded-b-[34px] bg-black px-6 pb-8 pt-7 text-white">
+            <div className="absolute inset-0 bg-[url('/layout01-fundo.png')] bg-cover bg-center opacity-45" />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/85 to-black" />
+
+            <div className="relative z-10">
+              <Link
+                href={`/orcamentos${eventCity && eventCity !== 'Cidade não informada' ? `?cidade=${encodeURIComponent(eventCity)}` : ''}`}
+                className="inline-flex items-center gap-2 text-sm font-bold text-[#e3a925]"
+              >
+                <ArrowLeft size={17} />
+                Voltar
+              </Link>
+
+              <h1 className="mt-5 font-serif text-[34px] leading-tight">
+                {quote ? supplierName : 'Orçamento recebido'}
               </h1>
 
               <p className="mt-2 text-sm text-white/70">
-                Acompanhe solicitações, propostas e mensagens em uma lista compacta.
+                {quote
+                  ? `${supplierCategory} • ${statusLabel()} • ${eventCity}`
+                  : 'Veja a proposta enviada pelo fornecedor.'}
               </p>
             </div>
+          </section>
 
-            <div className="mt-6 grid grid-cols-3 gap-3">
-              <div className="rounded-[20px] bg-white/10 p-3 text-center">
-                <p className="text-2xl font-extrabold text-[#e3a925]">
-                  {orcamentos.length}
+          <section className="px-6 pt-6">
+            {loading && (
+              <div className="rounded-[28px] bg-white p-6 text-center shadow-sm ring-1 ring-[#f1e7cf]">
+                <p className="text-sm font-bold text-gray-500">
+                  Carregando orçamento...
                 </p>
-                <p className="mt-1 text-[10px] font-bold text-white/60">
-                  Pedidos
-                </p>
-              </div>
-
-              <div className="rounded-[20px] bg-white/10 p-3 text-center">
-                <p className="text-2xl font-extrabold text-green-400">
-                  {respondedCount}
-                </p>
-                <p className="mt-1 text-[10px] font-bold text-white/60">
-                  Respondidos
-                </p>
-              </div>
-
-              <div className="rounded-[20px] bg-white/10 p-3 text-center">
-                <p className="text-2xl font-extrabold text-blue-400">
-                  {acceptedCount}
-                </p>
-                <p className="mt-1 text-[10px] font-bold text-white/60">
-                  Aceitos
-                </p>
-              </div>
-            </div>
-
-            {(totalUnreadMessages > 0 || importantStatusCount > 0) && (
-              <div className="mt-5 rounded-[24px] bg-white/10 p-4 ring-1 ring-white/10">
-                <p className="flex items-center gap-2 text-xs font-extrabold text-[#f7d67b]">
-                  <Bell size={15} />
-                  Alertas dos orçamentos
-                </p>
-
-                <div className="mt-3 grid grid-cols-3 gap-2">
-                  <div className="rounded-2xl bg-white/10 p-2 text-center">
-                    <p className="text-lg font-extrabold text-[#e3a925]">
-                      {totalUnreadMessages}
-                    </p>
-                    <p className="mt-1 text-[10px] font-bold text-white/55">
-                      Msgs
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl bg-white/10 p-2 text-center">
-                    <p className="text-lg font-extrabold text-yellow-300">
-                      {adjustmentCount}
-                    </p>
-                    <p className="mt-1 text-[10px] font-bold text-white/55">
-                      Ajustes
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl bg-white/10 p-2 text-center">
-                    <p className="text-lg font-extrabold text-green-300">
-                      {acceptedCount}
-                    </p>
-                    <p className="mt-1 text-[10px] font-bold text-white/55">
-                      Aceitos
-                    </p>
-                  </div>
-                </div>
               </div>
             )}
-          </div>
-        </section>
 
-        {cerimonialistaCount > 0 && (
-          <section className="px-6 pt-4">
-            <div className="flex items-start gap-3 rounded-[22px] bg-green-50 px-4 py-4 text-green-800 ring-1 ring-green-100">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-green-100">
-                <ShieldCheck size={22} />
-              </div>
+            {!loading && errorMessage && !quote && (
+              <div className="rounded-[28px] bg-white p-6 text-center shadow-sm ring-1 ring-[#f1e7cf]">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#fff7e8] text-[#d99200]">
+                  <FileText size={32} />
+                </div>
 
-              <div>
-                <p className="text-sm font-extrabold">
-                  {cerimonialistaCount === 1
-                    ? '1 orçamento foi solicitado pela cerimonialista'
-                    : `${cerimonialistaCount} orçamentos foram solicitados pela cerimonialista`}
+                <h2 className="mt-4 text-lg font-extrabold">
+                  Orçamento não disponível
+                </h2>
+
+                <p className="mt-2 text-sm leading-5 text-gray-500">
+                  {errorMessage}
                 </p>
-                <p className="mt-1 text-xs leading-5 text-green-700">
-                  Esses pedidos foram enviados por uma cerimonialista autorizada no seu evento.
-                </p>
-              </div>
-            </div>
-          </section>
-        )}
 
-        {batchCount > 0 && (
-          <section className="px-6 pt-4">
-            <div className="flex items-start gap-3 rounded-[22px] bg-blue-50 px-4 py-4 text-blue-800 ring-1 ring-blue-100">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-100">
-                <Send size={22} />
-              </div>
-
-              <div>
-                <p className="text-sm font-extrabold">
-                  {batchCount === 1
-                    ? '1 orçamento foi enviado em lote'
-                    : `${batchCount} orçamentos foram enviados em lote`}
-                </p>
-                <p className="mt-1 text-xs leading-5 text-blue-700">
-                  Esses pedidos vieram do botão “Solicitar orçamento para todos”.
-                </p>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {successMessage && (
-          <section className="px-6 pt-4">
-            <div className="flex items-center gap-2 rounded-2xl bg-green-50 px-4 py-3 text-sm font-bold text-green-700">
-              <CheckCircle2 size={18} />
-              {successMessage}
-            </div>
-          </section>
-        )}
-
-        {totalUnreadMessages > 0 && (
-          <section className="px-6 pt-4">
-            <div className="flex items-center gap-3 rounded-[22px] bg-[#151515] px-4 py-4 text-white shadow-lg">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#e3a925]">
-                <Bell size={22} />
-              </div>
-
-              <div>
-                <p className="text-sm font-extrabold">
-                  {totalUnreadMessages === 1
-                    ? '1 nova mensagem'
-                    : `${totalUnreadMessages} novas mensagens`}
-                </p>
-                <p className="mt-1 text-xs text-white/70">
-                  Toque no orçamento e abra o chat para visualizar.
-                </p>
-              </div>
-            </div>
-          </section>
-        )}
-
-        <section className="px-6 pt-6">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-extrabold">Solicitações</h2>
-              <p className="mt-1 text-xs font-bold text-gray-500">
-                Toque em um orçamento para ver as ações.
-              </p>
-            </div>
-
-            <span className="rounded-full bg-[#fff7e8] px-3 py-1 text-xs font-extrabold text-[#b97900]">
-              {loading ? 'Carregando...' : `${orcamentos.length} orçamento(s)`}
-            </span>
-          </div>
-
-          {loading && (
-            <div className="rounded-[28px] bg-white p-6 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-              <p className="text-sm font-bold text-gray-500">
-                Carregando orçamentos...
-              </p>
-            </div>
-          )}
-
-          {!loading && errorMessage && (
-            <div className="rounded-[28px] bg-red-50 p-6 text-center text-sm font-bold text-red-700 ring-1 ring-red-100">
-              {errorMessage}
-            </div>
-          )}
-
-          {!loading && !errorMessage && orcamentos.length === 0 && (
-            <div className="rounded-[28px] bg-white p-6 text-center shadow-sm ring-1 ring-[#f1e7cf]">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#fff7e8] text-[#d99200]">
-                <Search size={32} />
-              </div>
-
-              <h3 className="mt-4 text-lg font-extrabold">
-                Nenhum orçamento ainda
-              </h3>
-
-              <p className="mt-2 text-sm leading-5 text-gray-500">
-                Quando você solicitar orçamento a um fornecedor, ele aparecerá aqui.
-              </p>
-
-              <Link
-                href="/buscar"
-                className="mt-5 flex items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg"
-              >
-                Buscar fornecedores
-              </Link>
-            </div>
-          )}
-
-          <div className="space-y-3">
-            {orcamentos.map((item) => {
-              const latestResponse = getLatestResponse(item);
-              const unreadMessages = countUnreadMessages(item);
-              const hasUnreadMessages = unreadMessages > 0;
-
-              const supplierName = item.suppliers?.business_name || 'Fornecedor';
-              const supplierCity = item.suppliers?.city || 'Cidade não informada';
-              const eventCity = item.event_city || 'Cidade não informada';
-              const serviceCities = getSupplierServiceCities(item.suppliers);
-              const attendsEventCity = supplierAttendsEventCity(
-                item.suppliers,
-                eventCity
-              );
-              const supplierCategory = getSupplierCategory(item);
-
-              const status = item.status || 'aguardando_resposta';
-              const StatusIcon = statusIcon(status);
-              const eventType = item.event_type || 'Evento não informado';
-              const eventDate = formatDate(item.event_date);
-
-              const serviceNeeded =
-                item.service_needed ||
-                latestResponse?.service_offered ||
-                'Serviço não informado';
-
-              const originInfo = getOriginInfo(item);
-              const OriginIcon = originInfo.icon;
-              const isExpanded = expandedOrcamentoId === item.id;
-              const isAccepted = status === 'aceito' || status === 'fechado';
-
-              return (
-                <div
-                  key={item.id}
-                  className={
-                    isAccepted
-                      ? 'rounded-[24px] bg-white p-3 shadow-sm ring-2 ring-green-200'
-                      : hasUnreadMessages
-                        ? 'rounded-[24px] bg-white p-3 shadow-sm ring-2 ring-[#e3a925]'
-                        : status === 'respondido'
-                          ? 'rounded-[24px] bg-white p-3 shadow-sm ring-2 ring-blue-100'
-                          : status === 'ajuste_solicitado'
-                            ? 'rounded-[24px] bg-white p-3 shadow-sm ring-2 ring-yellow-200'
-                            : 'rounded-[24px] bg-white p-3 shadow-sm ring-1 ring-[#f1e7cf]'
-                  }
+                <Link
+                  href="/buscar"
+                  className="mt-5 flex items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg"
                 >
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setExpandedOrcamentoId(isExpanded ? '' : item.id)
-                    }
-                    className="flex w-full items-center gap-3 text-left"
-                  >
-                    <div className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-[18px] bg-[#151515] text-white">
-                      <Building2 size={30} className="text-[#e3a925]" />
+                  Buscar fornecedores
+                </Link>
+              </div>
+            )}
+
+            {!loading && quote && (
+              <>
+                <div className="rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]">
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]">
+                      <Building2 size={30} />
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="line-clamp-1 text-sm font-extrabold">
-                          {supplierName}
-                        </p>
-
-                        {hasUnreadMessages && (
-                          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#e3a925] px-1.5 text-[10px] font-extrabold text-white">
-                            {unreadMessages}
-                          </span>
-                        )}
-                      </div>
-
-                      <p className="mt-1 line-clamp-1 text-xs font-bold text-gray-500">
-                        {eventType} • {eventCity}
-                      </p>
-
-                      <p className="mt-0.5 line-clamp-1 text-[11px] font-bold text-gray-400">
-                        {supplierCategory}
-                      </p>
-
-                      {hasImportantStatus(item) && (
-                        <p className="mt-0.5 line-clamp-1 text-[11px] font-extrabold text-[#b97900]">
-                          {getStatusAlertText(status)}
-                        </p>
-                      )}
-
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <span
-                          className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-extrabold ring-1 ${statusClass(status)}`}
-                        >
-                          <StatusIcon size={11} />
-                          {statusLabel(status)}
-                        </span>
-
-                        <span className="flex items-center gap-1 rounded-full bg-[#fff7e8] px-2.5 py-1 text-[10px] font-extrabold text-[#b97900] ring-1 ring-[#f1e7cf]">
-                          <MapPin size={11} />
-                          {eventCity}
-                        </span>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-gray-500">
+                            Fornecedor
+                          </p>
+                          <h2 className="line-clamp-1 text-lg font-extrabold">
+                            {supplierName}
+                          </h2>
+                          <p className="line-clamp-1 text-sm text-gray-500">
+                            {supplierCategory}
+                          </p>
+                        </div>
 
                         <span
                           className={
-                            attendsEventCity
-                              ? 'flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-[10px] font-extrabold text-green-700 ring-1 ring-green-100'
-                              : 'flex items-center gap-1 rounded-full bg-[#fff7e8] px-2.5 py-1 text-[10px] font-extrabold text-[#b97900] ring-1 ring-[#f1e7cf]'
+                            isAccepted
+                              ? 'shrink-0 rounded-full bg-green-100 px-3 py-1 text-[11px] font-extrabold text-green-700'
+                              : isAdjustmentRequested
+                                ? 'shrink-0 rounded-full bg-yellow-100 px-3 py-1 text-[11px] font-extrabold text-yellow-700'
+                                : 'shrink-0 rounded-full bg-green-50 px-3 py-1 text-[11px] font-extrabold text-green-700'
                           }
                         >
-                          <Building2 size={11} />
-                          {attendsEventCity ? `Atende ${eventCity}` : supplierCity}
-                        </span>
-
-                        <span
-                          className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-extrabold ring-1 ${originInfo.className}`}
-                        >
-                          <OriginIcon size={11} />
-                          {originInfo.label}
+                          {statusLabel()}
                         </span>
                       </div>
-                    </div>
 
-                    <div className="shrink-0">
-                      {isAccepted ? (
-                        <CheckCircle2 size={22} className="text-green-600" />
-                      ) : isExpanded ? (
-                        <ChevronDown size={22} className="text-[#d99200]" />
-                      ) : (
-                        <ChevronRight size={22} className="text-gray-400" />
-                      )}
-                    </div>
-                  </button>
-
-                  {isExpanded && (
-                    <div className="mt-4 rounded-[22px] bg-[#fbf7f1] p-4 ring-1 ring-[#f1e7cf]">
-                      {hasUnreadMessages && (
-                        <div className="mb-3 rounded-2xl bg-[#151515] p-4 text-white">
-                          <p className="flex items-center gap-2 text-xs font-extrabold text-[#f7d67b]">
-                            <Bell size={15} />
-                            Mensagem nova no chat
-                          </p>
-
-                          <p className="mt-2 text-sm leading-5 text-white/80">
-                            O fornecedor enviou{' '}
-                            {unreadMessages === 1
-                              ? 'uma nova mensagem.'
-                              : `${unreadMessages} novas mensagens.`}
-                          </p>
-                        </div>
-                      )}
-
-                      {hasImportantStatus(item) && (
-                        <div className="mb-3 rounded-2xl bg-white p-4 ring-1 ring-[#f1e7cf]">
-                          <p className="flex items-center gap-2 text-xs font-extrabold text-[#b97900]">
-                            <StatusIcon size={15} />
-                            {statusLabel(status)}
-                          </p>
-
-                          <p className="mt-2 text-sm leading-5 text-gray-600">
-                            {getStatusAlertText(status)}
-                          </p>
-                        </div>
-                      )}
-
-                      <div
-                        className={`rounded-2xl px-4 py-3 text-sm font-bold ring-1 ${originInfo.className}`}
-                      >
-                        <p className="flex items-center gap-2">
-                          <OriginIcon size={17} />
-                          Origem: {originInfo.label}
-                        </p>
-
-                        {originInfo.detail && (
-                          <p className="mt-1 break-all text-xs font-bold opacity-80">
-                            {originInfo.detail}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="mt-4 rounded-2xl bg-[#151515] p-4 text-white">
-                        <p className="flex items-center gap-2 text-xs font-extrabold text-[#f7d67b]">
-                          <MapPin size={15} />
-                          Cidade do evento
-                        </p>
-
-                        <p className="mt-2 text-lg font-extrabold">
-                          {cityAttendanceText(eventCity)}
-                        </p>
-
-                        <p className="mt-1 text-xs leading-5 text-white/70">
-                          Este pedido foi solicitado para essa cidade de atendimento.
-                        </p>
-                      </div>
-
-                      <div
-                        className={
-                          attendsEventCity
-                            ? 'mt-3 rounded-2xl bg-green-50 p-4 text-green-700 ring-1 ring-green-100'
-                            : 'mt-3 rounded-2xl bg-[#fff7e8] p-4 text-[#7a5200] ring-1 ring-[#f1e7cf]'
-                        }
-                      >
-                        <p className="flex items-center gap-2 text-xs font-extrabold">
-                          <Building2 size={15} />
-                          {attendsEventCity
-                            ? `Fornecedor atende ${eventCity}`
-                            : `Fornecedor de ${supplierCity}`}
-                        </p>
-
-                        <p className="mt-2 text-xs leading-5">
-                          Cidades atendidas:{' '}
-                          <strong>{cityListText(serviceCities)}</strong>
-                        </p>
-                      </div>
-
-                      <div className="mt-4 grid grid-cols-2 gap-3">
-                        <div className="rounded-2xl bg-white p-3">
-                          <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
-                            <CalendarDays size={14} className="text-[#d99200]" />
-                            Data
-                          </p>
-                          <p className="mt-1 text-sm font-extrabold">
-                            {eventDate}
-                          </p>
-                        </div>
-
-                        <div className="rounded-2xl bg-white p-3">
-                          <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
-                            <MapPin size={14} className="text-[#d99200]" />
-                            Cidade do evento
+                      <div className="mt-3 grid grid-cols-2 gap-3">
+                        <div className="rounded-2xl bg-[#fbf7f1] p-3">
+                          <p className="text-xs font-bold text-gray-500">
+                            Cidade do fornecedor
                           </p>
                           <p className="mt-1 line-clamp-1 text-sm font-extrabold">
-                            {eventCity}
+                            {supplierCity}
+                          </p>
+                        </div>
+
+                        <div className="rounded-2xl bg-[#fff7e8] p-3">
+                          <p className="text-xs font-bold text-[#b97900]">Valor</p>
+                          <p className="mt-1 line-clamp-1 text-sm font-extrabold">
+                            {quote.proposal_value || 'Não informado'}
                           </p>
                         </div>
                       </div>
+                    </div>
+                  </div>
+                </div>
 
-                      <div className="mt-3 rounded-2xl bg-white p-3">
-                        <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
-                          <FileText size={14} className="text-[#d99200]" />
-                          Serviço
-                        </p>
-                        <p className="mt-1 text-sm font-extrabold">
-                          {serviceNeeded}
-                        </p>
-                      </div>
+                <div className="mt-5 rounded-[28px] bg-[#151515] p-5 text-white shadow-lg">
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#e3a925] text-white">
+                      <MapPin size={30} />
+                    </div>
 
-                      <div className="mt-3 rounded-2xl bg-white p-3">
-                        <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
-                          <Building2 size={14} className="text-[#d99200]" />
-                          Cidade do fornecedor
-                        </p>
-                        <p className="mt-1 text-sm font-extrabold">
-                          {supplierCity}
-                        </p>
-                      </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#f7d67b]">
+                        Cidade do evento
+                      </p>
 
-                      <div className="mt-3 rounded-2xl bg-white p-3">
-                        <p className="text-xs font-bold text-gray-500">
-                          Tipo de evento
+                      <h2 className="mt-2 text-xl font-extrabold">
+                        {cityAttendanceText(eventCity)}
+                      </h2>
+
+                      <p className="mt-2 text-sm leading-5 text-white/70">
+                        Esta proposta considera o atendimento na cidade informada na solicitação.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-5 rounded-[28px] bg-white p-5 shadow-sm ring-1 ring-[#f1e7cf]">
+                  <h2 className="text-lg font-extrabold">Dados do evento</h2>
+
+                  <div className="mt-4 grid grid-cols-2 gap-3">
+                    <div className="rounded-2xl bg-[#fff7e8] p-3">
+                      <p className="flex items-center gap-2 text-xs font-bold text-[#b97900]">
+                        <MapPin size={14} />
+                        Cidade
+                      </p>
+                      <p className="mt-1 line-clamp-1 text-sm font-extrabold">
+                        {eventCity}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl bg-[#fbf7f1] p-3">
+                      <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
+                        <CalendarDays size={14} className="text-[#d99200]" />
+                        Data
+                      </p>
+                      <p className="mt-1 text-sm font-extrabold">{eventDate}</p>
+                    </div>
+
+                    <div className="rounded-2xl bg-[#fbf7f1] p-3">
+                      <p className="text-xs font-bold text-gray-500">Tipo de evento</p>
+                      <p className="mt-1 line-clamp-1 text-sm font-extrabold">
+                        {eventType}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl bg-[#fbf7f1] p-3">
+                      <p className="text-xs font-bold text-gray-500">Convidados</p>
+                      <p className="mt-1 text-sm font-extrabold">{guestsCount}</p>
+                    </div>
+
+                    <div className="col-span-2 rounded-2xl bg-[#fbf7f1] p-3">
+                      <p className="text-xs font-bold text-gray-500">Espaço / local</p>
+                      <p className="mt-1 text-sm font-extrabold">{eventSpace}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  className={`mt-5 rounded-[28px] p-5 shadow-sm ring-1 ${originInfo.className}`}
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/70">
+                      <OriginIcon size={30} />
+                    </div>
+
+                    <div className="flex-1">
+                      <p className="text-xs font-bold opacity-80">
+                        Origem da solicitação
+                      </p>
+
+                      <h2 className="mt-1 text-lg font-extrabold">
+                        {originInfo.label}
+                      </h2>
+
+                      {originInfo.detail && (
+                        <p className="mt-2 break-all text-sm font-bold opacity-80">
+                          {originInfo.detail}
                         </p>
-                        <p className="mt-1 text-sm font-extrabold">
-                          {eventType}
-                        </p>
-                      </div>
-
-                      {latestResponse && (
-                        <div className="mt-3 rounded-2xl bg-[#fff7e8] p-4 ring-1 ring-[#f1e7cf]">
-                          <p className="text-xs font-bold text-[#b97900]">
-                            Última proposta • {eventCity}
-                          </p>
-
-                          <p className="mt-1 text-2xl font-extrabold text-[#151515]">
-                            {latestResponse.proposal_value || 'Valor não informado'}
-                          </p>
-
-                          <p className="mt-1 text-xs font-bold text-gray-500">
-                            {latestResponse.payment_terms ||
-                              'Forma de pagamento não informada'}
-                          </p>
-                        </div>
                       )}
 
-                      <div className="mt-5 grid grid-cols-2 gap-3">
-                        <Link
-                          href={`/orcamentos/${item.id}?cidade=${encodeURIComponent(eventCity)}`}
-                          className="flex items-center justify-center gap-2 rounded-[18px] bg-[#e3a925] py-3 text-center text-sm font-extrabold text-white shadow-lg"
-                        >
-                          <FileText size={16} />
-                          {latestResponse ? 'Ver orçamento' : 'Aguardar'}
-                        </Link>
+                      <p className="mt-2 text-xs leading-5 opacity-80">
+                        {originInfo.description}
+                      </p>
+                    </div>
+                  </div>
+                </div>
 
-                        <Link
-                          href={`/orcamentos/${item.id}/chat?cidade=${encodeURIComponent(eventCity)}`}
-                          className={
-                            hasUnreadMessages
-                              ? 'relative flex items-center justify-center gap-2 rounded-[18px] bg-black py-3 text-center text-sm font-extrabold text-white shadow-lg ring-2 ring-[#e3a925]'
-                              : 'flex items-center justify-center gap-2 rounded-[18px] bg-black py-3 text-center text-sm font-extrabold text-white shadow-lg'
-                          }
-                        >
-                          <MessageCircle size={16} />
-                          Chat
+                <div className="mt-5 rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)]">
+                  <div className="mb-4 flex items-center justify-between">
+                    <h2 className="text-lg font-extrabold">Proposta</h2>
 
-                          {hasUnreadMessages && (
-                            <span className="absolute -right-2 -top-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-[#e3a925] px-2 text-[11px] font-extrabold text-white">
-                              {unreadMessages}
-                            </span>
-                          )}
-                        </Link>
+                    <span
+                      className={
+                        isAccepted
+                          ? 'rounded-full bg-green-100 px-3 py-1 text-xs font-extrabold text-green-700'
+                          : isAdjustmentRequested
+                            ? 'rounded-full bg-yellow-100 px-3 py-1 text-xs font-extrabold text-yellow-700'
+                            : 'rounded-full bg-green-50 px-3 py-1 text-xs font-extrabold text-green-700'
+                      }
+                    >
+                      {statusLabel()}
+                    </span>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="rounded-2xl bg-[#fff7e8] p-4 text-[#7a5200] ring-1 ring-[#f1e7cf]">
+                      <p className="flex items-center gap-2 text-xs font-extrabold">
+                        <MapPin size={15} />
+                        Atendimento em
+                      </p>
+                      <p className="mt-1 text-lg font-extrabold">{eventCity}</p>
+                    </div>
+
+                    <div className="rounded-2xl bg-[#fbf7f1] p-3">
+                      <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
+                        <FileText size={14} className="text-[#d99200]" />
+                        Serviço oferecido
+                      </p>
+                      <p className="mt-1 text-sm font-extrabold">
+                        {quote.service_offered || 'Não informado'}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl bg-[#fbf7f1] p-3">
+                      <p className="flex items-center gap-2 text-xs font-bold text-gray-500">
+                        <CalendarDays size={14} className="text-[#d99200]" />
+                        Duração / período
+                      </p>
+                      <p className="mt-1 text-sm font-extrabold">
+                        {quote.duration_period || 'Não informado'}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl bg-[#fff7e8] p-4">
+                      <p className="text-xs font-bold text-[#b97900]">
+                        Valor da proposta
+                      </p>
+                      <p className="mt-1 text-2xl font-extrabold text-[#151515]">
+                        {quote.proposal_value || 'Valor não informado'}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl bg-[#fbf7f1] p-3">
+                      <p className="text-xs font-bold text-gray-500">
+                        Forma de pagamento
+                      </p>
+                      <p className="mt-1 text-sm font-extrabold">
+                        {quote.payment_terms || 'Não informado'}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl bg-[#fbf7f1] p-3">
+                      <p className="text-xs font-bold text-gray-500">
+                        Validade da proposta
+                      </p>
+                      <p className="mt-1 text-sm font-extrabold">
+                        {quote.proposal_validity || 'Não informado'}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl bg-[#fbf7f1] p-3">
+                      <p className="text-xs font-bold text-gray-500">
+                        Observações
+                      </p>
+                      <p className="mt-2 text-sm leading-5 text-gray-600">
+                        {quote.observations || 'Sem observações adicionais.'}
+                      </p>
+                    </div>
+
+                    {quote.adjustment_notes && (
+                      <div className="rounded-2xl bg-yellow-50 p-3">
+                        <p className="text-xs font-bold text-yellow-700">
+                          Ajuste solicitado
+                        </p>
+                        <p className="mt-2 text-sm leading-5 text-yellow-800">
+                          {quote.adjustment_notes}
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="rounded-2xl bg-[#fbf7f1] p-3">
+                      <p className="text-xs font-bold text-gray-500">
+                        Enviado em
+                      </p>
+                      <p className="mt-1 text-sm font-extrabold">
+                        {formatDateTime(quote.created_at)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {isAccepted && isCerimonialista && (
+                  <div className="mt-5 rounded-[28px] bg-[#151515] p-5 text-white shadow-lg">
+                    <div className="flex items-start gap-4">
+                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#e3a925] text-white">
+                        <ShieldCheck size={30} />
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteOrcamento(item.id)}
-                        disabled={deletingId === item.id}
-                        className="mt-3 flex w-full items-center justify-center gap-2 rounded-[18px] bg-white py-3 text-center text-sm font-extrabold text-red-700 ring-1 ring-red-100 disabled:opacity-60"
-                      >
-                        <Trash2 size={16} />
-                        {deletingId === item.id
-                          ? 'Excluindo...'
-                          : 'Excluir orçamento'}
-                      </button>
+                      <div className="flex-1">
+                        <h2 className="text-lg font-extrabold">
+                          Cerimonialista contratado
+                        </h2>
+
+                        <p className="mt-2 text-sm leading-5 text-white/70">
+                          Deseja permitir que este cerimonialista atue no seu evento dentro do REIM, ajudando a organizar fornecedores e acompanhar orçamentos?
+                        </p>
+
+                        {isCerimonialAlreadyAuthorized ? (
+                          <div className="mt-4 rounded-2xl bg-green-50 px-4 py-3 text-sm font-extrabold text-green-700">
+                            Cerimonialista já autorizado para atuar neste evento.
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={handleInviteCerimonialistaToEvent}
+                            disabled={invitingCerimonial}
+                            className="mt-4 flex w-full items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg disabled:opacity-60"
+                          >
+                            <ShieldCheck size={21} />
+                            {invitingCerimonial
+                              ? 'Convidando...'
+                              : 'Convidar para atuar no evento'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+
+                {isAccepted && (
+                  <div className="mt-5 overflow-hidden rounded-[28px] bg-white shadow-sm ring-1 ring-[#f1e7cf]">
+                    <div className="bg-gradient-to-r from-[#151515] to-[#2d2d2d] px-5 py-5 text-white">
+                      <div className="flex items-start gap-4">
+                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#e3a925] text-white">
+                          <Star size={30} fill="white" />
+                        </div>
+
+                        <div className="flex-1">
+                          <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#f7d67b]">
+                            Avaliação real
+                          </p>
+
+                          <h2 className="mt-1 text-xl font-extrabold">
+                            Avalie {supplierName}
+                          </h2>
+
+                          <p className="mt-2 text-sm leading-5 text-white/70">
+                            Sua opinião ajuda outros clientes a escolher fornecedores com mais confiança.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-5">
+                      {reviewLoading ? (
+                        <div className="rounded-2xl bg-[#fbf7f1] px-4 py-4 text-center text-sm font-bold text-gray-500">
+                          Verificando sua avaliação...
+                        </div>
+                      ) : existingReview ? (
+                        <div>
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-xs font-bold text-gray-500">
+                                Sua nota geral
+                              </p>
+
+                              <div className="mt-2">
+                                <ReviewStars
+                                  value={Number(existingReview.rating || 0)}
+                                  readonly
+                                  size={24}
+                                />
+                              </div>
+                            </div>
+
+                            <span className="rounded-full bg-green-50 px-3 py-1 text-[11px] font-extrabold text-green-700">
+                              Avaliação enviada
+                            </span>
+                          </div>
+
+                          <div className="mt-4 grid grid-cols-2 gap-2">
+                            <div className="rounded-2xl bg-[#fbf7f1] p-3">
+                              <p className="text-[11px] font-bold text-gray-500">
+                                Atendimento
+                              </p>
+                              <p className="mt-1 text-sm font-extrabold">
+                                {existingReview.attendance}/5
+                              </p>
+                            </div>
+
+                            <div className="rounded-2xl bg-[#fbf7f1] p-3">
+                              <p className="text-[11px] font-bold text-gray-500">
+                                Pontualidade
+                              </p>
+                              <p className="mt-1 text-sm font-extrabold">
+                                {existingReview.punctuality}/5
+                              </p>
+                            </div>
+
+                            <div className="rounded-2xl bg-[#fbf7f1] p-3">
+                              <p className="text-[11px] font-bold text-gray-500">
+                                Qualidade
+                              </p>
+                              <p className="mt-1 text-sm font-extrabold">
+                                {existingReview.quality}/5
+                              </p>
+                            </div>
+
+                            <div className="rounded-2xl bg-[#fbf7f1] p-3">
+                              <p className="text-[11px] font-bold text-gray-500">
+                                Custo-benefício
+                              </p>
+                              <p className="mt-1 text-sm font-extrabold">
+                                {existingReview.value_score}/5
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="mt-4 rounded-2xl bg-[#fff7e8] p-4 ring-1 ring-[#f1e7cf]">
+                            <p className="text-xs font-extrabold text-[#9a6a00]">
+                              Seu comentário
+                            </p>
+
+                            <p className="mt-2 text-sm leading-6 text-[#151515]">
+                              {existingReview.comment}
+                            </p>
+                          </div>
+
+                          {existingReview.supplier_reply && (
+                            <div className="mt-3 rounded-2xl bg-green-50 p-4">
+                              <p className="text-xs font-extrabold text-green-700">
+                                Resposta do fornecedor
+                              </p>
+
+                              <p className="mt-2 text-sm leading-6 text-green-900">
+                                {existingReview.supplier_reply}
+                              </p>
+                            </div>
+                          )}
+
+                          <p className="mt-3 text-xs text-gray-500">
+                            Enviada em {formatDateTime(existingReview.created_at)}
+                          </p>
+                        </div>
+                      ) : !showReviewForm ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setErrorMessage('');
+                            setSuccessMessage('');
+                            setShowReviewForm(true);
+                          }}
+                          className="flex w-full items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg"
+                        >
+                          <Star size={21} fill="white" />
+                          Avaliar fornecedor
+                        </button>
+                      ) : (
+                        <div>
+                          <div className="space-y-5">
+                            <div>
+                              <p className="text-sm font-extrabold">
+                                Nota geral
+                              </p>
+                              <p className="mt-1 text-xs text-gray-500">
+                                Como foi sua experiência no geral?
+                              </p>
+                              <div className="mt-3">
+                                <ReviewStars value={rating} onChange={setRating} />
+                              </div>
+                            </div>
+
+                            <div>
+                              <p className="text-sm font-extrabold">
+                                Atendimento
+                              </p>
+                              <div className="mt-2">
+                                <ReviewStars
+                                  value={attendance}
+                                  onChange={setAttendance}
+                                  size={25}
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <p className="text-sm font-extrabold">
+                                Pontualidade
+                              </p>
+                              <div className="mt-2">
+                                <ReviewStars
+                                  value={punctuality}
+                                  onChange={setPunctuality}
+                                  size={25}
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <p className="text-sm font-extrabold">
+                                Qualidade
+                              </p>
+                              <div className="mt-2">
+                                <ReviewStars
+                                  value={quality}
+                                  onChange={setQuality}
+                                  size={25}
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <p className="text-sm font-extrabold">
+                                Custo-benefício
+                              </p>
+                              <div className="mt-2">
+                                <ReviewStars
+                                  value={valueScore}
+                                  onChange={setValueScore}
+                                  size={25}
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <label
+                                htmlFor="review-comment"
+                                className="text-sm font-extrabold"
+                              >
+                                Conte como foi sua experiência
+                              </label>
+
+                              <textarea
+                                id="review-comment"
+                                value={reviewComment}
+                                onChange={(event) =>
+                                  setReviewComment(event.target.value)
+                                }
+                                className="mt-3 min-h-[130px] w-full resize-none rounded-[22px] bg-[#fbf7f1] px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400 focus:ring-2 focus:ring-[#e3a925]"
+                                placeholder="Conte como foi o atendimento, a qualidade do serviço e sua experiência com este fornecedor..."
+                              />
+                            </div>
+                          </div>
+
+                          <div className="mt-5 space-y-3">
+                            <button
+                              type="button"
+                              onClick={handleSubmitReview}
+                              disabled={submittingReview}
+                              className="flex w-full items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg disabled:opacity-60"
+                            >
+                              <Star size={21} fill="white" />
+                              {submittingReview
+                                ? 'Enviando avaliação...'
+                                : 'Enviar avaliação'}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setShowReviewForm(false)}
+                              disabled={submittingReview}
+                              className="flex w-full items-center justify-center rounded-[22px] bg-white py-4 text-center font-extrabold text-[#151515] ring-1 ring-[#f1e7cf] disabled:opacity-60"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {errorMessage && (
+                  <div className="mt-5 rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+                    {errorMessage}
+                  </div>
+                )}
+
+                {successMessage && (
+                  <div className="mt-5 rounded-2xl bg-green-50 px-4 py-3 text-sm font-bold text-green-700">
+                    {successMessage}
+                  </div>
+                )}
+
+                {showAdjustmentBox && !isAccepted && (
+                  <div className="mt-5 rounded-[28px] bg-white p-5 shadow-sm ring-1 ring-[#f1e7cf]">
+                    <h3 className="text-lg font-extrabold">
+                      Solicitar ajuste
+                    </h3>
+
+                    <p className="mt-1 text-sm leading-5 text-gray-500">
+                      Descreva o que você deseja alterar na proposta.
+                    </p>
+
+                    <textarea
+                      value={adjustmentNotes}
+                      onChange={(event) => setAdjustmentNotes(event.target.value)}
+                      className="mt-4 min-h-[120px] w-full resize-none rounded-[22px] bg-[#fbf7f1] px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400"
+                      placeholder={`Ex: Gostaria de ajustar a forma de pagamento, incluir deslocamento para ${eventCity}, mais horas ou revisar o valor...`}
+                    />
+
+                    <button
+                      onClick={handleRequestAdjustment}
+                      disabled={adjusting}
+                      className="mt-4 flex w-full items-center justify-center gap-2 rounded-[24px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg disabled:opacity-60"
+                    >
+                      <RefreshCcw size={21} />
+                      {adjusting ? 'Enviando ajuste...' : 'Enviar pedido de ajuste'}
+                    </button>
+                  </div>
+                )}
+
+                <div className="sticky bottom-4 z-30 mt-6 space-y-3 rounded-[28px] bg-[#fbf7f1]/95 p-3 shadow-[0_-10px_30px_rgba(0,0,0,.10)] backdrop-blur">
+                  <button
+                    onClick={handleAcceptQuote}
+                    disabled={accepting || isAccepted}
+                    className="flex w-full items-center justify-center gap-2 rounded-[24px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg disabled:opacity-60"
+                  >
+                    <CheckCircle2 size={21} />
+                    {isAccepted
+                      ? 'Orçamento aceito'
+                      : accepting
+                        ? 'Aceitando...'
+                        : 'Aceitar orçamento'}
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setErrorMessage('');
+                      setSuccessMessage('');
+                      setShowAdjustmentBox(!showAdjustmentBox);
+                    }}
+                    disabled={isAccepted}
+                    className="flex w-full items-center justify-center gap-2 rounded-[24px] bg-white py-4 text-center font-extrabold text-[#151515] shadow-sm ring-1 ring-[#f1e7cf] disabled:opacity-60"
+                  >
+                    <RefreshCcw size={21} />
+                    {showAdjustmentBox ? 'Fechar ajuste' : 'Solicitar ajuste'}
+                  </button>
+
+                  <Link
+                    href={`/orcamentos/${requestId}/chat?cidade=${encodeURIComponent(eventCity)}`}
+                    className="flex w-full items-center justify-center gap-2 rounded-[24px] bg-black py-4 text-center font-extrabold text-white shadow-lg"
+                  >
+                    <MessageCircle size={21} />
+                    Conversar com fornecedor
+                  </Link>
+
+                  <button
+                    onClick={handleDownloadPdf}
+                    className="flex w-full items-center justify-center gap-2 rounded-[24px] bg-white py-4 text-center font-extrabold text-[#151515] shadow-sm ring-1 ring-[#f1e7cf]"
+                  >
+                    <Download size={21} />
+                    Baixar PDF
+                  </button>
+                </div>
+
+                <p className="mt-4 text-center text-xs leading-5 text-gray-500">
+                  Você pode aceitar, pedir ajuste ou conversar com o fornecedor antes de fechar.
+                </p>
+              </>
+            )}
+          </section>
+        </div>
+      </main>
+
+      {quote && (
+        <div className="print-area">
+          <div
+            style={{
+              minHeight: '100vh',
+              background: '#ffffff',
+              color: '#151515',
+              padding: '0 42px 28px',
+            }}
+          >
+            <header
+              style={{
+                marginLeft: -42,
+                marginRight: -42,
+                background:
+                  'linear-gradient(135deg, #0f0f0f 0%, #1d1d1d 42%, #c89418 100%)',
+                color: '#ffffff',
+                padding: '26px 42px',
+                borderBottom: '6px solid #e3a925',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: 20,
+                }}
+              >
+                <div style={{ flex: 1 }}>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      letterSpacing: 5,
+                      fontWeight: 700,
+                      color: '#f7d67b',
+                    }}
+                  >
+                    REIM EVENTOS
+                  </div>
+
+                  <div
+                    style={{
+                      marginTop: 10,
+                      fontSize: 35,
+                      fontWeight: 900,
+                      lineHeight: 1.1,
+                      color: '#ffffff',
+                    }}
+                  >
+                    Orçamento Oficial
+                  </div>
+
+                  <div
+                    style={{
+                      marginTop: 8,
+                      fontSize: 13,
+                      color: '#f3f3f3',
+                    }}
+                  >
+                    Documento gerado pela plataforma REIM EVENTOS
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    minWidth: 170,
+                    border: '2px solid rgba(255,255,255,0.28)',
+                    borderRadius: 20,
+                    background: 'rgba(255,255,255,0.10)',
+                    padding: '16px 18px',
+                    textAlign: 'center',
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 30,
+                      lineHeight: 1,
+                      color: '#f7d67b',
+                    }}
+                  >
+                    ♕
+                  </div>
+
+                  <div
+                    style={{
+                      marginTop: 6,
+                      fontSize: 30,
+                      lineHeight: 1,
+                      fontWeight: 800,
+                      letterSpacing: 2,
+                      color: '#ffffff',
+                      fontFamily: 'Georgia, Times New Roman, serif',
+                    }}
+                  >
+                    REIM
+                  </div>
+
+                  <div
+                    style={{
+                      marginTop: 6,
+                      fontSize: 12,
+                      letterSpacing: 4,
+                      fontWeight: 700,
+                      color: '#f7d67b',
+                    }}
+                  >
+                    EVENTOS
+                  </div>
+                </div>
+              </div>
+            </header>
+
+            <section style={{ paddingTop: 24 }}>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: 16,
+                }}
+              >
+                <div>
+                  <h1
+                    style={{
+                      margin: 0,
+                      fontSize: 28,
+                      fontWeight: 900,
+                      color: '#151515',
+                    }}
+                  >
+                    Proposta de Orçamento
+                  </h1>
+
+                  <p
+                    style={{
+                      marginTop: 8,
+                      fontSize: 13,
+                      color: '#555',
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    Este orçamento foi emitido por um fornecedor cadastrado na plataforma{' '}
+                    <strong>REIM EVENTOS</strong> para atendimento em <strong>{eventCity}</strong>.
+                  </p>
+                </div>
+
+                <div
+                  style={{
+                    background: '#fff7e8',
+                    border: '1px solid #e3a925',
+                    borderRadius: 14,
+                    padding: '12px 16px',
+                    textAlign: 'right',
+                    minWidth: 145,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 800,
+                      color: '#9a6a00',
+                    }}
+                  >
+                    Nº DO ORÇAMENTO
+                  </div>
+                  <div
+                    style={{
+                      marginTop: 4,
+                      fontSize: 16,
+                      fontWeight: 900,
+                      color: '#151515',
+                    }}
+                  >
+                    {budgetCode}
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section
+              style={{
+                marginTop: 18,
+                borderRadius: 18,
+                overflow: 'hidden',
+                border:
+                  quoteRequestOrigin?.created_by_role === 'cerimonialista'
+                    ? '1px solid #bbf7d0'
+                    : '1px solid #e3a925',
+              }}
+            >
+              <div
+                style={{
+                  background:
+                    quoteRequestOrigin?.created_by_role === 'cerimonialista'
+                      ? '#e8fff2'
+                      : '#fff7e8',
+                  padding: '14px 18px',
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 800,
+                    color:
+                      quoteRequestOrigin?.created_by_role === 'cerimonialista'
+                        ? '#166534'
+                        : '#9a6a00',
+                  }}
+                >
+                  ORIGEM DA SOLICITAÇÃO
+                </div>
+
+                <div
+                  style={{
+                    marginTop: 5,
+                    fontSize: 16,
+                    fontWeight: 900,
+                    color:
+                      quoteRequestOrigin?.created_by_role === 'cerimonialista'
+                        ? '#166534'
+                        : '#151515',
+                  }}
+                >
+                  {originInfo.label}
+                </div>
+
+                {originInfo.detail && (
+                  <div
+                    style={{
+                      marginTop: 4,
+                      fontSize: 13,
+                      color: '#555',
+                    }}
+                  >
+                    {originInfo.detail}
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <section
+              style={{
+                marginTop: 22,
+                borderRadius: 18,
+                overflow: 'hidden',
+                border: '1px solid #eadfca',
+              }}
+            >
+              <div
+                style={{
+                  background: '#fff7e8',
+                  color: '#151515',
+                  padding: '14px 18px',
+                  fontSize: 16,
+                  fontWeight: 900,
+                  borderBottom: '1px solid #e3a925',
+                }}
+              >
+                {cityAttendanceText(eventCity)}
+              </div>
+
+              <div
+                style={{
+                  background: '#151515',
+                  color: '#ffffff',
+                  padding: '14px 18px',
+                  fontSize: 16,
+                  fontWeight: 800,
+                }}
+              >
+                Dados do Fornecedor
+              </div>
+
+              <div
+                style={{
+                  background: '#ffffff',
+                  padding: 18,
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: 12,
+                }}
+              >
+                <div
+                  style={{
+                    background: '#fbf7f1',
+                    padding: 14,
+                    borderRadius: 14,
+                    border: '1px solid #f1e7cf',
+                  }}
+                >
+                  <div style={{ fontSize: 11, fontWeight: 800, color: '#8b8b8b' }}>
+                    Fornecedor
+                  </div>
+                  <div style={{ marginTop: 5, fontSize: 16, fontWeight: 800 }}>
+                    {supplierName}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    background: '#fbf7f1',
+                    padding: 14,
+                    borderRadius: 14,
+                    border: '1px solid #f1e7cf',
+                  }}
+                >
+                  <div style={{ fontSize: 11, fontWeight: 800, color: '#8b8b8b' }}>
+                    Categoria
+                  </div>
+                  <div style={{ marginTop: 5, fontSize: 16, fontWeight: 800 }}>
+                    {supplierCategory}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    background: '#fbf7f1',
+                    padding: 14,
+                    borderRadius: 14,
+                    border: '1px solid #f1e7cf',
+                  }}
+                >
+                  <div style={{ fontSize: 11, fontWeight: 800, color: '#8b8b8b' }}>
+                    Cidade do fornecedor
+                  </div>
+                  <div style={{ marginTop: 5, fontSize: 16, fontWeight: 800 }}>
+                    {supplierCity}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    background: printStatus.bg,
+                    padding: 14,
+                    borderRadius: 14,
+                    border: `1px solid ${printStatus.border}`,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 800,
+                      color: printStatus.color,
+                    }}
+                  >
+                    Status da proposta
+                  </div>
+                  <div
+                    style={{
+                      marginTop: 5,
+                      fontSize: 16,
+                      fontWeight: 800,
+                      color: printStatus.color,
+                    }}
+                  >
+                    {statusLabel()}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    gridColumn: '1 / -1',
+                    background: isAccepted ? '#e8fff2' : '#fff7e8',
+                    padding: 14,
+                    borderRadius: 14,
+                    border: isAccepted ? '1px solid #bbf7d0' : '1px solid #e3a925',
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 800,
+                      color: isAccepted ? '#166534' : '#9a6a00',
+                    }}
+                  >
+                    Contato do fornecedor
+                  </div>
+
+                  {isAccepted ? (
+                    <div style={{ marginTop: 6, fontSize: 14, lineHeight: 1.6 }}>
+                      {supplierWhatsapp && <div><strong>WhatsApp:</strong> {supplierWhatsapp}</div>}
+                      {supplierInstagram && <div><strong>Instagram:</strong> {supplierInstagram}</div>}
+                      {!supplierWhatsapp && !supplierInstagram && (
+                        <div>Contato direto não informado pelo fornecedor.</div>
+                      )}
+                    </div>
+                  ) : (
+                    <div style={{ marginTop: 6, fontSize: 14, lineHeight: 1.6 }}>
+                      Contato direto disponível após aceitar o orçamento. Antes disso, converse pelo chat do app REIM EVENTOS.
                     </div>
                   )}
                 </div>
-              );
-            })}
+              </div>
+            </section>
+
+            <section
+              style={{
+                marginTop: 20,
+                borderRadius: 18,
+                overflow: 'hidden',
+                border: '1px solid #eadfca',
+              }}
+            >
+              <div
+                style={{
+                  background: '#e3a925',
+                  color: '#151515',
+                  padding: '14px 18px',
+                  fontSize: 16,
+                  fontWeight: 900,
+                }}
+              >
+                Detalhes da Proposta
+              </div>
+
+              <div style={{ background: '#ffffff', padding: 18 }}>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: 12,
+                  }}
+                >
+                  <div
+                    style={{
+                      background: '#fbf7f1',
+                      borderRadius: 14,
+                      padding: 14,
+                      border: '1px solid #f1e7cf',
+                    }}
+                  >
+                    <div style={{ fontSize: 11, fontWeight: 800, color: '#8b8b8b' }}>
+                      Serviço oferecido
+                    </div>
+                    <div style={{ marginTop: 5, fontSize: 15, fontWeight: 800 }}>
+                      {quote.service_offered || 'Não informado'}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      background: '#fbf7f1',
+                      borderRadius: 14,
+                      padding: 14,
+                      border: '1px solid #f1e7cf',
+                    }}
+                  >
+                    <div style={{ fontSize: 11, fontWeight: 800, color: '#8b8b8b' }}>
+                      Duração / período
+                    </div>
+                    <div style={{ marginTop: 5, fontSize: 15, fontWeight: 800 }}>
+                      {quote.duration_period || 'Não informado'}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      background: 'linear-gradient(135deg, #fff7e8 0%, #fce8b4 100%)',
+                      borderRadius: 14,
+                      padding: 16,
+                      border: '1px solid #e3a925',
+                    }}
+                  >
+                    <div style={{ fontSize: 11, fontWeight: 800, color: '#9a6a00' }}>
+                      Valor da proposta
+                    </div>
+                    <div
+                      style={{
+                        marginTop: 6,
+                        fontSize: 26,
+                        fontWeight: 900,
+                      }}
+                    >
+                      {quote.proposal_value || 'Valor não informado'}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      background: '#fbf7f1',
+                      borderRadius: 14,
+                      padding: 14,
+                      border: '1px solid #f1e7cf',
+                    }}
+                  >
+                    <div style={{ fontSize: 11, fontWeight: 800, color: '#8b8b8b' }}>
+                      Forma de pagamento
+                    </div>
+                    <div style={{ marginTop: 5, fontSize: 15, fontWeight: 800 }}>
+                      {quote.payment_terms || 'Não informado'}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      background: '#fbf7f1',
+                      borderRadius: 14,
+                      padding: 14,
+                      border: '1px solid #f1e7cf',
+                    }}
+                  >
+                    <div style={{ fontSize: 11, fontWeight: 800, color: '#8b8b8b' }}>
+                      Validade da proposta
+                    </div>
+                    <div style={{ marginTop: 5, fontSize: 15, fontWeight: 800 }}>
+                      {quote.proposal_validity || 'Não informado'}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      background: '#fbf7f1',
+                      borderRadius: 14,
+                      padding: 14,
+                      border: '1px solid #f1e7cf',
+                    }}
+                  >
+                    <div style={{ fontSize: 11, fontWeight: 800, color: '#8b8b8b' }}>
+                      Enviado em
+                    </div>
+                    <div style={{ marginTop: 5, fontSize: 15, fontWeight: 800 }}>
+                      {formatDateTime(quote.created_at)}
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    marginTop: 12,
+                    background: '#fbf7f1',
+                    borderRadius: 14,
+                    padding: 14,
+                    border: '1px solid #f1e7cf',
+                  }}
+                >
+                  <div style={{ fontSize: 11, fontWeight: 800, color: '#8b8b8b' }}>
+                    Observações
+                  </div>
+                  <div
+                    style={{
+                      marginTop: 7,
+                      fontSize: 14,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {quote.observations || 'Sem observações adicionais.'}
+                  </div>
+                </div>
+
+                {quote.adjustment_notes && (
+                  <div
+                    style={{
+                      marginTop: 12,
+                      background: '#fff8db',
+                      borderRadius: 14,
+                      padding: 14,
+                      border: '1px solid #f3d36b',
+                    }}
+                  >
+                    <div style={{ fontSize: 11, fontWeight: 800, color: '#9a6a00' }}>
+                      Ajuste solicitado
+                    </div>
+                    <div
+                      style={{
+                        marginTop: 7,
+                        fontSize: 14,
+                        lineHeight: 1.5,
+                        color: '#7a5800',
+                      }}
+                    >
+                      {quote.adjustment_notes}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <section
+              style={{
+                marginTop: 22,
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: 20,
+              }}
+            >
+              <div>
+                <div
+                  style={{
+                    borderTop: '1px solid #151515',
+                    paddingTop: 8,
+                    textAlign: 'center',
+                    fontSize: 12,
+                    color: '#151515',
+                  }}
+                >
+                  Assinatura do Cliente
+                </div>
+              </div>
+
+              <div>
+                <div
+                  style={{
+                    borderTop: '1px solid #151515',
+                    paddingTop: 8,
+                    textAlign: 'center',
+                    fontSize: 12,
+                    color: '#151515',
+                  }}
+                >
+                  Assinatura do Fornecedor
+                </div>
+              </div>
+            </section>
+
+            <section
+              style={{
+                marginTop: 22,
+                background: 'linear-gradient(135deg, #151515 0%, #2d2d2d 100%)',
+                color: '#ffffff',
+                borderRadius: 18,
+                padding: 18,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 15,
+                  fontWeight: 900,
+                  color: '#f7d67b',
+                }}
+              >
+                Informações importantes
+              </div>
+
+              <p
+                style={{
+                  margin: '8px 0 0',
+                  fontSize: 13,
+                  lineHeight: 1.6,
+                  color: '#f3f3f3',
+                }}
+              >
+                Este documento registra a proposta enviada pelo fornecedor dentro do app REIM EVENTOS.
+                A contratação, pagamento, prazos, execução do serviço e demais condições devem ser confirmados
+                diretamente entre cliente e fornecedor.
+              </p>
+            </section>
+
+            <footer
+              style={{
+                marginTop: 20,
+                borderTop: '3px solid #e3a925',
+                paddingTop: 14,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'flex-start',
+                gap: 20,
+                fontSize: 11,
+                color: '#444',
+              }}
+            >
+              <div>
+                <div
+                  style={{
+                    fontWeight: 900,
+                    color: '#151515',
+                    letterSpacing: 1,
+                  }}
+                >
+                  REIM EVENTOS
+                </div>
+                <div style={{ marginTop: 4 }}>
+                  Todos os fornecedores do seu evento em um só lugar.
+                </div>
+                <div style={{ marginTop: 4 }}>
+                  reimeventos.com.br • Eunápolis - BA
+                </div>
+              </div>
+
+              <div style={{ textAlign: 'right' }}>
+                <div>
+                  Gerado em {new Date().toLocaleDateString('pt-BR')}
+                </div>
+                <div style={{ marginTop: 4 }}>
+                  Código do pedido: {requestId}
+                </div>
+                <div style={{ marginTop: 4 }}>
+                  Nº {budgetCode}
+                </div>
+              </div>
+            </footer>
           </div>
-        </section>
-      </div>
-    </main>
+        </div>
+      )}
+    </>
   );
 }
