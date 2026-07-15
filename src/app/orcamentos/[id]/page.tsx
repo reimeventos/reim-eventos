@@ -14,6 +14,7 @@ import {
   MessageCircle,
   RefreshCcw,
   ShieldCheck,
+  Star,
   User,
 } from 'lucide-react';
 import {
@@ -81,6 +82,54 @@ function getOriginInfo(origin: any) {
   };
 }
 
+
+function ReviewStars({
+  value,
+  onChange,
+  readonly = false,
+  size = 28,
+}: {
+  value: number;
+  onChange?: (value: number) => void;
+  readonly?: boolean;
+  size?: number;
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      {[1, 2, 3, 4, 5].map((star) => {
+        const active = star <= value;
+
+        if (readonly) {
+          return (
+            <Star
+              key={star}
+              size={size}
+              fill={active ? '#e3a925' : 'transparent'}
+              className={active ? 'text-[#e3a925]' : 'text-gray-300'}
+            />
+          );
+        }
+
+        return (
+          <button
+            key={star}
+            type="button"
+            onClick={() => onChange?.(star)}
+            className="transition active:scale-90"
+            aria-label={`Dar ${star} estrela${star > 1 ? 's' : ''}`}
+          >
+            <Star
+              size={size}
+              fill={active ? '#e3a925' : 'transparent'}
+              className={active ? 'text-[#e3a925]' : 'text-gray-300'}
+            />
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function OrcamentoRecebidoPage() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -98,6 +147,18 @@ export default function OrcamentoRecebidoPage() {
   const [adjustmentNotes, setAdjustmentNotes] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [existingReview, setExistingReview] = useState<any>(null);
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [submittingReview, setSubmittingReview] = useState(false);
+
+  const [rating, setRating] = useState(0);
+  const [attendance, setAttendance] = useState(0);
+  const [punctuality, setPunctuality] = useState(0);
+  const [quality, setQuality] = useState(0);
+  const [valueScore, setValueScore] = useState(0);
+  const [reviewComment, setReviewComment] = useState('');
 
   useEffect(() => {
     if (!requestId) return;
@@ -127,6 +188,7 @@ export default function OrcamentoRecebidoPage() {
 
         if (data?.status === 'aceito') {
           await loadCerimonialInviteStatus(data);
+          await loadExistingReview(data);
         }
       } catch (error) {
         console.error('Erro ao carregar orçamento:', error);
@@ -239,6 +301,129 @@ export default function OrcamentoRecebidoPage() {
     }
   }
 
+
+  async function loadExistingReview(quoteData?: any) {
+    try {
+      const currentQuote = quoteData || quote;
+
+      if (!currentQuote?.supplier_id || !requestId) {
+        setExistingReview(null);
+        return;
+      }
+
+      setReviewLoading(true);
+
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData.user;
+
+      if (!user) {
+        setExistingReview(null);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('reviews')
+        .select(
+          'id,client_id,supplier_id,event_id,quote_request_id,rating,attendance,punctuality,quality,value_score,comment,supplier_reply,created_at'
+        )
+        .eq('quote_request_id', requestId)
+        .eq('client_id', user.id)
+        .eq('supplier_id', currentQuote.supplier_id)
+        .maybeSingle();
+
+      if (error) {
+        throw error;
+      }
+
+      setExistingReview(data || null);
+
+      if (data) {
+        setRating(Number(data.rating || 0));
+        setAttendance(Number(data.attendance || 0));
+        setPunctuality(Number(data.punctuality || 0));
+        setQuality(Number(data.quality || 0));
+        setValueScore(Number(data.value_score || 0));
+        setReviewComment(data.comment || '');
+      }
+    } catch (error) {
+      console.error('Erro ao carregar avaliação:', error);
+    } finally {
+      setReviewLoading(false);
+    }
+  }
+
+  async function handleSubmitReview() {
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    if (!quote?.supplier_id || !requestId) {
+      setErrorMessage('Fornecedor ou orçamento não identificado.');
+      return;
+    }
+
+    if (
+      rating < 1 ||
+      attendance < 1 ||
+      punctuality < 1 ||
+      quality < 1 ||
+      valueScore < 1
+    ) {
+      setErrorMessage('Preencha todas as notas de 1 a 5 estrelas.');
+      return;
+    }
+
+    if (!reviewComment.trim()) {
+      setErrorMessage('Escreva um comentário sobre sua experiência.');
+      return;
+    }
+
+    try {
+      setSubmittingReview(true);
+
+      const { user, event } = await getMyEvent();
+
+      const { data, error } = await supabase
+        .from('reviews')
+        .insert({
+          client_id: user.id,
+          supplier_id: quote.supplier_id,
+          event_id: event.id,
+          quote_request_id: requestId,
+          rating,
+          attendance,
+          punctuality,
+          quality,
+          value_score: valueScore,
+          comment: reviewComment.trim(),
+        })
+        .select(
+          'id,client_id,supplier_id,event_id,quote_request_id,rating,attendance,punctuality,quality,value_score,comment,supplier_reply,created_at'
+        )
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      setExistingReview(data);
+      setShowReviewForm(false);
+      setSuccessMessage('Avaliação enviada com sucesso. Obrigado por compartilhar sua experiência!');
+    } catch (error: any) {
+      console.error('Erro ao enviar avaliação:', error);
+
+      if (error?.code === '23505') {
+        setErrorMessage('Este orçamento já possui uma avaliação registrada.');
+      } else {
+        setErrorMessage(
+          error?.message ||
+            'Não foi possível enviar sua avaliação. Tente novamente.'
+        );
+      }
+    } finally {
+      setSubmittingReview(false);
+    }
+  }
+
   async function handleInviteCerimonialistaToEvent() {
     setSuccessMessage('');
     setErrorMessage('');
@@ -347,6 +532,7 @@ export default function OrcamentoRecebidoPage() {
       );
 
       await loadCerimonialInviteStatus(updatedQuote);
+      await loadExistingReview(updatedQuote);
     } catch (error) {
       console.error(error);
       setErrorMessage('Não foi possível aceitar o orçamento. Tente novamente.');
@@ -960,6 +1146,250 @@ export default function OrcamentoRecebidoPage() {
                           </button>
                         )}
                       </div>
+                    </div>
+                  </div>
+                )}
+
+
+                {isAccepted && (
+                  <div className="mt-5 overflow-hidden rounded-[28px] bg-white shadow-sm ring-1 ring-[#f1e7cf]">
+                    <div className="bg-gradient-to-r from-[#151515] to-[#2d2d2d] px-5 py-5 text-white">
+                      <div className="flex items-start gap-4">
+                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#e3a925] text-white">
+                          <Star size={30} fill="white" />
+                        </div>
+
+                        <div className="flex-1">
+                          <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#f7d67b]">
+                            Avaliação real
+                          </p>
+
+                          <h2 className="mt-1 text-xl font-extrabold">
+                            Avalie {supplierName}
+                          </h2>
+
+                          <p className="mt-2 text-sm leading-5 text-white/70">
+                            Sua opinião ajuda outros clientes a escolher fornecedores com mais confiança.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-5">
+                      {reviewLoading ? (
+                        <div className="rounded-2xl bg-[#fbf7f1] px-4 py-4 text-center text-sm font-bold text-gray-500">
+                          Verificando sua avaliação...
+                        </div>
+                      ) : existingReview ? (
+                        <div>
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-xs font-bold text-gray-500">
+                                Sua nota geral
+                              </p>
+
+                              <div className="mt-2">
+                                <ReviewStars
+                                  value={Number(existingReview.rating || 0)}
+                                  readonly
+                                  size={24}
+                                />
+                              </div>
+                            </div>
+
+                            <span className="rounded-full bg-green-50 px-3 py-1 text-[11px] font-extrabold text-green-700">
+                              Avaliação enviada
+                            </span>
+                          </div>
+
+                          <div className="mt-4 grid grid-cols-2 gap-2">
+                            <div className="rounded-2xl bg-[#fbf7f1] p-3">
+                              <p className="text-[11px] font-bold text-gray-500">
+                                Atendimento
+                              </p>
+                              <p className="mt-1 text-sm font-extrabold">
+                                {existingReview.attendance}/5
+                              </p>
+                            </div>
+
+                            <div className="rounded-2xl bg-[#fbf7f1] p-3">
+                              <p className="text-[11px] font-bold text-gray-500">
+                                Pontualidade
+                              </p>
+                              <p className="mt-1 text-sm font-extrabold">
+                                {existingReview.punctuality}/5
+                              </p>
+                            </div>
+
+                            <div className="rounded-2xl bg-[#fbf7f1] p-3">
+                              <p className="text-[11px] font-bold text-gray-500">
+                                Qualidade
+                              </p>
+                              <p className="mt-1 text-sm font-extrabold">
+                                {existingReview.quality}/5
+                              </p>
+                            </div>
+
+                            <div className="rounded-2xl bg-[#fbf7f1] p-3">
+                              <p className="text-[11px] font-bold text-gray-500">
+                                Custo-benefício
+                              </p>
+                              <p className="mt-1 text-sm font-extrabold">
+                                {existingReview.value_score}/5
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="mt-4 rounded-2xl bg-[#fff7e8] p-4 ring-1 ring-[#f1e7cf]">
+                            <p className="text-xs font-extrabold text-[#9a6a00]">
+                              Seu comentário
+                            </p>
+
+                            <p className="mt-2 text-sm leading-6 text-[#151515]">
+                              {existingReview.comment}
+                            </p>
+                          </div>
+
+                          {existingReview.supplier_reply && (
+                            <div className="mt-3 rounded-2xl bg-green-50 p-4">
+                              <p className="text-xs font-extrabold text-green-700">
+                                Resposta do fornecedor
+                              </p>
+
+                              <p className="mt-2 text-sm leading-6 text-green-900">
+                                {existingReview.supplier_reply}
+                              </p>
+                            </div>
+                          )}
+
+                          <p className="mt-3 text-xs text-gray-500">
+                            Enviada em {formatDateTime(existingReview.created_at)}
+                          </p>
+                        </div>
+                      ) : !showReviewForm ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setErrorMessage('');
+                            setSuccessMessage('');
+                            setShowReviewForm(true);
+                          }}
+                          className="flex w-full items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg"
+                        >
+                          <Star size={21} fill="white" />
+                          Avaliar fornecedor
+                        </button>
+                      ) : (
+                        <div>
+                          <div className="space-y-5">
+                            <div>
+                              <p className="text-sm font-extrabold">
+                                Nota geral
+                              </p>
+                              <p className="mt-1 text-xs text-gray-500">
+                                Como foi sua experiência no geral?
+                              </p>
+                              <div className="mt-3">
+                                <ReviewStars value={rating} onChange={setRating} />
+                              </div>
+                            </div>
+
+                            <div>
+                              <p className="text-sm font-extrabold">
+                                Atendimento
+                              </p>
+                              <div className="mt-2">
+                                <ReviewStars
+                                  value={attendance}
+                                  onChange={setAttendance}
+                                  size={25}
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <p className="text-sm font-extrabold">
+                                Pontualidade
+                              </p>
+                              <div className="mt-2">
+                                <ReviewStars
+                                  value={punctuality}
+                                  onChange={setPunctuality}
+                                  size={25}
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <p className="text-sm font-extrabold">
+                                Qualidade
+                              </p>
+                              <div className="mt-2">
+                                <ReviewStars
+                                  value={quality}
+                                  onChange={setQuality}
+                                  size={25}
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <p className="text-sm font-extrabold">
+                                Custo-benefício
+                              </p>
+                              <div className="mt-2">
+                                <ReviewStars
+                                  value={valueScore}
+                                  onChange={setValueScore}
+                                  size={25}
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <label
+                                htmlFor="review-comment"
+                                className="text-sm font-extrabold"
+                              >
+                                Conte como foi sua experiência
+                              </label>
+
+                              <textarea
+                                id="review-comment"
+                                value={reviewComment}
+                                onChange={(event) =>
+                                  setReviewComment(event.target.value)
+                                }
+                                className="mt-3 min-h-[130px] w-full resize-none rounded-[22px] bg-[#fbf7f1] px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400 focus:ring-2 focus:ring-[#e3a925]"
+                                placeholder="Conte como foi o atendimento, a qualidade do serviço e sua experiência com este fornecedor..."
+                              />
+                            </div>
+                          </div>
+
+                          <div className="mt-5 space-y-3">
+                            <button
+                              type="button"
+                              onClick={handleSubmitReview}
+                              disabled={submittingReview}
+                              className="flex w-full items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg disabled:opacity-60"
+                            >
+                              <Star size={21} fill="white" />
+                              {submittingReview
+                                ? 'Enviando avaliação...'
+                                : 'Enviar avaliação'}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setShowReviewForm(false)}
+                              disabled={submittingReview}
+                              className="flex w-full items-center justify-center rounded-[22px] bg-white py-4 text-center font-extrabold text-[#151515] ring-1 ring-[#f1e7cf] disabled:opacity-60"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
