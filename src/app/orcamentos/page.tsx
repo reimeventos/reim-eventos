@@ -311,8 +311,7 @@ const messages = item.quote_messages || [];
 
 return messages.filter(
 (message: any) =>
-        message.sender_type === 'fornecedor' &&
-        message.sender_type !== 'cliente' &&
+message.sender_type !== 'cliente' &&
 message.read_by_client === false
 ).length;
 }
