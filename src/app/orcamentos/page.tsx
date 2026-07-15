@@ -604,12 +604,11 @@ isAccepted
 ? 'rounded-[24px] bg-white p-3 shadow-sm ring-2 ring-green-200'
 : hasUnreadMessages
 ? 'rounded-[24px] bg-white p-3 shadow-sm ring-2 ring-[#e3a925]'
-                        : 'rounded-[24px] bg-white p-3 shadow-sm ring-1 ring-[#f1e7cf]'
-                        : status === 'respondido'
-                          ? 'rounded-[24px] bg-white p-3 shadow-sm ring-2 ring-blue-100'
-                          : status === 'ajuste_solicitado'
-                            ? 'rounded-[24px] bg-white p-3 shadow-sm ring-2 ring-yellow-200'
-                            : 'rounded-[24px] bg-white p-3 shadow-sm ring-1 ring-[#f1e7cf]'
+: status === 'respondido'
+? 'rounded-[24px] bg-white p-3 shadow-sm ring-2 ring-blue-100'
+: status === 'ajuste_solicitado'
+? 'rounded-[24px] bg-white p-3 shadow-sm ring-2 ring-yellow-200'
+: 'rounded-[24px] bg-white p-3 shadow-sm ring-1 ring-[#f1e7cf]'
 }
 >
 <button
@@ -845,7 +844,6 @@ Tipo de evento
 
 <div className="mt-5 grid grid-cols-2 gap-3">
 <Link
-                          href={`/orcamentos/${item.id}`}
                           href={`/orcamentos/${item.id}?cidade=${encodeURIComponent(eventCity)}`}
 className="flex items-center justify-center gap-2 rounded-[18px] bg-[#e3a925] py-3 text-center text-sm font-extrabold text-white shadow-lg"
 >
@@ -854,7 +852,6 @@ className="flex items-center justify-center gap-2 rounded-[18px] bg-[#e3a925] py
 </Link>
 
 <Link
-                          href={`/orcamentos/${item.id}/chat`}
                           href={`/orcamentos/${item.id}/chat?cidade=${encodeURIComponent(eventCity)}`}
 className={
 hasUnreadMessages
