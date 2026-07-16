@@ -343,7 +343,7 @@ export default function OrcamentoRecebidoPage() {
       setQuote(updatedQuote);
       setShowAdjustmentBox(false);
       setSuccessMessage(
-        `Orçamento aceito com sucesso para atendimento em ${eventCity}! O fornecedor será informado pelo app.`
+        `Orçamento aceito com sucesso! Agora aguarde o contato do fornecedor para formalizar o contrato, confirmar os detalhes do serviço e combinar as condições de pagamento. Você também pode continuar conversando pelo chat do REIM EVENTOS.`
       );
 
       await loadCerimonialInviteStatus(updatedQuote);
@@ -973,6 +973,31 @@ export default function OrcamentoRecebidoPage() {
                 {successMessage && (
                   <div className="mt-5 rounded-2xl bg-green-50 px-4 py-3 text-sm font-bold text-green-700">
                     {successMessage}
+                  </div>
+                )}
+
+                {isAccepted && (
+                  <div className="mt-5 rounded-[28px] bg-green-50 p-5 text-green-800 shadow-sm ring-1 ring-green-200">
+                    <div className="flex items-start gap-4">
+                      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-green-100 text-green-700">
+                        <CheckCircle2 size={30} />
+                      </div>
+
+                      <div className="flex-1">
+                        <h2 className="text-lg font-extrabold">
+                          Orçamento aceito com sucesso!
+                        </h2>
+
+                        <p className="mt-2 text-sm leading-6 text-green-800">
+                          Agora aguarde o contato do fornecedor para formalizar o contrato,
+                          confirmar os detalhes do serviço e combinar as condições de pagamento.
+                        </p>
+
+                        <p className="mt-3 text-xs font-bold leading-5 text-green-700">
+                          Você também pode continuar conversando pelo chat do REIM EVENTOS para alinhar os próximos passos.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 )}
 
