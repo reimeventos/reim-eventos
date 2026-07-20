@@ -825,7 +825,6 @@ export async function createQuoteResponse(
       .from("quote_requests")
       .update({
         status: "respondido",
-        updated_at: new Date().toISOString(),
       })
       .eq("id", quoteRequestId);
 
@@ -858,7 +857,6 @@ export async function acceptQuoteResponse(payloadOrResponseId: any) {
     .from("quote_responses")
     .update({
       status: "aceito",
-      accepted_at: new Date().toISOString(),
     })
     .eq("id", responseId)
     .select("*")
@@ -873,13 +871,17 @@ export async function acceptQuoteResponse(payloadOrResponseId: any) {
     quoteRequestIdFromPayload || responseData?.quote_request_id;
 
   if (quoteRequestId) {
-    await supabase
+    const { error: requestError } = await supabase
       .from("quote_requests")
       .update({
         status: "aceito",
-        updated_at: new Date().toISOString(),
       })
       .eq("id", quoteRequestId);
+
+    if (requestError) {
+      console.error("Erro ao atualizar pedido como aceito:", requestError);
+      throw requestError;
+    }
   }
 
   return responseData;
@@ -916,7 +918,7 @@ export async function requestQuoteAdjustment(
     .from("quote_responses")
     .update({
       status: "ajuste_solicitado",
-      adjustment_request: message,
+      adjustment_notes: message,
       adjustment_requested_at: new Date().toISOString(),
     })
     .eq("id", responseId)
@@ -932,13 +934,17 @@ export async function requestQuoteAdjustment(
     quoteRequestIdFromPayload || responseData?.quote_request_id;
 
   if (quoteRequestId) {
-    await supabase
+    const { error: requestError } = await supabase
       .from("quote_requests")
       .update({
         status: "ajuste_solicitado",
-        updated_at: new Date().toISOString(),
       })
       .eq("id", quoteRequestId);
+
+    if (requestError) {
+      console.error("Erro ao atualizar pedido como ajuste solicitado:", requestError);
+      throw requestError;
+    }
   }
 
   return responseData;
