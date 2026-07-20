@@ -336,7 +336,52 @@ export default function HomePage() {
           throw error;
         }
 
-        setFeaturedSuppliers(data || []);
+        const supplierRows = data || [];
+        const supplierIds = supplierRows
+          .map((item: any) => item.id)
+          .filter(Boolean);
+
+        let reviewStatsMap: Record<string, any> = {};
+
+        if (supplierIds.length > 0) {
+          const { data: reviewStatsData, error: reviewStatsError } = await supabase
+            .from('supplier_review_stats')
+            .select('supplier_id, review_count, rating_average')
+            .in('supplier_id', supplierIds);
+
+          if (reviewStatsError) {
+            console.error(
+              'Erro ao carregar avaliações dos fornecedores em destaque:',
+              reviewStatsError
+            );
+          } else {
+            reviewStatsMap = (reviewStatsData || []).reduce(
+              (acc: Record<string, any>, item: any) => {
+                acc[item.supplier_id] = item;
+                return acc;
+              },
+              {}
+            );
+          }
+        }
+
+        const suppliersWithReviews = supplierRows
+          .map((item: any) => ({
+            ...item,
+            review_count: Number(reviewStatsMap[item.id]?.review_count || 0),
+            real_rating_average:
+              reviewStatsMap[item.id]?.rating_average !== null &&
+              reviewStatsMap[item.id]?.rating_average !== undefined
+                ? Number(reviewStatsMap[item.id].rating_average)
+                : null,
+          }))
+          .sort((a: any, b: any) => {
+            const ratingA = Number(a.real_rating_average || 0);
+            const ratingB = Number(b.real_rating_average || 0);
+            return ratingB - ratingA;
+          });
+
+        setFeaturedSuppliers(suppliersWithReviews);
       } catch (error) {
         console.error('Erro ao carregar fornecedores em destaque:', error);
         setFeaturedSuppliers([]);
@@ -623,7 +668,10 @@ export default function HomePage() {
                     </p>
 
                     <p className="mt-1 text-[10px] font-bold text-[#d99200]">
-                      ★ {supplier.rating_average || '4.9'}
+                      {supplier.review_count > 0 &&
+                      supplier.real_rating_average !== null
+                        ? `★ ${Number(supplier.real_rating_average).toFixed(1)} (${supplier.review_count})`
+                        : 'Novo no REIM'}
                     </p>
 
                     <p className="truncate text-[10px] text-gray-500">
