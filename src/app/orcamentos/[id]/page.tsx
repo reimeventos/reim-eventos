@@ -406,14 +406,40 @@ export default function OrcamentoRecebidoPage() {
   async function handleSaveReview() {
     setReviewMessage('');
 
-    const supplierId =
+    if (!requestId) {
+      setReviewMessage('Orçamento não identificado.');
+      return;
+    }
+
+    let supplierId =
       quote?.supplier_id ||
       quote?.suppliers?.id ||
+      quote?.suppliers?.[0]?.id ||
       quote?.quote_requests?.supplier_id ||
+      quote?.quote_requests?.[0]?.supplier_id ||
       '';
 
-    if (!supplierId || !requestId) {
-      setReviewMessage('Fornecedor ou orçamento não identificado.');
+    if (!supplierId) {
+      const { data: requestData, error: requestError } = await supabase
+        .from('quote_requests')
+        .select('supplier_id')
+        .eq('id', requestId)
+        .maybeSingle();
+
+      if (requestError) {
+        console.error(
+          'Erro ao localizar fornecedor do orçamento para avaliação:',
+          requestError
+        );
+      }
+
+      supplierId = requestData?.supplier_id || '';
+    }
+
+    if (!supplierId) {
+      setReviewMessage(
+        'Não foi possível localizar o fornecedor deste orçamento.'
+      );
       return;
     }
 
