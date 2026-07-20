@@ -213,15 +213,23 @@ function formatPrice(value: any) {
 }
 
 function formatRating(value: any) {
-  if (!value) return '4.9';
-
   const numberValue = Number(value);
 
-  if (Number.isNaN(numberValue)) {
-    return String(value);
+  if (!Number.isFinite(numberValue) || numberValue <= 0) {
+    return 'Sem avaliações';
   }
 
   return numberValue.toFixed(1);
+}
+
+function formatReviewDate(value?: string | null) {
+  if (!value) return '';
+
+  return new Date(value).toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
 }
 
 function formatWhatsAppLink(value: any) {
@@ -370,6 +378,9 @@ export default function FornecedorPage() {
     setSaveMessage,
   ] = useState('');
 
+  const [reviewStats, setReviewStats] = useState<any>(null);
+  const [reviews, setReviews] = useState<any[]>([]);
+
   const isCerimonialistaMode =
     Boolean(targetCustomerId);
 
@@ -449,6 +460,63 @@ export default function FornecedorPage() {
         );
 
         setSupplier(data);
+
+        const { data: statsData, error: statsError } = await supabase
+          .from('supplier_review_stats')
+          .select('*')
+          .eq('supplier_id', supplierId)
+          .maybeSingle();
+
+        if (statsError) {
+          console.error('Erro ao carregar média das avaliações:', statsError);
+        }
+
+        setReviewStats(statsData || null);
+
+        const { data: reviewsData, error: reviewsError } = await supabase
+          .from('reviews')
+          .select('*')
+          .eq('supplier_id', supplierId)
+          .order('created_at', { ascending: false });
+
+        if (reviewsError) {
+          console.error('Erro ao carregar avaliações da vitrine:', reviewsError);
+          setReviews([]);
+        } else {
+          const reviewRows = reviewsData || [];
+          const clientIds = Array.from(
+            new Set(
+              reviewRows
+                .map((item: any) => item.client_id)
+                .filter(Boolean)
+            )
+          );
+
+          let profilesById: Record<string, any> = {};
+
+          if (clientIds.length > 0) {
+            const { data: profilesData, error: profilesError } = await supabase
+              .from('profiles')
+              .select('id, full_name')
+              .in('id', clientIds);
+
+            if (profilesError) {
+              console.error('Erro ao carregar nomes das avaliações:', profilesError);
+            }
+
+            profilesById = Object.fromEntries(
+              (profilesData || []).map((profile: any) => [profile.id, profile])
+            );
+          }
+
+          setReviews(
+            reviewRows.map((item: any) => ({
+              ...item,
+              client_name:
+                profilesById[item.client_id]?.full_name || 'Cliente REIM',
+            }))
+          );
+        }
 
         if (customerIdFromUrl) {
           const {
@@ -676,10 +744,11 @@ export default function FornecedorPage() {
     supplier.city ||
     'Cidade não informada';
 
-  const rating =
-    formatRating(
-      supplier.rating_average
-    );
+  const reviewCount = Number(reviewStats?.review_count || 0);
+
+  const rating = formatRating(
+    reviewStats?.rating_average
+  );
 
   const price =
     formatPrice(
@@ -817,7 +886,9 @@ export default function FornecedorPage() {
                     className="text-[#e3a925]"
                   />
 
-                  {rating} • 128 avaliações
+                  {reviewCount > 0
+                    ? `${rating} • ${reviewCount} ${reviewCount === 1 ? 'avaliação' : 'avaliações'}`
+                    : 'Ainda sem avaliações'}
                 </p>
               </div>
 
@@ -936,6 +1007,108 @@ export default function FornecedorPage() {
               </div>
             </div>
           )}
+
+          <div className="mt-6 overflow-hidden rounded-[26px] bg-white shadow-sm ring-1 ring-[#f1e7cf]">
+            <div className="flex items-center justify-between border-b border-[#f1e7cf] px-5 py-4">
+              <div>
+                <h2 className="text-lg font-extrabold">Avaliações</h2>
+                <p className="mt-1 text-xs font-bold text-gray-500">
+                  Opiniões reais de clientes do REIM EVENTOS
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-[#fff7e8] px-3 py-2 text-center">
+                <p className="flex items-center justify-center gap-1 text-sm font-extrabold text-[#d99200]">
+                  <Star size={15} fill="#e3a925" />
+                  {reviewCount > 0 ? rating : '—'}
+                </p>
+                <p className="mt-0.5 text-[10px] font-bold text-gray-500">
+                  {reviewCount} {reviewCount === 1 ? 'avaliação' : 'avaliações'}
+                </p>
+              </div>
+            </div>
+
+            {reviews.length === 0 ? (
+              <div className="px-5 py-6 text-center">
+                <Star size={30} className="mx-auto text-gray-300" />
+                <p className="mt-3 text-sm font-extrabold text-gray-600">
+                  Ainda não há avaliações
+                </p>
+                <p className="mt-1 text-xs leading-5 text-gray-500">
+                  As avaliações aparecerão aqui após clientes concluírem suas contratações.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4 p-5">
+                {reviews.map((review: any) => (
+                  <div
+                    key={review.id}
+                    className="rounded-[22px] bg-[#fbf7f1] p-4 ring-1 ring-[#f1e7cf]"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-extrabold">
+                          {review.client_name}
+                        </p>
+                        <p className="mt-1 text-[11px] font-bold text-gray-500">
+                          {formatReviewDate(review.created_at)}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star
+                            key={star}
+                            size={15}
+                            className={
+                              star <= Number(review.rating || 0)
+                                ? 'text-[#e3a925]'
+                                : 'text-gray-300'
+                            }
+                            fill={
+                              star <= Number(review.rating || 0)
+                                ? '#e3a925'
+                                : 'none'
+                            }
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    <p className="mt-3 text-sm leading-6 text-gray-700">
+                      {review.comment}
+                    </p>
+
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <div className="rounded-2xl bg-white px-3 py-2 text-[11px] font-bold text-gray-600">
+                        Atendimento: <strong>{review.attendance}/5</strong>
+                      </div>
+                      <div className="rounded-2xl bg-white px-3 py-2 text-[11px] font-bold text-gray-600">
+                        Pontualidade: <strong>{review.punctuality}/5</strong>
+                      </div>
+                      <div className="rounded-2xl bg-white px-3 py-2 text-[11px] font-bold text-gray-600">
+                        Qualidade: <strong>{review.quality}/5</strong>
+                      </div>
+                      <div className="rounded-2xl bg-white px-3 py-2 text-[11px] font-bold text-gray-600">
+                        Custo-benefício: <strong>{review.value_score}/5</strong>
+                      </div>
+                    </div>
+
+                    {review.supplier_reply && (
+                      <div className="mt-4 rounded-2xl bg-[#151515] p-4 text-white">
+                        <p className="text-xs font-extrabold text-[#f7d67b]">
+                          Resposta do fornecedor
+                        </p>
+                        <p className="mt-2 text-sm leading-6 text-white/80">
+                          {review.supplier_reply}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           <div className="mt-6">
             <div className="mb-3 flex items-center justify-between">
