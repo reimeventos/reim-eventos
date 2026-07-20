@@ -287,6 +287,11 @@ export default function PainelFornecedorPage() {
   const [answeredCount, setAnsweredCount] = useState(0);
   const [closedCount, setClosedCount] = useState(0);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [reviewStats, setReviewStats] = useState<any>(null);
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
+  const [replyingReviewId, setReplyingReviewId] = useState('');
+  const [reviewMessage, setReviewMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
   async function loadPanel() {
@@ -411,12 +416,115 @@ export default function PainelFornecedorPage() {
       }
 
       setUnreadCount(messagesData?.length || 0);
+
+      const { data: statsData, error: statsError } = await supabase
+        .from('supplier_review_stats')
+        .select('*')
+        .eq('supplier_id', supplierData.id)
+        .maybeSingle();
+
+      if (statsError) {
+        console.error('Erro ao carregar estatísticas das avaliações:', statsError);
+      }
+
+      setReviewStats(statsData || null);
+
+      const { data: reviewsData, error: reviewsError } = await supabase
+        .from('reviews')
+        .select('*')
+        .eq('supplier_id', supplierData.id)
+        .order('created_at', { ascending: false });
+
+      if (reviewsError) {
+        console.error('Erro ao carregar avaliações recebidas:', reviewsError);
+        setReviews([]);
+      } else {
+        const reviewRows = reviewsData || [];
+        const clientIds = Array.from(
+          new Set(
+            reviewRows
+              .map((item: any) => item.client_id)
+              .filter(Boolean)
+          )
+        );
+
+        let profilesById: Record<string, any> = {};
+
+        if (clientIds.length > 0) {
+          const { data: profilesData, error: profilesError } = await supabase
+            .from('profiles')
+            .select('id, full_name')
+            .in('id', clientIds);
+
+          if (profilesError) {
+            console.error('Erro ao carregar nomes dos clientes:', profilesError);
+          }
+
+          profilesById = Object.fromEntries(
+            (profilesData || []).map((profile: any) => [profile.id, profile])
+          );
+        }
+
+        setReviews(
+          reviewRows.map((item: any) => ({
+            ...item,
+            client_name:
+              profilesById[item.client_id]?.full_name || 'Cliente REIM',
+          }))
+        );
+
+        setReplyDrafts(
+          Object.fromEntries(
+            reviewRows.map((item: any) => [item.id, item.supplier_reply || ''])
+          )
+        );
+      }
     } catch (error: any) {
       console.error('Erro ao carregar painel fornecedor:', error);
       setErrorMessage(error?.message || 'Não foi possível carregar o painel.');
     } finally {
       setLoading(false);
       setCheckingRedirect(false);
+    }
+  }
+
+  async function handleReplyReview(reviewId: string) {
+    const reply = String(replyDrafts[reviewId] || '').trim();
+
+    if (!reply) {
+      setReviewMessage('Escreva uma resposta antes de enviar.');
+      return;
+    }
+
+    try {
+      setReplyingReviewId(reviewId);
+      setReviewMessage('');
+
+      const { data, error } = await supabase
+        .from('reviews')
+        .update({ supplier_reply: reply })
+        .eq('id', reviewId)
+        .select('*')
+        .single();
+
+      if (error) throw error;
+
+      setReviews((current) =>
+        current.map((item) =>
+          item.id === reviewId
+            ? { ...item, supplier_reply: data.supplier_reply }
+            : item
+        )
+      );
+
+      setReviewMessage('Resposta enviada com sucesso.');
+    } catch (error: any) {
+      console.error('Erro ao responder avaliação:', error);
+      setReviewMessage(
+        error?.message || 'Não foi possível responder esta avaliação.'
+      );
+    } finally {
+      setReplyingReviewId('');
     }
   }
 
@@ -506,7 +614,9 @@ export default function PainelFornecedorPage() {
 
   const supplierName = supplier.business_name || 'Fornecedor';
   const categoryName = getCategoryName(supplier);
-  const rating = supplier.rating_average || '4.9';
+  const reviewCount = Number(reviewStats?.review_count || 0);
+  const ratingAverage = Number(reviewStats?.rating_average || 0);
+  const rating = reviewCount > 0 ? ratingAverage.toFixed(1) : 'Sem avaliações';
   const averagePrice = formatPrice(supplier.average_price);
   const subscriptionInfo = getSubscriptionInfo(subscription, publicVisibility);
   const planLabel = subscriptionInfo.planLabel;
@@ -802,6 +912,129 @@ export default function PainelFornecedorPage() {
             </div>
           </section>
         )}
+
+        <section className="px-6 pt-6">
+          <div className="overflow-hidden rounded-[28px] bg-white shadow-sm ring-1 ring-[#f1e7cf]">
+            <div className="flex items-center justify-between border-b border-[#f1e7cf] p-5">
+              <div>
+                <h2 className="text-lg font-extrabold">Avaliações recebidas</h2>
+                <p className="mt-1 text-xs font-bold text-gray-500">
+                  Veja e responda aos depoimentos dos clientes
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-[#fff7e8] px-3 py-2 text-center">
+                <p className="flex items-center justify-center gap-1 text-sm font-extrabold text-[#d99200]">
+                  <Star size={15} fill="#e3a925" />
+                  {reviewCount > 0 ? rating : '—'}
+                </p>
+                <p className="mt-0.5 text-[10px] font-bold text-gray-500">
+                  {reviewCount} {reviewCount === 1 ? 'avaliação' : 'avaliações'}
+                </p>
+              </div>
+            </div>
+
+            {reviewMessage && (
+              <div
+                className={
+                  'mx-5 mt-4 rounded-2xl px-4 py-3 text-sm font-bold ' +
+                  (reviewMessage.includes('sucesso')
+                    ? 'bg-green-50 text-green-700'
+                    : 'bg-red-50 text-red-700')
+                }
+              >
+                {reviewMessage}
+              </div>
+            )}
+
+            {reviews.length === 0 ? (
+              <div className="p-6 text-center">
+                <Star size={32} className="mx-auto text-gray-300" />
+                <p className="mt-3 text-sm font-extrabold text-gray-600">
+                  Nenhuma avaliação recebida ainda
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4 p-5">
+                {reviews.map((review: any) => (
+                  <div
+                    key={review.id}
+                    className="rounded-[22px] bg-[#fbf7f1] p-4 ring-1 ring-[#f1e7cf]"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-extrabold">
+                          {review.client_name}
+                        </p>
+                        <p className="mt-1 text-[11px] font-bold text-gray-500">
+                          {review.created_at
+                            ? new Date(review.created_at).toLocaleDateString('pt-BR')
+                            : ''}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star
+                            key={star}
+                            size={15}
+                            className={
+                              star <= Number(review.rating || 0)
+                                ? 'text-[#e3a925]'
+                                : 'text-gray-300'
+                            }
+                            fill={
+                              star <= Number(review.rating || 0)
+                                ? '#e3a925'
+                                : 'none'
+                            }
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    <p className="mt-3 text-sm leading-6 text-gray-700">
+                      {review.comment}
+                    </p>
+
+                    <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] font-bold text-gray-600">
+                      <div className="rounded-2xl bg-white px-3 py-2">Atendimento: {review.attendance}/5</div>
+                      <div className="rounded-2xl bg-white px-3 py-2">Pontualidade: {review.punctuality}/5</div>
+                      <div className="rounded-2xl bg-white px-3 py-2">Qualidade: {review.quality}/5</div>
+                      <div className="rounded-2xl bg-white px-3 py-2">Custo-benefício: {review.value_score}/5</div>
+                    </div>
+
+                    <textarea
+                      value={replyDrafts[review.id] || ''}
+                      onChange={(event) =>
+                        setReplyDrafts((current) => ({
+                          ...current,
+                          [review.id]: event.target.value,
+                        }))
+                      }
+                      className="mt-4 min-h-[90px] w-full resize-none rounded-[18px] bg-white px-4 py-3 text-sm outline-none ring-1 ring-[#f1e7cf]"
+                      placeholder="Escreva uma resposta pública para este cliente."
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => handleReplyReview(review.id)}
+                      disabled={replyingReviewId === review.id}
+                      className="mt-3 flex w-full items-center justify-center gap-2 rounded-[18px] bg-black py-3 text-sm font-extrabold text-white disabled:opacity-60"
+                    >
+                      <MessageCircle size={17} />
+                      {replyingReviewId === review.id
+                        ? 'Enviando resposta...'
+                        : review.supplier_reply
+                          ? 'Atualizar resposta'
+                          : 'Responder avaliação'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
 
         {/* ATALHOS */}
         <section className="px-6 pt-6">
