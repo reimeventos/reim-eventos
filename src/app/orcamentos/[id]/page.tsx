@@ -174,7 +174,15 @@ export default function OrcamentoRecebidoPage() {
           setQuoteRequestOrigin(originData || null);
         }
 
-        if (data?.status === 'aceito') {
+        const responseStatus = String(data?.status || '').toLowerCase();
+        const requestStatus = String(data?.quote_requests?.status || '').toLowerCase();
+        const acceptedStatus =
+          responseStatus === 'aceito' ||
+          responseStatus === 'fechado' ||
+          requestStatus === 'aceito' ||
+          requestStatus === 'fechado';
+
+        if (acceptedStatus) {
           await loadCerimonialInviteStatus(data);
           await loadExistingReview();
         }
@@ -575,9 +583,26 @@ export default function OrcamentoRecebidoPage() {
   const eventSpace = quoteRequestOrigin?.event_space || 'Espaço não informado';
   const guestsCount = quoteRequestOrigin?.guests_count || 'Não informado';
 
-  const quoteStatus = quote?.status || 'enviado';
-  const isAccepted = quoteStatus === 'aceito';
-  const isAdjustmentRequested = quoteStatus === 'ajuste_solicitado';
+  const responseStatus = String(quote?.status || '').toLowerCase();
+  const requestStatus = String(quote?.quote_requests?.status || '').toLowerCase();
+
+  const quoteStatus =
+    requestStatus === 'aceito' ||
+    requestStatus === 'fechado' ||
+    responseStatus === 'aceito' ||
+    responseStatus === 'fechado'
+      ? 'aceito'
+      : responseStatus || requestStatus || 'enviado';
+
+  const isAccepted =
+    responseStatus === 'aceito' ||
+    responseStatus === 'fechado' ||
+    requestStatus === 'aceito' ||
+    requestStatus === 'fechado';
+
+  const isAdjustmentRequested =
+    responseStatus === 'ajuste_solicitado' ||
+    requestStatus === 'ajuste_solicitado';
   const isCerimonialista = isCerimonialistaCategory(supplierCategory);
   const isCerimonialAlreadyAuthorized = cerimonialInviteStatus === 'aceito';
 
