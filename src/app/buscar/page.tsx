@@ -136,12 +136,12 @@ function formatPrice(value: any) {
 }
 
 function formatRating(value: any) {
-  if (!value) return '4.9';
+  if (value === null || value === undefined || value === '') return '';
 
   const numberValue = Number(value);
 
   if (Number.isNaN(numberValue)) {
-    return String(value);
+    return '';
   }
 
   return numberValue.toFixed(1);
@@ -163,6 +163,7 @@ export default function BuscarPage() {
   const [categories, setCategories] = useState<any[]>([]);
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [visibilityBySupplier, setVisibilityBySupplier] = useState<Record<string, any>>({});
+  const [reviewStatsBySupplier, setReviewStatsBySupplier] = useState<Record<string, any>>({});
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [loadingSuppliers, setLoadingSuppliers] = useState(true);
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
@@ -302,6 +303,7 @@ export default function BuscarPage() {
 
       if (visibleIds.length === 0) {
         setSuppliers([]);
+        setReviewStatsBySupplier({});
         return;
       }
 
@@ -339,6 +341,36 @@ export default function BuscarPage() {
       if (error) {
         throw error;
       }
+
+      const supplierIds = (data || [])
+        .map((item: any) => item.id)
+        .filter(Boolean);
+
+      let reviewStatsMap: Record<string, any> = {};
+
+      if (supplierIds.length > 0) {
+        const { data: reviewStatsData, error: reviewStatsError } = await supabase
+          .from('supplier_review_stats')
+          .select('supplier_id, review_count, rating_average')
+          .in('supplier_id', supplierIds);
+
+        if (reviewStatsError) {
+          console.error(
+            'Erro ao carregar avaliações reais dos fornecedores:',
+            reviewStatsError
+          );
+        } else {
+          reviewStatsMap = (reviewStatsData || []).reduce(
+            (acc: Record<string, any>, item: any) => {
+              acc[item.supplier_id] = item;
+              return acc;
+            },
+            {}
+          );
+        }
+      }
+
+      setReviewStatsBySupplier(reviewStatsMap);
 
       const normalizedSearch = String(searchText || '').trim().toLowerCase();
 
@@ -393,6 +425,7 @@ export default function BuscarPage() {
       console.error('Erro ao carregar fornecedores:', error);
       setSuppliers([]);
       setVisibilityBySupplier({});
+      setReviewStatsBySupplier({});
       setShowingAlternativeCities(false);
       setAlternativeCities([]);
       setLocalSuppliersCount(0);
@@ -806,11 +839,13 @@ export default function BuscarPage() {
               const supplierName = supplier.business_name || 'Fornecedor';
               const categoryName = getCategoryNameFromSupplier(supplier);
               const city = supplier.city || 'Cidade não informada';
-              const rating = formatRating(supplier.rating_average);
               const price = formatPrice(supplier.average_price);
               const coverImage = getCoverImage(supplier);
               const supplierId = supplier.id || 'demo';
               const visibility = visibilityBySupplier[supplierId] || null;
+              const reviewStats = reviewStatsBySupplier[supplierId] || null;
+              const reviewCount = Number(reviewStats?.review_count || 0);
+              const rating = formatRating(reviewStats?.rating_average);
               const tag = getPublicTag(visibility, supplier);
               const isSavedForCustomer = savedSupplierIds.includes(supplierId);
 
@@ -863,12 +898,18 @@ export default function BuscarPage() {
                         </div>
 
                         <div className="flex items-center gap-1 rounded-full bg-black/45 px-3 py-1 text-sm font-bold">
-                          <Star
-                            size={15}
-                            fill="#e3a925"
-                            className="text-[#e3a925]"
-                          />
-                          {rating}
+                          {reviewCount > 0 && rating ? (
+                            <>
+                              <Star
+                                size={15}
+                                fill="#e3a925"
+                                className="text-[#e3a925]"
+                              />
+                              {rating} ({reviewCount})
+                            </>
+                          ) : (
+                            <span className="text-xs">Novo no REIM</span>
+                          )}
                         </div>
                       </div>
                     </div>
