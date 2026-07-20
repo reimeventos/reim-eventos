@@ -469,14 +469,12 @@ export default function OrcamentoRecebidoPage() {
         throw new Error('Faça login para avaliar o fornecedor.');
       }
 
-      const { event } = await getMyEvent();
-
       const { data, error } = await supabase
         .from('reviews')
         .insert({
           client_id: user.id,
           supplier_id: supplierId,
-          event_id: event.id,
+          event_id: null,
           quote_request_id: requestId,
           rating,
           attendance,
