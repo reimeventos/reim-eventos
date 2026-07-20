@@ -406,7 +406,13 @@ export default function OrcamentoRecebidoPage() {
   async function handleSaveReview() {
     setReviewMessage('');
 
-    if (!quote?.supplier_id || !requestId) {
+    const supplierId =
+      quote?.supplier_id ||
+      quote?.suppliers?.id ||
+      quote?.quote_requests?.supplier_id ||
+      '';
+
+    if (!supplierId || !requestId) {
       setReviewMessage('Fornecedor ou orçamento não identificado.');
       return;
     }
@@ -443,7 +449,7 @@ export default function OrcamentoRecebidoPage() {
         .from('reviews')
         .insert({
           client_id: user.id,
-          supplier_id: quote.supplier_id,
+          supplier_id: supplierId,
           event_id: event.id,
           quote_request_id: requestId,
           rating,
