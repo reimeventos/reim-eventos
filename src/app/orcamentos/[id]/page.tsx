@@ -14,6 +14,7 @@ import {
   MessageCircle,
   RefreshCcw,
   ShieldCheck,
+  Star,
   User,
 } from 'lucide-react';
 import {
@@ -81,6 +82,43 @@ function getOriginInfo(origin: any) {
   };
 }
 
+
+function StarRatingInput({
+  label,
+  value,
+  onChange,
+  disabled = false,
+}: {
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="rounded-2xl bg-[#fbf7f1] p-4 ring-1 ring-[#f1e7cf]">
+      <p className="text-xs font-extrabold text-gray-600">{label}</p>
+      <div className="mt-2 flex items-center gap-1">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <button
+            key={star}
+            type="button"
+            disabled={disabled}
+            onClick={() => onChange(star)}
+            className="rounded-lg p-1 disabled:cursor-default"
+            aria-label={`${star} estrela${star > 1 ? 's' : ''}`}
+          >
+            <Star
+              size={27}
+              className={star <= value ? 'text-[#e3a925]' : 'text-gray-300'}
+              fill={star <= value ? '#e3a925' : 'none'}
+            />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function OrcamentoRecebidoPage() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -98,6 +136,17 @@ export default function OrcamentoRecebidoPage() {
   const [adjustmentNotes, setAdjustmentNotes] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+
+  const [existingReview, setExistingReview] = useState<any>(null);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [reviewSaving, setReviewSaving] = useState(false);
+  const [reviewMessage, setReviewMessage] = useState('');
+  const [rating, setRating] = useState(0);
+  const [attendance, setAttendance] = useState(0);
+  const [punctuality, setPunctuality] = useState(0);
+  const [quality, setQuality] = useState(0);
+  const [valueScore, setValueScore] = useState(0);
+  const [comment, setComment] = useState('');
 
   useEffect(() => {
     if (!requestId) return;
@@ -127,6 +176,7 @@ export default function OrcamentoRecebidoPage() {
 
         if (data?.status === 'aceito') {
           await loadCerimonialInviteStatus(data);
+          await loadExistingReview();
         }
       } catch (error) {
         console.error('Erro ao carregar orçamento:', error);
@@ -301,6 +351,121 @@ export default function OrcamentoRecebidoPage() {
       );
     } finally {
       setInvitingCerimonial(false);
+    }
+  }
+
+  async function loadExistingReview() {
+    try {
+      setReviewLoading(true);
+      setReviewMessage('');
+
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData.user;
+
+      if (!user || !requestId) {
+        setExistingReview(null);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('reviews')
+        .select('*')
+        .eq('quote_request_id', requestId)
+        .eq('client_id', user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Erro ao carregar avaliação:', error);
+        return;
+      }
+
+      if (data) {
+        setExistingReview(data);
+        setRating(Number(data.rating || 0));
+        setAttendance(Number(data.attendance || 0));
+        setPunctuality(Number(data.punctuality || 0));
+        setQuality(Number(data.quality || 0));
+        setValueScore(Number(data.value_score || 0));
+        setComment(data.comment || '');
+      } else {
+        setExistingReview(null);
+      }
+    } finally {
+      setReviewLoading(false);
+    }
+  }
+
+  async function handleSaveReview() {
+    setReviewMessage('');
+
+    if (!quote?.supplier_id || !requestId) {
+      setReviewMessage('Fornecedor ou orçamento não identificado.');
+      return;
+    }
+
+    if (
+      rating < 1 ||
+      attendance < 1 ||
+      punctuality < 1 ||
+      quality < 1 ||
+      valueScore < 1
+    ) {
+      setReviewMessage('Preencha todas as notas de 1 a 5 estrelas.');
+      return;
+    }
+
+    if (!comment.trim()) {
+      setReviewMessage('Escreva um comentário sobre sua experiência.');
+      return;
+    }
+
+    try {
+      setReviewSaving(true);
+
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData.user;
+
+      if (!user) {
+        throw new Error('Faça login para avaliar o fornecedor.');
+      }
+
+      const { event } = await getMyEvent();
+
+      const { data, error } = await supabase
+        .from('reviews')
+        .insert({
+          client_id: user.id,
+          supplier_id: quote.supplier_id,
+          event_id: event.id,
+          quote_request_id: requestId,
+          rating,
+          attendance,
+          punctuality,
+          quality,
+          value_score: valueScore,
+          comment: comment.trim(),
+        })
+        .select('*')
+        .single();
+
+      if (error) {
+        if (error.code === '23505') {
+          throw new Error('Você já avaliou este orçamento.');
+        }
+        throw error;
+      }
+
+      setExistingReview(data);
+      setReviewMessage(
+        'Avaliação enviada com sucesso. Obrigado por compartilhar sua experiência!'
+      );
+    } catch (error: any) {
+      console.error('Erro ao salvar avaliação:', error);
+      setReviewMessage(
+        error?.message || 'Não foi possível enviar sua avaliação.'
+      );
+    } finally {
+      setReviewSaving(false);
     }
   }
 
@@ -998,6 +1163,91 @@ export default function OrcamentoRecebidoPage() {
                         </p>
                       </div>
                     </div>
+                  </div>
+                )}
+
+                {isAccepted && (
+                  <div className="mt-5 rounded-[28px] bg-white p-5 shadow-sm ring-1 ring-[#f1e7cf]">
+                    <div className="flex items-start gap-4">
+                      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]">
+                        <Star size={30} fill="#e3a925" />
+                      </div>
+
+                      <div className="flex-1">
+                        <h2 className="text-lg font-extrabold">
+                          Avaliar fornecedor
+                        </h2>
+
+                        <p className="mt-1 text-sm leading-5 text-gray-500">
+                          Compartilhe sua experiência com este fornecedor.
+                        </p>
+                      </div>
+                    </div>
+
+                    {reviewLoading ? (
+                      <div className="mt-4 rounded-2xl bg-[#fbf7f1] px-4 py-3 text-sm font-bold text-gray-500">
+                        Carregando avaliação...
+                      </div>
+                    ) : (
+                      <>
+                        <div className="mt-5 space-y-3">
+                          <StarRatingInput label="Nota geral" value={rating} onChange={setRating} disabled={Boolean(existingReview)} />
+                          <StarRatingInput label="Atendimento" value={attendance} onChange={setAttendance} disabled={Boolean(existingReview)} />
+                          <StarRatingInput label="Pontualidade" value={punctuality} onChange={setPunctuality} disabled={Boolean(existingReview)} />
+                          <StarRatingInput label="Qualidade do serviço" value={quality} onChange={setQuality} disabled={Boolean(existingReview)} />
+                          <StarRatingInput label="Custo-benefício" value={valueScore} onChange={setValueScore} disabled={Boolean(existingReview)} />
+                        </div>
+
+                        <textarea
+                          value={comment}
+                          onChange={(event) => setComment(event.target.value)}
+                          disabled={Boolean(existingReview)}
+                          className="mt-4 min-h-[120px] w-full resize-none rounded-[22px] bg-[#fbf7f1] px-5 py-4 text-sm font-medium outline-none ring-1 ring-[#f1e7cf] placeholder:text-gray-400 disabled:cursor-default disabled:opacity-80"
+                          placeholder="Conte como foi o atendimento, a qualidade do serviço e sua experiência com o fornecedor."
+                        />
+
+                        {existingReview?.supplier_reply && (
+                          <div className="mt-4 rounded-2xl bg-[#151515] p-4 text-white">
+                            <p className="text-xs font-extrabold text-[#f7d67b]">
+                              Resposta do fornecedor
+                            </p>
+                            <p className="mt-2 text-sm leading-6 text-white/80">
+                              {existingReview.supplier_reply}
+                            </p>
+                          </div>
+                        )}
+
+                        {reviewMessage && (
+                          <div
+                            className={
+                              'mt-4 rounded-2xl px-4 py-3 text-sm font-bold ' +
+                              (reviewMessage.includes('sucesso')
+                                ? 'bg-green-50 text-green-700'
+                                : 'bg-red-50 text-red-700')
+                            }
+                          >
+                            {reviewMessage}
+                          </div>
+                        )}
+
+                        {existingReview ? (
+                          <div className="mt-4 flex items-center gap-2 rounded-[22px] bg-green-50 px-4 py-4 text-sm font-extrabold text-green-700 ring-1 ring-green-100">
+                            <CheckCircle2 size={20} />
+                            Avaliação enviada
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={handleSaveReview}
+                            disabled={reviewSaving}
+                            className="mt-4 flex w-full items-center justify-center gap-2 rounded-[22px] bg-[#e3a925] py-4 text-center font-extrabold text-white shadow-lg disabled:opacity-60"
+                          >
+                            <Star size={20} fill="white" />
+                            {reviewSaving ? 'Enviando avaliação...' : 'Enviar avaliação'}
+                          </button>
+                        )}
+                      </>
+                    )}
                   </div>
                 )}
 
