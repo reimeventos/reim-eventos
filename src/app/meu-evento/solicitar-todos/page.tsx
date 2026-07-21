@@ -18,7 +18,7 @@ import {
   User,
   Users,
 } from 'lucide-react';
-import { createQuoteRequest, listSavedSuppliers } from '@/lib/suppliers';
+import { listSavedSuppliers } from '@/lib/suppliers';
 import { getMyEvent } from '@/lib/events';
 import { supabase } from '@/lib/supabase';
 
@@ -260,22 +260,37 @@ export default function SolicitarTodosPage() {
 
         const categoryName = getCategoryName(supplier);
 
-        await createQuoteRequest({
-          supplier_id: supplier.id,
-          customer_name: customerName,
-          customer_whatsapp: customerWhatsapp,
-          event_type: eventType,
-          event_date: eventDate,
-          event_city: eventCity,
-          event_space: eventSpace,
-          guests_count: guestsCount ? Number(guestsCount) : undefined,
-          service_needed: categoryName,
-          notes:
-            notes ||
-            `Gostaria de orçamento para ${eventType.toLowerCase()} com ${
-              guestsCount || 'quantidade de'
-            } convidados.`,
-        });
+        const { error: insertError } = await supabase
+          .from('quote_requests')
+          .insert({
+            supplier_id: supplier.id,
+            customer_id: user.id,
+            customer_name: customerName,
+            customer_whatsapp: customerWhatsapp,
+            event_type: eventType,
+            event_date: eventDate,
+            event_city: eventCity,
+            event_space: eventSpace || null,
+            guests_count: guestsCount
+              ? Number(guestsCount)
+              : null,
+            service_needed: categoryName,
+            notes:
+              notes ||
+              `Gostaria de orçamento para ${eventType.toLowerCase()} com ${
+                guestsCount || 'quantidade de'
+              } convidados.`,
+            status: 'novo',
+            created_by_user_id: user.id,
+            created_by_role: 'cliente_lote',
+            created_by_name: customerName,
+            created_by_email:
+              userEmail || user.email || '',
+          });
+
+        if (insertError) {
+          throw insertError;
+        }
 
         totalSent += 1;
         sentSupplierIds.push(supplier.id);
