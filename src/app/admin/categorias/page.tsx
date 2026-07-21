@@ -6,19 +6,31 @@ import {
   ArrowLeft,
   Cake,
   Camera,
+  ChefHat,
   CheckCircle2,
+  Disc3,
   Edit,
   Flower2,
   Gem,
+  Gift,
   Landmark,
   Loader2,
+  Mic2,
   Music2,
+  Palette,
+  PartyPopper,
   Plus,
   Search,
   Settings,
+  Shirt,
+  Sparkles,
+  Store,
+  Tent,
   Trash2,
   Utensils,
+  UtensilsCrossed,
   Video,
+  WandSparkles,
   X,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -42,7 +54,10 @@ function normalizeSlug(value: string) {
 }
 
 function getCategoryIcon(name: string) {
-  const normalized = String(name || '').toLowerCase();
+  const normalized = String(name || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
 
   if (
     normalized.includes('fotografia') ||
@@ -52,22 +67,57 @@ function getCategoryIcon(name: string) {
     return Camera;
   }
 
-  if (normalized.includes('buffet')) {
+  if (
+    normalized.includes('maquiagem') ||
+    normalized.includes('beleza') ||
+    normalized.includes('unha') ||
+    normalized.includes('cabelo')
+  ) {
+    return Sparkles;
+  }
+
+  if (
+    normalized.includes('barraquinha') ||
+    normalized.includes('barraca') ||
+    normalized.includes('food truck')
+  ) {
+    return Store;
+  }
+
+  if (
+    normalized.includes('estacao gastronomica') ||
+    normalized.includes('estacoes gastronomicas')
+  ) {
+    return ChefHat;
+  }
+
+  if (
+    normalized.includes('ilha gastronomica') ||
+    normalized.includes('ilhas gastronomicas')
+  ) {
+    return UtensilsCrossed;
+  }
+
+  if (
+    normalized.includes('buffet') ||
+    normalized.includes('gastronomia') ||
+    normalized.includes('alimentacao')
+  ) {
     return Utensils;
   }
 
   if (
-    normalized.includes('ornamentação') ||
     normalized.includes('ornamentacao') ||
-    normalized.includes('decoração') ||
-    normalized.includes('decoracao')
+    normalized.includes('decoracao') ||
+    normalized.includes('decorador')
   ) {
     return Flower2;
   }
 
   if (
     normalized.includes('cabine') ||
-    normalized.includes('totem')
+    normalized.includes('totem') ||
+    normalized.includes('espelho magico')
   ) {
     return Video;
   }
@@ -80,27 +130,85 @@ function getCategoryIcon(name: string) {
   }
 
   if (
-    normalized.includes('música') ||
+    normalized.includes('sonorizacao') ||
+    normalized.includes('iluminacao')
+  ) {
+    return Mic2;
+  }
+
+  if (
+    normalized.includes('dj')
+  ) {
+    return Disc3;
+  }
+
+  if (
     normalized.includes('musica') ||
-    normalized.includes('banda')
+    normalized.includes('banda') ||
+    normalized.includes('musico')
   ) {
     return Music2;
   }
 
   if (
     normalized.includes('bolo') ||
-    normalized.includes('doce')
+    normalized.includes('doce') ||
+    normalized.includes('salgado')
   ) {
     return Cake;
   }
 
   if (
-    normalized.includes('espaço') ||
     normalized.includes('espaco') ||
-    normalized.includes('salão') ||
-    normalized.includes('salao')
+    normalized.includes('salao') ||
+    normalized.includes('local de evento')
   ) {
     return Landmark;
+  }
+
+  if (
+    normalized.includes('animador') ||
+    normalized.includes('personagem') ||
+    normalized.includes('recreacao')
+  ) {
+    return PartyPopper;
+  }
+
+  if (
+    normalized.includes('brinquedo') ||
+    normalized.includes('inflavel')
+  ) {
+    return Tent;
+  }
+
+  if (
+    normalized.includes('lembrancinha') ||
+    normalized.includes('personalizado') ||
+    normalized.includes('presente')
+  ) {
+    return Gift;
+  }
+
+  if (
+    normalized.includes('vestuario') ||
+    normalized.includes('roupa') ||
+    normalized.includes('traje')
+  ) {
+    return Shirt;
+  }
+
+  if (
+    normalized.includes('pintura') ||
+    normalized.includes('arte')
+  ) {
+    return Palette;
+  }
+
+  if (
+    normalized.includes('magico') ||
+    normalized.includes('magia')
+  ) {
+    return WandSparkles;
   }
 
   return Settings;
