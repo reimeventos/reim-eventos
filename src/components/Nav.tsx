@@ -8,6 +8,7 @@ import {
   Home,
   ImageIcon,
   MessageSquare,
+  MonitorSmartphone,
   Search,
   ShieldCheck,
   User,
@@ -122,83 +123,98 @@ export function Nav() {
     : 'Orçamentos';
 
   return (
-    <nav className="fixed bottom-0 left-1/2 z-50 w-full max-w-[430px] -translate-x-1/2 rounded-t-[34px] bg-white/95 px-6 pb-4 pt-3 shadow-[0_-10px_30px_rgba(0,0,0,.16)] backdrop-blur lg:bottom-5 lg:max-w-[1120px] lg:rounded-[28px] lg:px-16 lg:py-3">
-      <div className="grid grid-cols-5 items-end text-center">
-        <Link
-          href="/"
-          className="text-[#e3a925]"
-        >
-          <Home
-            size={30}
-            className="mx-auto"
-            fill="#e3a925"
-          />
+    <>
+      <div className="fixed right-5 top-5 z-[60] hidden max-w-[280px] items-start gap-3 rounded-[20px] bg-white/95 p-4 text-[#151515] shadow-2xl ring-1 ring-[#f1e7cf] backdrop-blur lg:flex">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]">
+          <MonitorSmartphone size={21} />
+        </div>
 
-          <div className="mt-1 text-[12px] font-bold">
-            Home
-          </div>
+        <div>
+          <p className="text-sm font-extrabold">
+            Melhor experiência no celular
+          </p>
 
-          <div className="mx-auto mt-1 h-[2px] w-7 rounded-full bg-[#e3a925]" />
-        </Link>
-
-        <Link
-          href={secondHref}
-          className="text-[#222]"
-        >
-          <SecondIcon
-            size={30}
-            className="mx-auto"
-          />
-
-          <div className="mt-1 text-[12px]">
-            {secondLabel}
-          </div>
-        </Link>
-
-        <Link
-          href={centerHref}
-          className="-mt-8"
-        >
-          <div className="mx-auto flex h-[64px] w-[64px] items-center justify-center rounded-full bg-[#e3a925] text-white shadow-[0_8px_20px_rgba(227,169,37,.45)]">
-            <CenterIcon
-              size={32}
-              strokeWidth={2.4}
-            />
-          </div>
-
-          <div className="mt-1 text-[11px] font-bold text-[#222]">
-            {centerLabel}
-          </div>
-        </Link>
-
-        <Link
-          href={fourthHref}
-          className="text-[#222]"
-        >
-          <MessageSquare
-            size={30}
-            className="mx-auto"
-          />
-
-          <div className="mt-1 text-[12px]">
-            {fourthLabel}
-          </div>
-        </Link>
-
-        <Link
-          href="/perfil"
-          className="text-[#222]"
-        >
-          <User
-            size={30}
-            className="mx-auto"
-          />
-
-          <div className="mt-1 text-[12px]">
-            Perfil
-          </div>
-        </Link>
+          <p className="mt-1 text-xs font-bold leading-5 text-gray-500">
+            O REIM EVENTOS foi desenvolvido primeiro para uso no celular.
+          </p>
+        </div>
       </div>
-    </nav>
+
+      <nav className="fixed bottom-0 left-1/2 z-50 w-full max-w-[430px] -translate-x-1/2 rounded-t-[34px] bg-white/95 px-6 pb-4 pt-3 shadow-[0_-10px_30px_rgba(0,0,0,.16)] backdrop-blur">
+        <div className="grid grid-cols-5 items-end text-center">
+          <Link href="/" className="text-[#e3a925]">
+            <Home
+              size={30}
+              className="mx-auto"
+              fill="#e3a925"
+            />
+
+            <div className="mt-1 text-[12px] font-bold">
+              Home
+            </div>
+
+            <div className="mx-auto mt-1 h-[2px] w-7 rounded-full bg-[#e3a925]" />
+          </Link>
+
+          <Link
+            href={secondHref}
+            className="text-[#222]"
+          >
+            <SecondIcon
+              size={30}
+              className="mx-auto"
+            />
+
+            <div className="mt-1 text-[12px]">
+              {secondLabel}
+            </div>
+          </Link>
+
+          <Link
+            href={centerHref}
+            className="-mt-8"
+          >
+            <div className="mx-auto flex h-[64px] w-[64px] items-center justify-center rounded-full bg-[#e3a925] text-white shadow-[0_8px_20px_rgba(227,169,37,.45)]">
+              <CenterIcon
+                size={32}
+                strokeWidth={2.4}
+              />
+            </div>
+
+            <div className="mt-1 text-[11px] font-bold text-[#222]">
+              {centerLabel}
+            </div>
+          </Link>
+
+          <Link
+            href={fourthHref}
+            className="text-[#222]"
+          >
+            <MessageSquare
+              size={30}
+              className="mx-auto"
+            />
+
+            <div className="mt-1 text-[12px]">
+              {fourthLabel}
+            </div>
+          </Link>
+
+          <Link
+            href="/perfil"
+            className="text-[#222]"
+          >
+            <User
+              size={30}
+              className="mx-auto"
+            />
+
+            <div className="mt-1 text-[12px]">
+              Perfil
+            </div>
+          </Link>
+        </div>
+      </nav>
+    </>
   );
 }
