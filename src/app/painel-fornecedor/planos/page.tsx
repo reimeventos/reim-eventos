@@ -104,14 +104,80 @@ const plans: {
   },
 ];
 
-function getPlanLabel(plan?: string) {
-  if (plan === 'premium') return 'Premium Destaque';
+function getPlanLabel(
+  plan?: string,
+  billingPeriod?: BillingPeriod | string
+) {
+  if (plan === 'premium') {
+    if (billingPeriod === 'trimestral') {
+      return 'Plano com Destaque';
+    }
+
+    if (billingPeriod === 'anual') {
+      return 'Premium Anual';
+    }
+
+    return 'Plano Básico';
+  }
 
   if (plan === 'teste_7_dias' || plan === 'gratuito') {
     return 'Teste grátis';
   }
 
   return 'Sem plano';
+}
+
+function getPaidPlanPresentation(period: BillingPeriod) {
+  if (period === 'trimestral') {
+    return {
+      name: 'Plano com Destaque',
+      badge: '2 meses em destaque',
+      highlight:
+        'Vitrine ativa por 90 dias, com destaque Premium durante 2 meses.',
+      features: [
+        'Fornecedor ativo na busca pública por 90 dias',
+        'Destaque na vitrine do REIM EVENTOS por 2 meses',
+        'Selo Premium durante o período de destaque',
+        'Recebimento de pedidos de orçamento',
+        'Galeria de fotos e vídeos',
+        'Painel de leads',
+        'Chat com clientes',
+      ],
+    };
+  }
+
+  if (period === 'anual') {
+    return {
+      name: 'Premium Anual',
+      badge: 'Destaque o ano todo',
+      highlight:
+        'Plano anual completo, com máxima visibilidade durante 365 dias.',
+      features: [
+        'Fornecedor ativo na busca pública por 365 dias',
+        'Destaque na vitrine do REIM EVENTOS durante todo o ano',
+        'Selo Premium durante todo o plano',
+        'Recebimento de pedidos de orçamento',
+        'Galeria de fotos e vídeos',
+        'Painel de leads',
+        'Chat com clientes',
+      ],
+    };
+  }
+
+  return {
+    name: 'Plano Básico',
+    badge: 'Mensal',
+    highlight:
+      'Plano essencial para manter a vitrine ativa por 30 dias.',
+    features: [
+      'Fornecedor ativo na busca pública por 30 dias',
+      'Recebimento de pedidos de orçamento',
+      'Galeria de fotos e vídeos',
+      'Painel de leads',
+      'Chat com clientes',
+      'Sem destaque Premium neste período',
+    ],
+  };
 }
 
 function getStatusLabel(status?: string) {
@@ -569,7 +635,7 @@ export default function PlanosFornecedorPage() {
     const confirmed = window.confirm(
       planKey === 'teste_7_dias'
         ? 'Deseja iniciar o teste grátis de 7 dias para fornecedor?'
-        : `Você será direcionado para o Mercado Pago para contratar o plano ${plan.name} no período ${billingLabel} por ${formatMoney(
+        : `Você será direcionado para o Mercado Pago para contratar o plano ${getPaidPlanPresentation(billingPeriod).name} no período ${billingLabel} por ${formatMoney(
             value
           )}. Deseja continuar?`
     );
@@ -809,7 +875,8 @@ export default function PlanosFornecedorPage() {
 
                     <p className="mt-1 text-[12px] font-extrabold">
                       {getPlanLabel(
-                        currentPlan
+                        currentPlan,
+                        currentBilling
                       )}
                     </p>
                   </div>
@@ -914,7 +981,7 @@ export default function PlanosFornecedorPage() {
                     </h2>
 
                     <p className="mt-1 text-sm leading-5 text-gray-600">
-                      No plano Premium, o fornecedor escolhe o período, aceita o contrato e é direcionado para o Mercado Pago. Após a confirmação do pagamento, a ativação é automática.
+                      Escolha entre o Plano Básico mensal, o Plano com Destaque trimestral ou o Premium Anual. Após aceitar o contrato, o pagamento é feito pelo Mercado Pago e a ativação ocorre automaticamente.
                     </p>
                   </div>
                 </div>
@@ -957,10 +1024,11 @@ export default function PlanosFornecedorPage() {
                       </p>
 
                       <p className="mt-1 text-sm font-extrabold">
-                        Premium{' '}
-                        {getBillingLabel(
-                          selectedBilling
-                        )}
+                        {
+                          getPaidPlanPresentation(
+                            selectedBilling
+                          ).name
+                        }
                       </p>
                     </div>
 
@@ -994,6 +1062,31 @@ export default function PlanosFornecedorPage() {
               <div className="mt-5 space-y-4">
                 {plans.map((plan) => {
                   const PlanIcon = plan.icon;
+
+                  const paidPlanPresentation =
+                    getPaidPlanPresentation(
+                      selectedBilling
+                    );
+
+                  const displayPlanName =
+                    plan.key === 'premium'
+                      ? paidPlanPresentation.name
+                      : plan.name;
+
+                  const displayPlanBadge =
+                    plan.key === 'premium'
+                      ? paidPlanPresentation.badge
+                      : plan.badge;
+
+                  const displayPlanHighlight =
+                    plan.key === 'premium'
+                      ? paidPlanPresentation.highlight
+                      : plan.highlight;
+
+                  const displayPlanFeatures =
+                    plan.key === 'premium'
+                      ? paidPlanPresentation.features
+                      : plan.features;
 
                   const isCurrent =
                     currentPlan === plan.key;
@@ -1047,13 +1140,13 @@ export default function PlanosFornecedorPage() {
                           <div>
                             <div className="flex items-center gap-2">
                               <h3 className="text-lg font-extrabold">
-                                {plan.name}
+                                {displayPlanName}
                               </h3>
 
-                              {plan.badge && (
+                              {displayPlanBadge && (
                                 <span className="rounded-full bg-[#e3a925] px-2 py-1 text-[9px] font-extrabold text-white">
                                   {
-                                    plan.badge
+                                    displayPlanBadge
                                   }
                                 </span>
                               )}
@@ -1068,7 +1161,7 @@ export default function PlanosFornecedorPage() {
                               }
                             >
                               {
-                                plan.highlight
+                                displayPlanHighlight
                               }
                             </p>
                           </div>
@@ -1120,7 +1213,7 @@ export default function PlanosFornecedorPage() {
                       </div>
 
                       <div className="mt-4 space-y-2">
-                        {plan.features.map(
+                        {displayPlanFeatures.map(
                           (feature) => (
                             <div
                               key={feature}
@@ -1342,7 +1435,9 @@ export default function PlanosFornecedorPage() {
                               'Iniciar teste grátis'
                             )
                           ) : (
-                            `Assinar Premium por ${formatMoney(
+                            `Assinar ${
+                              paidPlanPresentation.name
+                            } por ${formatMoney(
                               selectedPrice
                             )}`
                           )}
