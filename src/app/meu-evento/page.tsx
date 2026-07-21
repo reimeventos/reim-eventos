@@ -87,7 +87,7 @@ function formatPrice(value: any) {
 }
 
 function formatRating(value: any) {
-  if (!value) return '4.9';
+  if (!value) return 'Novo';
 
   const numberValue = Number(value);
 
@@ -198,7 +198,7 @@ function getCollaboratorLink(item: any) {
 }
 
 function getWhatsappShareUrl() {
-  const appUrl = 'https://reim-eventos.vercel.app';
+  const appUrl = 'https://reimeventos.com.br';
   const text =
     'Conheça o REIM EVENTOS: encontre fornecedores para casamento, aniversário e eventos em Eunápolis. Acesse: ' +
     appUrl;
@@ -851,12 +851,12 @@ export default function MeuEventoPage() {
           </div>
         </section>
 
-        <section className="px-6 pt-6">
+        <section id="fornecedores-salvos" className="scroll-mt-4 px-6 pt-6">
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-extrabold">Minha lista de fornecedores</h2>
+              <h2 className="text-lg font-extrabold">Meus favoritos</h2>
               <p className="mt-1 text-xs font-bold text-gray-500">
-                Toque em um fornecedor para ver as ações.
+                Fornecedores salvos no Meu Evento. Toque para ver as ações.
               </p>
             </div>
 
