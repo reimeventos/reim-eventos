@@ -419,20 +419,20 @@ export default function HomePage() {
   const planButtonText = getPlanButtonText(accountType);
 
   return (
-    <main className="min-h-screen bg-black text-[#151515]">
-      <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] shadow-2xl">
+    <main className="reim-desktop-bg min-h-screen bg-black text-[#151515] lg:px-6 lg:py-6">
+      <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] shadow-2xl lg:max-w-[1180px] lg:rounded-[36px]">
         {/* TOPO */}
-        <section className="relative h-[480px] overflow-hidden rounded-b-[36px] bg-black text-white">
+        <section className="relative h-[480px] overflow-hidden rounded-b-[36px] bg-black text-white lg:h-[520px]">
           <img
             src="/layout01-fundo-sem-noivos.png"
             alt="Fundo REIM Eventos"
-            className="absolute inset-0 h-full w-full object-cover object-[78%_top]"
+            className="absolute inset-0 h-full w-full object-cover object-[78%_top] lg:object-center"
           />
 
           <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/18 to-black/78" />
           <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#fbf7f1] via-[#fbf7f1]/75 to-transparent" />
 
-          <div className="relative z-10 flex items-center justify-between px-7 pt-7">
+          <div className="relative z-10 flex items-center justify-between px-7 pt-7 lg:px-12 lg:pt-10">
             <button
               type="button"
               onClick={() => setMenuOpen(true)}
@@ -456,7 +456,7 @@ export default function HomePage() {
           </div>
 
           {/* LOGO CENTRAL */}
-          <div className="relative z-10 mt-0 text-center">
+          <div className="relative z-10 mt-0 text-center lg:mt-1">
             <CrownLogo />
 
             <h1 className="mt-1 font-serif text-[60px] leading-none tracking-[0.12em] text-white drop-shadow-[0_3px_8px_rgba(0,0,0,.35)]">
@@ -476,7 +476,7 @@ export default function HomePage() {
         </section>
 
         {/* BUSCA */}
-        <section className="relative z-20 -mt-14 px-6">
+        <section className="relative z-20 -mt-14 px-6 lg:mx-auto lg:max-w-[860px]">
           <div className="rounded-[30px] bg-[#f7f4ef] p-4 shadow-[0_20px_45px_rgba(0,0,0,.18)]">
             <div className="relative mb-4">
               <button
@@ -534,8 +534,8 @@ export default function HomePage() {
         </section>
 
         {/* CATEGORIAS */}
-        <section className="px-6 pt-8">
-          <div className="grid grid-cols-4 gap-x-4 gap-y-7">
+        <section className="px-6 pt-8 lg:px-12 lg:pt-10">
+          <div className="grid grid-cols-4 gap-x-4 gap-y-7 lg:grid-cols-8 lg:gap-x-6">
             {categories.map((cat) => {
               const Icon = cat.icon;
 
@@ -569,7 +569,7 @@ export default function HomePage() {
         </section>
 
         {/* PLANEJE SEU EVENTO */}
-        <section className="px-6 pt-8">
+        <section className="px-6 pt-8 lg:px-12">
           <div className="overflow-hidden rounded-[26px] bg-black text-white shadow-xl">
             <div className="relative min-h-[132px] p-5">
               <div
@@ -609,7 +609,7 @@ export default function HomePage() {
         </section>
 
         {/* FORNECEDORES */}
-        <section className="px-6 pb-32 pt-8">
+        <section className="px-6 pb-32 pt-8 lg:px-12 lg:pb-36">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-[18px] font-extrabold">
               Fornecedores em destaque ✨
@@ -636,7 +636,7 @@ export default function HomePage() {
           )}
 
           {!loadingSuppliers && featuredSuppliers.length > 0 && (
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-3 gap-4 lg:gap-6">
               {featuredSuppliers.map((supplier, index) => (
                 <Link
                   href={`/fornecedor/${supplier.id}`}
@@ -644,7 +644,7 @@ export default function HomePage() {
                   className="overflow-hidden rounded-[20px] bg-white shadow-[0_10px_25px_rgba(0,0,0,.10)]"
                 >
                   <div
-                    className="relative h-[96px] bg-cover bg-center"
+                    className="relative h-[96px] bg-cover bg-center lg:h-[190px]"
                     style={{
                       backgroundImage: `url(${getSupplierImage(supplier, index)})`,
                     }}
@@ -658,23 +658,23 @@ export default function HomePage() {
                     </span>
                   </div>
 
-                  <div className="p-3">
-                    <b className="block truncate text-[12px] leading-4">
+                  <div className="p-3 lg:p-5">
+                    <b className="block truncate text-[12px] leading-4 lg:text-[17px] lg:leading-6">
                       {supplier.business_name || 'Fornecedor'}
                     </b>
 
-                    <p className="mt-1 truncate text-[10px] text-gray-600">
+                    <p className="mt-1 truncate text-[10px] text-gray-600 lg:text-[13px]">
                       {getSupplierCategory(supplier)}
                     </p>
 
-                    <p className="mt-1 text-[10px] font-bold text-[#d99200]">
+                    <p className="mt-1 text-[10px] font-bold text-[#d99200] lg:text-[13px]">
                       {supplier.review_count > 0 &&
                       supplier.real_rating_average !== null
                         ? `★ ${Number(supplier.real_rating_average).toFixed(1)} (${supplier.review_count})`
                         : 'Novo no REIM'}
                     </p>
 
-                    <p className="truncate text-[10px] text-gray-500">
+                    <p className="truncate text-[10px] text-gray-500 lg:text-[13px]">
                       📍 {supplier.city || 'Eunápolis'}
                     </p>
                   </div>
