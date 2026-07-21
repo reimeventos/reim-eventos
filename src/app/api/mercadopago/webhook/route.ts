@@ -48,25 +48,33 @@ const PLAN_CONFIG: Record<
   {
     amount: number;
     days: number;
+    featuredDays: number;
     label: string;
+    plan: 'profissional' | 'premium';
   }
 > = {
   mensal: {
     amount: 25,
     days: 30,
-    label: 'Mensal',
+    featuredDays: 0,
+    label: 'Básico Mensal',
+    plan: 'profissional',
   },
 
   trimestral: {
     amount: 65,
     days: 90,
-    label: 'Trimestral',
+    featuredDays: 60,
+    label: 'Trimestral com 2 meses de destaque',
+    plan: 'premium',
   },
 
   anual: {
     amount: 250,
     days: 365,
-    label: 'Anual',
+    featuredDays: 365,
+    label: 'Premium Anual',
+    plan: 'premium',
   },
 };
 
@@ -257,6 +265,9 @@ async function updateSubscription(
     amount: number;
     paidAt: string | null;
     expiresAt: string | null;
+    featuredUntil: string | null;
+    plan: 'profissional' | 'premium';
+    isFeatured: boolean;
   }
 ) {
   const isApproved =
@@ -269,7 +280,7 @@ async function updateSubscription(
 
   const updatePayload:
     Record<string, unknown> = {
-      plan: 'premium',
+      plan: params.plan,
 
       status:
         subscriptionStatus,
@@ -279,6 +290,12 @@ async function updateSubscription(
 
       billing_period:
         params.billingPeriod,
+
+      is_featured:
+        params.isFeatured,
+
+      featured_until:
+        params.featuredUntil,
 
       mercadopago_payment_id:
         params.paymentId,
@@ -380,7 +397,8 @@ async function updateSubscription(
 }
 
 async function activateSupplier(
-  supplierId: string
+  supplierId: string,
+  isFeatured: boolean
 ) {
   const {
     error,
@@ -388,7 +406,7 @@ async function activateSupplier(
     .from('suppliers')
     .update({
       status: 'ativo',
-      is_featured: true,
+      is_featured: isFeatured,
     })
     .eq(
       'id',
@@ -397,7 +415,7 @@ async function activateSupplier(
 
   if (error) {
     console.error(
-      'Erro ao ativar fornecedor Premium:',
+      'Erro ao ativar fornecedor após pagamento:',
       error
     );
   }
@@ -651,6 +669,19 @@ export async function POST(
           ).toISOString()
         : null;
 
+    const featuredUntil =
+      isApproved &&
+      planConfig.featuredDays > 0
+        ? addDays(
+            now,
+            planConfig.featuredDays
+          ).toISOString()
+        : null;
+
+    const isFeatured =
+      isApproved &&
+      planConfig.featuredDays > 0;
+
     await updateSubscription({
       supplierId,
 
@@ -672,6 +703,13 @@ export async function POST(
       paidAt,
 
       expiresAt,
+
+      featuredUntil,
+
+      plan:
+        planConfig.plan,
+
+      isFeatured,
     });
 
     if (
@@ -680,7 +718,8 @@ export async function POST(
       expiresAt
     ) {
       await activateSupplier(
-        supplierId
+        supplierId,
+        isFeatured
       );
 
       await linkPaymentToContractAcceptance(
@@ -737,7 +776,13 @@ export async function POST(
           : 'pendente',
 
       plan:
-        'premium',
+        planConfig.plan,
+
+      is_featured:
+        isFeatured,
+
+      featured_until:
+        featuredUntil,
 
       billing_period:
         billingPeriod,
@@ -789,16 +834,22 @@ export async function GET() {
       mensal: {
         value: 25,
         days: 30,
+        featured_days: 0,
+        plan: 'profissional',
       },
 
       trimestral: {
         value: 65,
         days: 90,
+        featured_days: 60,
+        plan: 'premium',
       },
 
       anual: {
         value: 250,
         days: 365,
+        featured_days: 365,
+        plan: 'premium',
       },
     },
   });
