@@ -200,7 +200,7 @@ function getCollaboratorLink(item: any) {
 function getWhatsappShareUrl() {
   const appUrl = 'https://reimeventos.com.br';
   const text =
-    'Conheça o REIM EVENTOS: encontre fornecedores para casamento, aniversário e eventos em Eunápolis. Acesse: ' +
+    'Conheça o REIM EVENTOS: encontre fornecedores para casamento, aniversário e eventos em Eunápolis, Porto Seguro e região: ' +
     appUrl;
 
   return `https://wa.me/?text=${encodeURIComponent(text)}`;
