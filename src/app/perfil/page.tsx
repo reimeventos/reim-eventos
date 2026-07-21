@@ -471,7 +471,7 @@ export default function PerfilPage() {
     {
       title: 'Meus favoritos',
       subtitle: 'Fornecedores salvos',
-      href: '/meu-evento#fornecedores-salvos',
+      href: '/favoritos',
       icon: Heart,
     },
     {
