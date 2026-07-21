@@ -2,13 +2,59 @@
 @tailwind components;
 @tailwind utilities;
 
-* { box-sizing: border-box; }
-body { margin: 0; background: #0B0B0F; color: #17120E; }
-.reim-shell { max-width: 430px; min-height: 100vh; margin: 0 auto; background: #F7F2EA; position: relative; }
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+  background: #0b0b0f;
+}
+
+body {
+  margin: 0;
+  min-height: 100%;
+  background: #0b0b0f;
+  color: #17120e;
+}
+
+.reim-shell {
+  position: relative;
+  min-height: 100vh;
+  width: 100%;
+  max-width: 430px;
+  margin: 0 auto;
+  background: #f7f2ea;
+}
+
 .reim-hero {
   background:
-    linear-gradient(180deg, rgba(0,0,0,.20), rgba(0,0,0,.88)),
-    url('https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=1200&auto=format&fit=crop');
-  background-size: cover;
+    linear-gradient(180deg, rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.88)),
+    url('https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=1600&auto=format&fit=crop');
   background-position: center;
+  background-size: cover;
+}
+
+.reim-desktop-bg {
+  background:
+    radial-gradient(circle at 15% 15%, rgba(227, 169, 37, 0.18), transparent 28%),
+    radial-gradient(circle at 85% 20%, rgba(227, 169, 37, 0.12), transparent 24%),
+    linear-gradient(135deg, #050505 0%, #15100a 52%, #050505 100%);
+}
+
+@media (min-width: 1024px) {
+  body {
+    background:
+      radial-gradient(circle at 15% 15%, rgba(227, 169, 37, 0.18), transparent 28%),
+      radial-gradient(circle at 85% 20%, rgba(227, 169, 37, 0.12), transparent 24%),
+      linear-gradient(135deg, #050505 0%, #15100a 52%, #050505 100%);
+    background-attachment: fixed;
+  }
+
+  .reim-shell {
+    max-width: 1180px;
+    border-radius: 36px;
+    overflow: hidden;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+  }
 }
