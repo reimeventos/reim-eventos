@@ -1,9 +1,5 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import {
-  BillingPeriod,
-  NotificationCenter,
-} from '@/lib/notification-center';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,6 +12,10 @@ const supabaseServiceRoleKey =
 const mercadoPagoAccessToken =
   process.env.MERCADOPAGO_ACCESS_TOKEN!;
 
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  'https://reimeventos.com.br';
+
 const supabaseAdmin = createClient(
   supabaseUrl,
   supabaseServiceRoleKey,
@@ -27,20 +27,14 @@ const supabaseAdmin = createClient(
   }
 );
 
-type MercadoPagoPayment = {
-  id?: number | string;
-  status?: string;
-  external_reference?: string;
-  preference_id?: string;
+type BillingPeriod =
+  | 'mensal'
+  | 'trimestral'
+  | 'anual';
 
-  metadata?: {
-    supplier_id?: string;
-    plan?: string;
-    billing_period?: BillingPeriod;
-    amount?: number | string;
-    duration_days?: number | string;
-    source?: string;
-  };
+type CreateCheckoutBody = {
+  supplier_id?: string;
+  billing_period?: BillingPeriod;
 };
 
 const PLAN_CONFIG: Record<
@@ -51,482 +45,262 @@ const PLAN_CONFIG: Record<
     featuredDays: number;
     label: string;
     plan: 'profissional' | 'premium';
+    title: string;
+    description: string;
   }
 > = {
   mensal: {
     amount: 25,
     days: 30,
     featuredDays: 0,
-    label: 'Básico Mensal',
+    label: 'Mensal',
     plan: 'profissional',
+    title: 'REIM EVENTOS - Plano Básico Mensal',
+    description:
+      'Plano básico por 30 dias, sem destaque Premium.',
   },
 
   trimestral: {
     amount: 65,
     days: 90,
     featuredDays: 60,
-    label: 'Trimestral com 2 meses de destaque',
+    label: 'Trimestral',
     plan: 'premium',
+    title:
+      'REIM EVENTOS - Trimestral com Destaque',
+    description:
+      'Plano por 90 dias, com destaque Premium nos primeiros 60 dias.',
   },
 
   anual: {
     amount: 250,
     days: 365,
     featuredDays: 365,
-    label: 'Premium Anual',
+    label: 'Anual',
     plan: 'premium',
+    title: 'REIM EVENTOS - Premium Anual',
+    description:
+      'Plano por 365 dias, com destaque Premium durante todo o período.',
   },
 };
 
-async function getPaymentFromMercadoPago(
-  paymentId: string
+function formatMoney(value: number) {
+  return value.toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  });
+}
+
+async function getSupplierEmailData(
+  supplierId: string
 ) {
-  const response = await fetch(
-    `https://api.mercadopago.com/v1/payments/${paymentId}`,
-    {
-      method: 'GET',
+  const {
+    data: supplier,
+    error: supplierError,
+  } = await supabaseAdmin
+    .from('suppliers')
+    .select('*')
+    .eq('id', supplierId)
+    .maybeSingle();
 
-      headers: {
-        Authorization:
-          `Bearer ${mercadoPagoAccessToken}`,
-
-        'Content-Type':
-          'application/json',
-      },
-
-      cache: 'no-store',
-    }
-  );
-
-  const data = await response.json();
-
-  if (!response.ok) {
+  if (supplierError || !supplier) {
     console.error(
-      'Erro ao consultar pagamento no Mercado Pago:',
-      data
+      'Erro ao buscar fornecedor para o lembrete:',
+      supplierError
     );
 
-    throw new Error(
-      'Não foi possível consultar o pagamento no Mercado Pago.'
-    );
+    return null;
   }
 
-  return data as MercadoPagoPayment;
-}
+  const ownerId =
+    supplier.owner_id || null;
 
-function addDays(
-  date: Date,
-  days: number
-) {
-  const newDate = new Date(date);
+  let authEmail = '';
+  let authName = '';
+  let authPhone = '';
 
-  newDate.setDate(
-    newDate.getDate() + days
-  );
-
-  return newDate;
-}
-
-function getBillingPeriod(
-  payment: MercadoPagoPayment
-): BillingPeriod {
-  const metadataPeriod =
-    payment.metadata?.billing_period;
-
-  if (
-    metadataPeriod === 'mensal' ||
-    metadataPeriod === 'trimestral' ||
-    metadataPeriod === 'anual'
-  ) {
-    return metadataPeriod;
-  }
-
-  const externalReference =
-    payment.external_reference || '';
-
-  const parts =
-    externalReference.split(':');
-
-  const periodFromReference =
-    parts.find(
-      (part) =>
-        part === 'mensal' ||
-        part === 'trimestral' ||
-        part === 'anual'
-    );
-
-  if (
-    periodFromReference === 'trimestral' ||
-    periodFromReference === 'anual'
-  ) {
-    return periodFromReference;
-  }
-
-  return 'mensal';
-}
-
-async function findSupplierId(
-  payment: MercadoPagoPayment
-) {
-  const supplierIdFromMetadata =
-    payment.metadata?.supplier_id || null;
-
-  if (supplierIdFromMetadata) {
-    return supplierIdFromMetadata;
-  }
-
-  const externalReference =
-    payment.external_reference || null;
-
-  if (
-    externalReference?.startsWith(
-      'supplier:'
-    )
-  ) {
-    const parts =
-      externalReference.split(':');
-
-    const supplierId =
-      parts[1] || null;
-
-    if (supplierId) {
-      return supplierId;
-    }
-  }
-
-  const preferenceId =
-    payment.preference_id || null;
-
-  if (preferenceId) {
+  if (ownerId) {
     const {
-      data: subscriptionByPreference,
-      error: preferenceError,
-    } = await supabaseAdmin
-      .from('supplier_subscriptions')
-      .select('supplier_id')
-      .eq(
-        'mercadopago_preference_id',
-        preferenceId
-      )
-      .maybeSingle();
-
-    if (preferenceError) {
-      console.error(
-        'Erro ao localizar fornecedor pela preferência:',
-        preferenceError
+      data: authUserData,
+      error: authUserError,
+    } =
+      await supabaseAdmin.auth.admin.getUserById(
+        ownerId
       );
-    }
 
-    if (
-      subscriptionByPreference?.supplier_id
-    ) {
-      return subscriptionByPreference.supplier_id;
+    if (!authUserError) {
+      const authUser =
+        authUserData.user;
+
+      authEmail =
+        authUser?.email || '';
+
+      authName =
+        authUser?.user_metadata
+          ?.full_name ||
+        authUser?.user_metadata?.name ||
+        authUser?.user_metadata?.nome ||
+        '';
+
+      authPhone =
+        authUser?.phone ||
+        authUser?.user_metadata?.phone ||
+        authUser?.user_metadata
+          ?.telefone ||
+        authUser?.user_metadata
+          ?.whatsapp ||
+        '';
     }
   }
 
-  if (externalReference) {
-    const {
-      data: subscriptionByReference,
-      error: referenceError,
-    } = await supabaseAdmin
-      .from('supplier_subscriptions')
-      .select('supplier_id')
-      .eq(
-        'mercadopago_external_reference',
-        externalReference
-      )
-      .maybeSingle();
+  const recipientEmail =
+    authEmail ||
+    supplier.email ||
+    supplier.contact_email ||
+    '';
 
-    if (referenceError) {
-      console.error(
-        'Erro ao localizar fornecedor pela referência:',
-        referenceError
-      );
-    }
+  const recipientName =
+    authName ||
+    supplier.responsible_name ||
+    supplier.contact_name ||
+    supplier.owner_name ||
+    supplier.business_name ||
+    supplier.company_name ||
+    supplier.name ||
+    'Fornecedor REIM EVENTOS';
 
-    if (
-      subscriptionByReference?.supplier_id
-    ) {
-      return subscriptionByReference.supplier_id;
-    }
-  }
+  const businessName =
+    supplier.business_name ||
+    supplier.company_name ||
+    supplier.name ||
+    'Fornecedor REIM EVENTOS';
 
-  return null;
+  const phone =
+    authPhone ||
+    supplier.phone ||
+    supplier.telefone ||
+    supplier.whatsapp ||
+    supplier.contact_phone ||
+    '';
+
+  return {
+    supplier,
+    ownerId,
+    recipientEmail,
+    recipientName,
+    businessName,
+    phone,
+  };
 }
 
-async function updateSubscription(
+async function schedulePendingPaymentReminder(
   params: {
     supplierId: string;
-    paymentId: string;
-    paymentStatus: string;
-    preferenceId: string | null;
-    externalReference: string | null;
+    preferenceId: string;
+    checkoutUrl: string;
     billingPeriod: BillingPeriod;
     amount: number;
-    paidAt: string | null;
-    expiresAt: string | null;
-    featuredUntil: string | null;
-    plan: 'profissional' | 'premium';
-    isFeatured: boolean;
   }
 ) {
-  const isApproved =
-    params.paymentStatus === 'approved';
-
-  const subscriptionStatus =
-    isApproved
-      ? 'ativo'
-      : 'pendente';
-
-  const updatePayload:
-    Record<string, unknown> = {
-      plan: params.plan,
-
-      status:
-        subscriptionStatus,
-
-      value:
-        params.amount,
-
-      billing_period:
-        params.billingPeriod,
-
-      is_featured:
-        params.isFeatured,
-
-      featured_until:
-        params.featuredUntil,
-
-      mercadopago_payment_id:
-        params.paymentId,
-
-      mercadopago_status:
-        params.paymentStatus,
-
-      updated_at:
-        new Date().toISOString(),
-    };
-
-  if (params.preferenceId) {
-    updatePayload
-      .mercadopago_preference_id =
-      params.preferenceId;
-  }
-
-  if (params.externalReference) {
-    updatePayload
-      .mercadopago_external_reference =
-      params.externalReference;
-  }
-
-  if (
-    isApproved &&
-    params.paidAt &&
-    params.expiresAt
-  ) {
-    updatePayload.paid_at =
-      params.paidAt;
-
-    updatePayload.expires_at =
-      params.expiresAt;
-
-    updatePayload.due_date =
-      params.expiresAt.split('T')[0];
-  }
-
-  const {
-    data: existingSubscriptions,
-    error: existingSubscriptionError,
-  } = await supabaseAdmin
-    .from('supplier_subscriptions')
-    .select('id')
-    .eq(
-      'supplier_id',
+  const emailData =
+    await getSupplierEmailData(
       params.supplierId
-    )
-    .order('created_at', {
-      ascending: false,
-    })
-    .limit(1);
-
-  if (existingSubscriptionError) {
-    throw new Error(
-      `Erro ao consultar assinatura: ${existingSubscriptionError.message}`
     );
-  }
 
-  const existingSubscription =
-    existingSubscriptions?.[0] || null;
-
-  if (existingSubscription?.id) {
-    const {
-      error: updateError,
-    } = await supabaseAdmin
-      .from('supplier_subscriptions')
-      .update(updatePayload)
-      .eq(
-        'id',
-        existingSubscription.id
-      );
-
-    if (updateError) {
-      throw new Error(
-        `Erro ao atualizar assinatura: ${updateError.message}`
-      );
-    }
+  if (!emailData?.recipientEmail) {
+    console.error(
+      'Fornecedor sem e-mail para lembrete pendente:',
+      params.supplierId
+    );
 
     return;
   }
 
+  const planConfig =
+    PLAN_CONFIG[
+      params.billingPeriod
+    ];
+
+  const scheduledFor =
+    new Date(
+      Date.now() + 30 * 60 * 1000
+    ).toISOString();
+
   const {
-    error: insertError,
+    error: scheduleError,
   } = await supabaseAdmin
-    .from('supplier_subscriptions')
+    .from('email_notifications')
     .insert({
       supplier_id:
         params.supplierId,
 
-      ...updatePayload,
+      user_id:
+        emailData.ownerId,
+
+      notification_type:
+        'pagamento_pendente',
+
+      recipient_email:
+        emailData.recipientEmail,
+
+      recipient_name:
+        emailData.recipientName,
+
+      subject:
+        'Seu pagamento REIM EVENTOS ainda está pendente',
+
+      email_status:
+        'pendente',
+
+      provider:
+        'resend',
+
+      scheduled_for:
+        scheduledFor,
+
+      metadata: {
+        source:
+          'mercadopago_create_checkout',
+
+        preference_id:
+          params.preferenceId,
+
+        checkout_url:
+          params.checkoutUrl,
+
+        billing_period:
+          params.billingPeriod,
+
+        plan_label:
+          planConfig.label,
+
+        amount:
+          params.amount,
+
+        amount_formatted:
+          formatMoney(
+            params.amount
+          ),
+
+        duration_days:
+          planConfig.days,
+
+        supplier_business_name:
+          emailData.businessName,
+
+        phone:
+          emailData.phone || null,
+
+        reminder_delay_minutes:
+          30,
+      },
     });
 
-  if (insertError) {
-    throw new Error(
-      `Erro ao criar assinatura: ${insertError.message}`
-    );
-  }
-}
-
-async function activateSupplier(
-  supplierId: string,
-  isFeatured: boolean
-) {
-  const {
-    error,
-  } = await supabaseAdmin
-    .from('suppliers')
-    .update({
-      status: 'ativo',
-      is_featured: isFeatured,
-    })
-    .eq(
-      'id',
-      supplierId
-    );
-
-  if (error) {
+  if (scheduleError) {
     console.error(
-      'Erro ao ativar fornecedor após pagamento:',
-      error
+      'Checkout criado, mas não foi possível agendar o lembrete:',
+      scheduleError
     );
-  }
-}
-
-async function linkPaymentToContractAcceptance(
-  preferenceId: string | null,
-  paymentId: string
-) {
-  if (!preferenceId) {
-    return;
-  }
-
-  const {
-    error,
-  } = await supabaseAdmin
-    .from('supplier_contract_acceptances')
-    .update({
-      mercadopago_payment_id:
-        paymentId,
-    })
-    .eq(
-      'mercadopago_preference_id',
-      preferenceId
-    );
-
-  if (error) {
-    console.error(
-      'Erro ao vincular pagamento ao aceite do contrato:',
-      error
-    );
-  }
-}
-
-async function cancelPendingPaymentReminder(
-  preferenceId: string | null,
-  paymentId: string
-) {
-  if (!preferenceId) {
-    return;
-  }
-
-  const {
-    data: reminders,
-    error: reminderSearchError,
-  } = await supabaseAdmin
-    .from('email_notifications')
-    .select('id,metadata')
-    .eq(
-      'notification_type',
-      'pagamento_pendente'
-    )
-    .eq(
-      'email_status',
-      'pendente'
-    )
-    .contains('metadata', {
-      preference_id:
-        preferenceId,
-    });
-
-  if (reminderSearchError) {
-    console.error(
-      'Erro ao procurar lembrete de pagamento:',
-      reminderSearchError
-    );
-
-    return;
-  }
-
-  for (
-    const reminder of reminders || []
-  ) {
-    const metadata =
-      reminder.metadata || {};
-
-    const {
-      error: reminderUpdateError,
-    } = await supabaseAdmin
-      .from('email_notifications')
-      .update({
-        email_status:
-          'cancelado',
-
-        error_message:
-          null,
-
-        metadata: {
-          ...metadata,
-
-          cancellation_reason:
-            'payment_approved',
-
-          payment_id:
-            paymentId,
-
-          cancelled_at:
-            new Date().toISOString(),
-        },
-      })
-      .eq(
-        'id',
-        reminder.id
-      );
-
-    if (reminderUpdateError) {
-      console.error(
-        'Erro ao cancelar lembrete pendente:',
-        reminderUpdateError
-      );
-    }
   }
 }
 
@@ -562,248 +336,398 @@ export async function POST(
     }
 
     const body =
-      await request.json();
+      (await request.json()) as CreateCheckoutBody;
 
-    console.log(
-      'Webhook Mercado Pago recebido:',
-      JSON.stringify(body)
-    );
+    const supplierId =
+      body?.supplier_id;
 
-    const paymentId =
-      body?.data?.id ||
-      body?.id ||
-      body?.resource
-        ?.split?.('/')
-        ?.pop?.();
+    const billingPeriod: BillingPeriod =
+      body?.billing_period ===
+        'trimestral'
+        ? 'trimestral'
+        : body?.billing_period ===
+            'anual'
+          ? 'anual'
+          : 'mensal';
 
-    const type =
-      body?.type ||
-      body?.topic;
-
-    if (!paymentId) {
-      return NextResponse.json({
-        success: true,
-        ignored: true,
-        reason:
-          'Webhook sem paymentId.',
-      });
-    }
-
-    if (
-      type &&
-      type !== 'payment'
-    ) {
-      return NextResponse.json({
-        success: true,
-        ignored: true,
-        reason:
-          `Tipo ignorado: ${type}`,
-      });
-    }
-
-    const payment =
-      await getPaymentFromMercadoPago(
-        String(paymentId)
+    if (!supplierId) {
+      return NextResponse.json(
+        {
+          error:
+            'supplier_id é obrigatório.',
+        },
+        {
+          status: 400,
+        }
       );
-
-    const mpPaymentId =
-      payment.id
-        ? String(payment.id)
-        : String(paymentId);
-
-    const mpStatus =
-      payment.status ||
-      'unknown';
-
-    const preferenceId =
-      payment.preference_id ||
-      null;
-
-    const externalReference =
-      payment.external_reference ||
-      null;
-
-    const billingPeriod =
-      getBillingPeriod(payment);
+    }
 
     const planConfig =
       PLAN_CONFIG[
         billingPeriod
       ];
 
-    const supplierId =
-      await findSupplierId(
-        payment
-      );
+    const {
+      data: supplier,
+      error: supplierError,
+    } = await supabaseAdmin
+      .from('suppliers')
+      .select(
+        'id,business_name,owner_id,status,is_featured'
+      )
+      .eq('id', supplierId)
+      .maybeSingle();
 
-    if (!supplierId) {
-      console.error(
-        'Fornecedor não identificado no webhook:',
-        payment
+    if (supplierError) {
+      return NextResponse.json(
+        {
+          error:
+            `Erro ao buscar fornecedor: ${supplierError.message}`,
+        },
+        {
+          status: 500,
+        }
       );
-
-      return NextResponse.json({
-        success: true,
-        ignored: true,
-        reason:
-          'Fornecedor não identificado.',
-      });
     }
 
-    const now =
-      new Date();
+    if (!supplier?.id) {
+      return NextResponse.json(
+        {
+          error:
+            'Fornecedor não encontrado.',
+        },
+        {
+          status: 404,
+        }
+      );
+    }
 
-    const isApproved =
-      mpStatus === 'approved';
+    const amount =
+      planConfig.amount;
 
-    const paidAt =
-      isApproved
-        ? now.toISOString()
-        : null;
+    const externalReference =
+      `supplier:${supplier.id}:${planConfig.plan}:${billingPeriod}:${Date.now()}`;
 
-    const expiresAt =
-      isApproved
-        ? addDays(
-            now,
-            planConfig.days
-          ).toISOString()
-        : null;
+    const preferencePayload = {
+      items: [
+        {
+          id:
+            `reim-${planConfig.plan}-${billingPeriod}`,
 
-    const featuredUntil =
-      isApproved &&
-      planConfig.featuredDays > 0
-        ? addDays(
-            now,
-            planConfig.featuredDays
-          ).toISOString()
-        : null;
+          title:
+            planConfig.title,
 
-    const isFeatured =
-      isApproved &&
-      planConfig.featuredDays > 0;
+          description:
+            planConfig.description,
 
-    await updateSubscription({
-      supplierId,
+          quantity: 1,
 
-      paymentId:
-        mpPaymentId,
+          currency_id:
+            'BRL',
 
-      paymentStatus:
-        mpStatus,
+          unit_price:
+            amount,
+        },
+      ],
 
-      preferenceId,
+      payer: {
+        name:
+          supplier.business_name ||
+          'Fornecedor REIM EVENTOS',
+      },
 
-      externalReference,
+      external_reference:
+        externalReference,
 
-      billingPeriod,
+      back_urls: {
+        success:
+          `${siteUrl}/painel-fornecedor/planos?pagamento=sucesso`,
 
-      amount:
-        planConfig.amount,
+        failure:
+          `${siteUrl}/painel-fornecedor/planos?pagamento=falha`,
 
-      paidAt,
+        pending:
+          `${siteUrl}/painel-fornecedor/planos?pagamento=pendente`,
+      },
 
-      expiresAt,
+      auto_return:
+        'approved',
 
-      featuredUntil,
+      notification_url:
+        `${siteUrl}/api/mercadopago/webhook`,
+
+      metadata: {
+        supplier_id:
+          supplier.id,
+
+        plan:
+          planConfig.plan,
+
+        billing_period:
+          billingPeriod,
+
+        amount,
+
+        duration_days:
+          planConfig.days,
+
+        featured_days:
+          planConfig.featuredDays,
+
+        source:
+          'reim_eventos',
+      },
+    };
+
+    const mpResponse =
+      await fetch(
+        'https://api.mercadopago.com/checkout/preferences',
+        {
+          method: 'POST',
+
+          headers: {
+            Authorization:
+              `Bearer ${mercadoPagoAccessToken}`,
+
+            'Content-Type':
+              'application/json',
+          },
+
+          body:
+            JSON.stringify(
+              preferencePayload
+            ),
+
+          cache:
+            'no-store',
+        }
+      );
+
+    const mpData =
+      await mpResponse.json();
+
+    if (!mpResponse.ok) {
+      console.error(
+        'Erro Mercado Pago ao criar preferência:',
+        mpData
+      );
+
+      return NextResponse.json(
+        {
+          error:
+            'Erro ao criar checkout no Mercado Pago.',
+
+          details:
+            mpData,
+        },
+        {
+          status: 500,
+        }
+      );
+    }
+
+    const preferenceId =
+      mpData.id as
+        | string
+        | undefined;
+
+    const checkoutUrl =
+      mpData.init_point as
+        | string
+        | undefined;
+
+    if (
+      !preferenceId ||
+      !checkoutUrl
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            'Mercado Pago não retornou preference_id ou checkout_url.',
+        },
+        {
+          status: 500,
+        }
+      );
+    }
+
+    const subscriptionPayload = {
+      supplier_id:
+        supplier.id,
 
       plan:
         planConfig.plan,
 
-      isFeatured,
-    });
+      status:
+        'pendente',
 
-    if (
-      isApproved &&
-      paidAt &&
-      expiresAt
-    ) {
-      await activateSupplier(
-        supplierId,
-        isFeatured
-      );
+      value:
+        amount,
 
-      await linkPaymentToContractAcceptance(
+      billing_period:
+        billingPeriod,
+
+      is_featured:
+        false,
+
+      featured_until:
+        null,
+
+      mercadopago_preference_id:
         preferenceId,
-        mpPaymentId
+
+      mercadopago_status:
+        'pending_checkout',
+
+      mercadopago_external_reference:
+        externalReference,
+
+      checkout_url:
+        checkoutUrl,
+
+      updated_at:
+        new Date().toISOString(),
+    };
+
+    const {
+      data:
+        existingSubscriptions,
+      error:
+        existingSubscriptionError,
+    } = await supabaseAdmin
+      .from(
+        'supplier_subscriptions'
+      )
+      .select('id')
+      .eq(
+        'supplier_id',
+        supplier.id
+      )
+      .order('created_at', {
+        ascending: false,
+      })
+      .limit(1);
+
+    if (existingSubscriptionError) {
+      return NextResponse.json(
+        {
+          error:
+            'Erro ao consultar assinatura do fornecedor.',
+        },
+        {
+          status: 500,
+        }
       );
+    }
 
-      await cancelPendingPaymentReminder(
-        preferenceId,
-        mpPaymentId
-      );
+    const existingSubscription =
+      existingSubscriptions?.[0] ||
+      null;
 
-      try {
-        await NotificationCenter.planActivated({
-          supplierId,
+    if (existingSubscription?.id) {
+      const {
+        error: updateError,
+      } = await supabaseAdmin
+        .from(
+          'supplier_subscriptions'
+        )
+        .update(
+          subscriptionPayload
+        )
+        .eq(
+          'id',
+          existingSubscription.id
+        );
 
-          paymentId:
-            mpPaymentId,
+      if (updateError) {
+        return NextResponse.json(
+          {
+            error:
+              `Erro ao atualizar assinatura: ${updateError.message}`,
+          },
+          {
+            status: 500,
+          }
+        );
+      }
+    } else {
+      const {
+        error: insertError,
+      } = await supabaseAdmin
+        .from(
+          'supplier_subscriptions'
+        )
+        .insert(
+          subscriptionPayload
+        );
 
-          preferenceId,
-
-          billingPeriod,
-
-          amount:
-            planConfig.amount,
-
-          paidAt,
-
-          expiresAt,
-        });
-      } catch (notificationError) {
-        console.error(
-          'Pagamento aprovado, mas a notificação de ativação falhou:',
-          notificationError
+      if (insertError) {
+        return NextResponse.json(
+          {
+            error:
+              `Erro ao criar assinatura: ${insertError.message}`,
+          },
+          {
+            status: 500,
+          }
         );
       }
     }
+
+    await schedulePendingPaymentReminder({
+      supplierId:
+        supplier.id,
+
+      preferenceId,
+
+      checkoutUrl,
+
+      billingPeriod,
+
+      amount,
+    });
 
     return NextResponse.json({
       success: true,
 
       supplier_id:
-        supplierId,
+        supplier.id,
 
-      payment_id:
-        mpPaymentId,
+      preference_id:
+        preferenceId,
 
-      mercadopago_status:
-        mpStatus,
-
-      subscription_status:
-        isApproved
-          ? 'ativo'
-          : 'pendente',
+      checkout_url:
+        checkoutUrl,
 
       plan:
         planConfig.plan,
 
-      is_featured:
-        isFeatured,
-
-      featured_until:
-        featuredUntil,
+      plan_name:
+        planConfig.title.replace(
+          'REIM EVENTOS - ',
+          ''
+        ),
 
       billing_period:
         billingPeriod,
 
-      amount:
-        planConfig.amount,
+      amount,
 
       duration_days:
         planConfig.days,
 
-      expires_at:
-        expiresAt,
+      featured_days:
+        planConfig.featuredDays,
 
-      notification_center:
-        isApproved
-          ? 'planActivated'
-          : null,
+      reminder_scheduled_for:
+        new Date(
+          Date.now() +
+            30 * 60 * 1000
+        ).toISOString(),
     });
   } catch (error: any) {
     console.error(
-      'Erro geral webhook Mercado Pago:',
+      'Erro geral create-checkout:',
       error
     );
 
@@ -811,46 +735,11 @@ export async function POST(
       {
         error:
           error?.message ||
-          'Erro interno no webhook Mercado Pago.',
+          'Erro interno ao criar checkout.',
       },
       {
         status: 500,
       }
     );
   }
-}
-
-export async function GET() {
-  return NextResponse.json({
-    success: true,
-
-    message:
-      'Webhook Mercado Pago REIM EVENTOS ativo.',
-
-    notification_center:
-      'enabled',
-
-    plans: {
-      mensal: {
-        value: 25,
-        days: 30,
-        featured_days: 0,
-        plan: 'profissional',
-      },
-
-      trimestral: {
-        value: 65,
-        days: 90,
-        featured_days: 60,
-        plan: 'premium',
-      },
-
-      anual: {
-        value: 250,
-        days: 365,
-        featured_days: 365,
-        plan: 'premium',
-      },
-    },
-  });
 }
