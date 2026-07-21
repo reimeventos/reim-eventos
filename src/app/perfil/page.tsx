@@ -12,6 +12,7 @@ import {
   Heart,
   Headset,
   ImageIcon,
+  KeyRound,
   LogIn,
   LogOut,
   LayoutDashboard,
@@ -496,15 +497,25 @@ export default function PerfilPage() {
     },
   ];
 
-  const cards = isAdmin
-    ? adminCards
-    : isFornecedor
-      ? isFornecedorCerimonialista || hasCollaboratorAccess
-        ? [...supplierCards, ...cerimonialCards]
-        : supplierCards
-      : isCerimonialistaOnly
-        ? cerimonialCards
-        : clientCards;
+  const passwordCard = {
+    title: 'Alterar senha',
+    subtitle: 'Segurança da conta',
+    href: '/alterar-senha',
+    icon: KeyRound,
+  };
+
+  const cards = [
+    ...(isAdmin
+      ? adminCards
+      : isFornecedor
+        ? isFornecedorCerimonialista || hasCollaboratorAccess
+          ? [...supplierCards, ...cerimonialCards]
+          : supplierCards
+        : isCerimonialistaOnly
+          ? cerimonialCards
+          : clientCards),
+    passwordCard,
+  ];
 
   return (
     <main className="min-h-screen bg-black text-[#151515]">
