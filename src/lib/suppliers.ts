@@ -1073,7 +1073,7 @@ export async function getSavedSuppliers(customerId?: string | null) {
       suppliers(
         *,
         categories(name, slug),
-        media(file_url, is_cover, position, created_at)
+        media(file_url, is_cover, created_at)
       )
     `)
     .eq("customer_id", finalCustomerId)
