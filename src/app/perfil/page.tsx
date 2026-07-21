@@ -464,13 +464,19 @@ export default function PerfilPage() {
   const clientCards = [
     {
       title: 'Meu Evento',
-      subtitle: 'Cliente',
+      subtitle: 'Organização do evento',
       href: '/meu-evento',
       icon: Heart,
     },
     {
+      title: 'Meus favoritos',
+      subtitle: 'Fornecedores salvos',
+      href: '/meu-evento#fornecedores-salvos',
+      icon: Heart,
+    },
+    {
       title: 'Orçamentos',
-      subtitle: 'Cliente',
+      subtitle: 'Propostas recebidas',
       href: '/orcamentos',
       icon: Bell,
     },
