@@ -190,6 +190,10 @@ function getCategoryIcon(name: string) {
   }
 
   if (
+    normalized.includes('atelier de noivos') ||
+    normalized.includes('atelier') ||
+    normalized.includes('noivos') ||
+    normalized.includes('vestido de noiva') ||
     normalized.includes('vestuario') ||
     normalized.includes('roupa') ||
     normalized.includes('traje')
