@@ -91,6 +91,116 @@ function BridalDressIcon({
   );
 }
 
+function getCategoryImage(name: string) {
+  const normalized = String(name || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+  const images: Array<{
+    terms: string[];
+    src: string;
+  }> = [
+    {
+      terms: ['animadores e personagens', 'animadores', 'personagens'],
+      src: '/categorias/animadores-e-personagens.jpg',
+    },
+    {
+      terms: ['bandas e musicos', 'bandas', 'musicos'],
+      src: '/categorias/bandas-e-musicos.jpg',
+    },
+    {
+      terms: ['bolo doces e salgados', 'bolos doces e salgados'],
+      src: '/categorias/bolo-doces-e-salgados.jpg',
+    },
+    {
+      terms: ['buffet'],
+      src: '/categorias/buffet.jpg',
+    },
+    {
+      terms: ['brinquedos', 'brinquedo'],
+      src: '/categorias/brinquedos.jpg',
+    },
+    {
+      terms: ['cabine e totem de fotos', 'cabine', 'totem'],
+      src: '/categorias/cabine-e-totem-de-fotos.jpg',
+    },
+    {
+      terms: ['cerimonialista', 'cerimonial'],
+      src: '/categorias/cerimonialista.jpg',
+    },
+    {
+      terms: ['dj'],
+      src: '/categorias/dj.jpg',
+    },
+    {
+      terms: ['drinks e barman', 'drinks', 'barman'],
+      src: '/categorias/drinks-e-barman.jpg',
+    },
+    {
+      terms: [
+        'decoracao',
+        'decoracoes',
+        'decorador',
+        'decoradores',
+        'ornamentacao',
+        'ornamentacoes',
+      ],
+      src: '/categorias/decoracao.jpg',
+    },
+    {
+      terms: ['espaco de eventos', 'espacos de eventos', 'espaco para eventos'],
+      src: '/categorias/espaco-de-eventos.jpg',
+    },
+    {
+      terms: ['fotografia e filmagem', 'fotografia', 'filmagem'],
+      src: '/categorias/fotografia-e-filmagem.jpg',
+    },
+    {
+      terms: ['lembrancinhas personalizadas', 'lembrancinhas'],
+      src: '/categorias/lembrancinhas-personalizadas.jpg',
+    },
+    {
+      terms: ['sonorizacao e iluminacao', 'sonorizacao', 'iluminacao'],
+      src: '/categorias/sonorizacao-e-iluminacao.jpg',
+    },
+    {
+      terms: ['topo de bolo', 'topos de bolo'],
+      src: '/categorias/topo-de-bolo.jpg',
+    },
+    {
+      terms: ['vestuario', 'vestuario para eventos'],
+      src: '/categorias/vestuario.jpg',
+    },
+    {
+      terms: ['maquiagem e beleza', 'maquiagem', 'beleza'],
+      src: '/categorias/maquiagem-e-beleza.jpg',
+    },
+    {
+      terms: ['barraquinhas de festa', 'barraquinhas', 'barracas'],
+      src: '/categorias/barraquinhas-de-festa.jpg',
+    },
+    {
+      terms: ['estacoes gastronomicas', 'estacao gastronomica'],
+      src: '/categorias/estacoes-gastronomicas.jpg',
+    },
+    {
+      terms: ['ilhas gastronomicas', 'ilha gastronomica'],
+      src: '/categorias/ilhas-gastronomicas.jpg',
+    },
+    {
+      terms: ['atelier de noivos', 'atelier', 'noivos', 'vestido de noiva'],
+      src: '/categorias/atelier-de-noivos.jpg',
+    },
+  ];
+
+  const match = images.find((item) =>
+    item.terms.some((term) => normalized.includes(term))
+  );
+
+  return match?.src || '';
+}
+
 function getCategoryIcon(name: string) {
   const normalized = String(name || '')
     .toLowerCase()
@@ -617,9 +727,17 @@ export default function AdminCategoriasPage() {
                     className="rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]"
                   >
                     <div className="flex items-start gap-4">
-                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]">
-                        <Icon size={30} />
-                      </div>
+                      {getCategoryImage(category.name) ? (
+                        <img
+                          src={getCategoryImage(category.name)}
+                          alt={category.name}
+                          className="h-16 w-16 shrink-0 rounded-2xl object-cover shadow-sm ring-1 ring-[#f1e7cf]"
+                        />
+                      ) : (
+                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]">
+                          <Icon size={30} />
+                        </div>
+                      )}
 
                       <div className="flex-1">
                         <div className="flex items-start justify-between gap-3">
