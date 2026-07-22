@@ -53,6 +53,44 @@ function normalizeSlug(value: string) {
     .replace(/^-+|-+$/g, '');
 }
 
+type CustomIconProps = {
+  size?: number;
+  className?: string;
+  strokeWidth?: number;
+};
+
+function BridalDressIcon({
+  size = 24,
+  className = '',
+  strokeWidth = 1.8,
+}: CustomIconProps) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="4.5" r="1.7" />
+      <path d="M9.6 7.3c.8-.6 1.5-1 2.4-1s1.6.4 2.4 1" />
+      <path d="M9.4 7.9 7.2 11l2.6 1.9" />
+      <path d="M14.6 7.9 16.8 11l-2.6 1.9" />
+      <path d="M10 12.8 8.2 20.2" />
+      <path d="M14 12.8l1.8 7.4" />
+      <path d="M8.2 20.2h7.6" />
+      <path d="M12 10.1v3.4" />
+      <path d="M10 12.8h4" />
+    </svg>
+  );
+}
+
 function getCategoryIcon(name: string) {
   const normalized = String(name || '')
     .toLowerCase()
@@ -193,7 +231,12 @@ function getCategoryIcon(name: string) {
     normalized.includes('atelier de noivos') ||
     normalized.includes('atelier') ||
     normalized.includes('noivos') ||
-    normalized.includes('vestido de noiva') ||
+    normalized.includes('vestido de noiva')
+  ) {
+    return BridalDressIcon;
+  }
+
+  if (
     normalized.includes('vestuario') ||
     normalized.includes('roupa') ||
     normalized.includes('traje')
