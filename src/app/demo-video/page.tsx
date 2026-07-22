@@ -155,7 +155,7 @@ const suppliers: DemoSupplier[] = [
   },
 ];
 
-type Screen = 'home' | 'favorites' | 'request' | 'success';
+type Screen = 'home' | 'supplier' | 'favorites' | 'request' | 'success';
 
 function DemoImage({
   src,
@@ -195,10 +195,16 @@ export default function DemoVideoPage() {
     'luz-do-dia',
   ]);
   const [sending, setSending] = useState(false);
+  const [activeSupplierId, setActiveSupplierId] = useState('doces-encanto');
 
   const favoriteSuppliers = useMemo(
     () => suppliers.filter((supplier) => favorites.includes(supplier.id)),
     [favorites]
+  );
+
+  const activeSupplier = useMemo(
+    () => suppliers.find((supplier) => supplier.id === activeSupplierId) || suppliers[0],
+    [activeSupplierId]
   );
 
   function toggleFavorite(id: string) {
@@ -318,7 +324,27 @@ export default function DemoVideoPage() {
                   return (
                     <article
                       key={supplier.id}
-                      className="overflow-hidden rounded-[26px] bg-white shadow-[0_12px_28px_rgba(0,0,0,.10)] ring-1 ring-[#f1e7cf]"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => {
+                        if (supplier.id === 'doces-encanto') {
+                          setActiveSupplierId(supplier.id);
+                          setScreen('supplier');
+                        }
+                      }}
+                      onKeyDown={(event) => {
+                        if (
+                          supplier.id === 'doces-encanto' &&
+                          (event.key === 'Enter' || event.key === ' ')
+                        ) {
+                          event.preventDefault();
+                          setActiveSupplierId(supplier.id);
+                          setScreen('supplier');
+                        }
+                      }}
+                      className={`overflow-hidden rounded-[26px] bg-white shadow-[0_12px_28px_rgba(0,0,0,.10)] ring-1 ring-[#f1e7cf] ${
+                        supplier.id === 'doces-encanto' ? 'cursor-pointer' : ''
+                      }`}
                     >
                       <div className="relative h-40 bg-[#f2eadf]">
                         <DemoImage
@@ -333,7 +359,10 @@ export default function DemoVideoPage() {
 
                         <button
                           type="button"
-                          onClick={() => toggleFavorite(supplier.id)}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            toggleFavorite(supplier.id);
+                          }}
                           className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full bg-white/95 shadow-lg"
                         >
                           <Heart
@@ -389,6 +418,195 @@ export default function DemoVideoPage() {
                   );
                 })}
               </div>
+            </section>
+          </>
+        )}
+
+
+        {screen === 'supplier' && (
+          <>
+            <section className="relative h-[330px] overflow-hidden bg-black text-white">
+              <DemoImage
+                src="/categorias/bolo-doces-e-salgados.jpg"
+                alt="Doces Encanto"
+                fallback={
+                  <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#2a2116] to-black text-[#e3a925]">
+                    <Cake size={58} />
+                  </div>
+                }
+              />
+
+              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-black/25" />
+
+              <button
+                type="button"
+                onClick={() => setScreen('home')}
+                className="absolute left-4 top-5 flex h-11 w-11 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur"
+              >
+                <ArrowLeft size={22} />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => toggleFavorite(activeSupplier.id)}
+                className="absolute right-4 top-5 flex h-11 w-11 items-center justify-center rounded-full bg-white/95 shadow-lg"
+              >
+                <Heart
+                  size={23}
+                  className={
+                    favorites.includes(activeSupplier.id)
+                      ? 'fill-red-500 text-red-500'
+                      : 'text-gray-700'
+                  }
+                />
+              </button>
+
+              <div className="absolute bottom-5 left-5 right-5">
+                <span className="rounded-full bg-[#e3a925] px-3 py-1 text-[10px] font-extrabold text-white">
+                  FORNECEDOR DEMONSTRATIVO
+                </span>
+
+                <h1 className="mt-3 font-serif text-[34px] leading-tight">
+                  Doces Encanto
+                </h1>
+
+                <div className="mt-2 flex items-center gap-4 text-xs font-bold text-white/85">
+                  <span className="flex items-center gap-1">
+                    <Star size={15} className="fill-[#e3a925] text-[#e3a925]" />
+                    4.9 (33 avaliações)
+                  </span>
+
+                  <span className="flex items-center gap-1">
+                    <MapPin size={14} />
+                    Eunápolis
+                  </span>
+                </div>
+              </div>
+            </section>
+
+            <section className="px-5 pt-6">
+              <div className="rounded-[26px] bg-white p-5 shadow-sm ring-1 ring-[#f1e7cf]">
+                <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#d99200]">
+                  Sobre o fornecedor
+                </p>
+
+                <p className="mt-3 text-sm font-semibold leading-6 text-gray-600">
+                  Bolos personalizados, doces finos, salgados e mesas especiais
+                  preparados para deixar sua comemoração ainda mais inesquecível.
+                </p>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {[
+                    'Bolos personalizados',
+                    'Doces finos',
+                    'Salgados',
+                    'Mesa de doces',
+                    'Topos de bolo',
+                  ].map((service) => (
+                    <span
+                      key={service}
+                      className="rounded-full bg-[#fff5dd] px-3 py-2 text-[11px] font-extrabold text-[#8b6418]"
+                    >
+                      {service}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            <section className="px-5 pt-6">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-extrabold">Galeria de fotos</h2>
+                  <p className="mt-1 text-xs font-semibold text-gray-500">
+                    Alguns trabalhos da Doces Encanto
+                  </p>
+                </div>
+
+                <Camera size={22} className="text-[#d99200]" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  '/categorias/bolo-doces-e-salgados.jpg',
+                  '/categorias/topo-de-bolo.jpg',
+                  '/categorias/buffet.jpg',
+                  '/categorias/decoracao.jpg',
+                ].map((image, index) => (
+                  <div
+                    key={image}
+                    className={`overflow-hidden rounded-[22px] bg-white shadow-sm ring-1 ring-[#f1e7cf] ${
+                      index === 0 ? 'col-span-2 h-52' : 'h-40'
+                    }`}
+                  >
+                    <DemoImage
+                      src={image}
+                      alt={`Trabalho ${index + 1} da Doces Encanto`}
+                      fallback={
+                        <div className="flex h-full w-full items-center justify-center bg-[#fff3d8] text-[#d99200]">
+                          <Cake size={38} />
+                        </div>
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="px-5 pt-6">
+              <div className="rounded-[26px] bg-white p-5 shadow-sm ring-1 ring-[#f1e7cf]">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-extrabold">
+                      Avaliações dos clientes
+                    </p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <Star
+                        size={22}
+                        className="fill-[#e3a925] text-[#e3a925]"
+                      />
+                      <span className="text-2xl font-extrabold">4.9</span>
+                      <span className="text-xs font-semibold text-gray-500">
+                        33 avaliações
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl bg-green-50 px-3 py-2 text-xs font-extrabold text-green-700">
+                    Muito bem avaliado
+                  </div>
+                </div>
+
+                <div className="mt-5 rounded-[20px] bg-[#fbf7f1] p-4">
+                  <p className="text-sm font-bold leading-6 text-gray-700">
+                    “Os doces estavam lindos e deliciosos. A mesa ficou perfeita
+                    para a festa!”
+                  </p>
+                  <p className="mt-2 text-xs font-extrabold text-[#d99200]">
+                    Cliente demonstrativo
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            <section className="px-5 pt-6">
+              <button
+                type="button"
+                onClick={() => {
+                  if (!favorites.includes(activeSupplier.id)) {
+                    setFavorites((current) => [...current, activeSupplier.id]);
+                  }
+
+                  if (!selected.includes(activeSupplier.id)) {
+                    setSelected((current) => [...current, activeSupplier.id]);
+                  }
+
+                  setScreen('request');
+                }}
+                className="w-full rounded-[24px] bg-[#e3a925] py-4 text-sm font-extrabold text-white shadow-lg"
+              >
+                Solicitar orçamento
+              </button>
             </section>
           </>
         )}
@@ -621,7 +839,7 @@ export default function DemoVideoPage() {
           </section>
         )}
 
-        {screen !== 'success' && (
+        {screen !== 'success' && screen !== 'supplier' && (
           <nav className="fixed bottom-0 left-1/2 z-50 w-full max-w-[430px] -translate-x-1/2 rounded-t-[32px] bg-white/95 px-6 pb-4 pt-3 shadow-[0_-10px_30px_rgba(0,0,0,.15)] backdrop-blur">
             <div className="grid grid-cols-3 items-end text-center">
               <button
