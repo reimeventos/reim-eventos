@@ -528,10 +528,10 @@ export default function DemoVideoPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  '/categorias/bolo-doces-e-salgados.jpg',
-                  '/categorias/topo-de-bolo.jpg',
-                  '/categorias/buffet.jpg',
-                  '/categorias/decoracao.jpg',
+                  'https://images.pexels.com/photos/15637219/pexels-photo-15637219.jpeg?auto=compress&cs=tinysrgb&w=1200',
+                  'https://images.pexels.com/photos/1748863/pexels-photo-1748863.jpeg?auto=compress&cs=tinysrgb&w=1200',
+                  'https://images.pexels.com/photos/11745450/pexels-photo-11745450.jpeg?auto=compress&cs=tinysrgb&w=1200',
+                  'https://images.pexels.com/photos/1748869/pexels-photo-1748869.jpeg?auto=compress&cs=tinysrgb&w=1200',
                 ].map((image, index) => (
                   <div
                     key={image}
