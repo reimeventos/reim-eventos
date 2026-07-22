@@ -371,11 +371,40 @@ function getCategoryIcon(name: string) {
   return Settings;
 }
 
+function CategoryVisual({
+  categoryName,
+  Icon,
+}: {
+  categoryName: string;
+  Icon: React.ComponentType<{ size?: number; className?: string }>;
+}) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const imageSrc = getCategoryImage(categoryName);
+
+  if (imageSrc && !imageFailed) {
+    return (
+      <img
+        src={imageSrc}
+        alt={categoryName}
+        onError={() => setImageFailed(true)}
+        className="h-16 w-16 shrink-0 rounded-2xl object-cover shadow-sm ring-1 ring-[#f1e7cf]"
+      />
+    );
+  }
+
+  return (
+    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200] ring-1 ring-[#f1e7cf]">
+      <Icon size={30} />
+    </div>
+  );
+}
+
 export default function AdminCategoriasPage() {
   const [categories, setCategories] = useState<CategoryRow[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState('');
   const [showNewCategory, setShowNewCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -563,6 +592,74 @@ export default function AdminCategoriasPage() {
     }
   }
 
+  async function handleDeleteCategory(category: CategoryRow) {
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    if (category.suppliers_count > 0) {
+      setErrorMessage(
+        `A categoria "${category.name}" possui fornecedor cadastrado e não pode ser excluída.`
+      );
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Deseja realmente excluir a categoria "${category.name}"? Essa ação não poderá ser desfeita.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setDeletingId(category.id);
+
+      const { error } = await supabase
+        .from('categories')
+        .delete()
+        .eq('id', category.id);
+
+      if (error) {
+        throw error;
+      }
+
+      setCategories((current) =>
+        current.filter((item) => item.id !== category.id)
+      );
+      setSuccessMessage('Categoria excluída com sucesso.');
+    } catch (error: any) {
+      console.error('Erro ao excluir categoria:', error);
+
+      const message = String(error?.message || '');
+
+      if (
+        message.toLowerCase().includes('row-level security') ||
+        message.toLowerCase().includes('permission denied')
+      ) {
+        setErrorMessage(
+          'A conta de administrador não tem permissão para excluir categorias. É necessário liberar a política de exclusão no Supabase.'
+        );
+        return;
+      }
+
+      if (
+        message.toLowerCase().includes('foreign key') ||
+        message.toLowerCase().includes('violates')
+      ) {
+        setErrorMessage(
+          'Essa categoria está vinculada a algum cadastro e não pode ser excluída.'
+        );
+        return;
+      }
+
+      setErrorMessage(
+        message || 'Não foi possível excluir a categoria.'
+      );
+    } finally {
+      setDeletingId('');
+    }
+  }
+
   return (
     <main className="min-h-screen bg-black text-[#151515]">
       <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-hidden bg-[#fbf7f1] pb-10 shadow-2xl">
@@ -727,17 +824,10 @@ export default function AdminCategoriasPage() {
                     className="rounded-[28px] bg-white p-5 shadow-[0_10px_25px_rgba(0,0,0,.08)] ring-1 ring-[#f1e7cf]"
                   >
                     <div className="flex items-start gap-4">
-                      {getCategoryImage(category.name) ? (
-                        <img
-                          src={getCategoryImage(category.name)}
-                          alt={category.name}
-                          className="h-16 w-16 shrink-0 rounded-2xl object-cover shadow-sm ring-1 ring-[#f1e7cf]"
-                        />
-                      ) : (
-                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#fff7e8] text-[#d99200]">
-                          <Icon size={30} />
-                        </div>
-                      )}
+                      <CategoryVisual
+                        categoryName={category.name}
+                        Icon={Icon}
+                      />
 
                       <div className="flex-1">
                         <div className="flex items-start justify-between gap-3">
@@ -780,11 +870,28 @@ export default function AdminCategoriasPage() {
 
                           <button
                             type="button"
-                            disabled
-                            title="Exclusão desativada para evitar remover categorias em uso"
-                            className="rounded-full bg-red-50 px-4 py-2 text-red-300"
+                            onClick={() =>
+                              handleDeleteCategory(category)
+                            }
+                            disabled={
+                              deletingId === category.id ||
+                              category.suppliers_count > 0
+                            }
+                            title={
+                              category.suppliers_count > 0
+                                ? 'Não é possível excluir uma categoria com fornecedores cadastrados'
+                                : 'Excluir categoria'
+                            }
+                            className="flex min-w-11 items-center justify-center rounded-full bg-red-50 px-4 py-2 text-red-500 transition disabled:cursor-not-allowed disabled:text-red-200"
                           >
-                            <Trash2 size={15} />
+                            {deletingId === category.id ? (
+                              <Loader2
+                                size={15}
+                                className="animate-spin"
+                              />
+                            ) : (
+                              <Trash2 size={15} />
+                            )}
                           </button>
                         </div>
                       </div>
